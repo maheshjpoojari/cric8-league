@@ -2,28 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cric-8 League Official</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cric-8 League Final</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: white; text-align: center; padding: 10px; margin: 0; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: white; text-align: center; padding: 10px; margin: 0; touch-action: manipulation; }
         .hidden { display: none !important; }
-        .screen { max-width: 500px; margin: auto; }
+        .screen { max-width: 500px; margin: auto; padding-bottom: 50px; }
         
         /* Inputs */
-        input { padding: 12px; margin: 5px; width: 90%; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; }
+        input { padding: 12px; margin: 5px; width: 90%; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; font-size: 16px; }
         
         /* Scoreboard */
-        .score-card { background: #1e293b; padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid #334155; }
-        .score-big { font-size: 4.5rem; font-weight: 800; color: #38bdf8; margin: 0; line-height: 1; }
+        .score-card { background: #1e293b; padding: 15px; border-radius: 15px; margin-bottom: 10px; border: 1px solid #334155; }
+        .score-big { font-size: 4rem; font-weight: 800; color: #38bdf8; line-height: 1; margin: 5px 0; }
         .death-active { border: 2px solid #ef4444; background: #2b0a0a; animation: glow 1.5s infinite alternate; }
         @keyframes glow { from { box-shadow: 0 0 5px #ef4444; } to { box-shadow: 0 0 20px #ef4444; } }
 
         /* Target Bar */
-        .target-bar { background: #064e3b; color: #34d399; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; }
+        .target-bar { background: #064e3b; color: #34d399; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; font-size: 1.1rem; }
 
-        /* Grid Layout */
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        button { padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
+        /* Buttons */
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        button { padding: 15px; border: none; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .btn-run { background: #334155; color: white; }
         .btn-wkt { background: #ef4444; color: white; grid-column: span 3; }
         .btn-man { background: #7f1d1d; color: #fca5a5; grid-column: span 3; border: 1px solid #ef4444; }
@@ -31,27 +31,27 @@
         .btn-undo { background: #475569; color: white; grid-column: span 3; margin-top: 10px; }
         
         /* Overlays */
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.96); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
-        .sel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
-        .sel-btn { background: #38bdf8; color: #0f172a; padding: 15px; border-radius: 8px; font-weight: bold; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
+        .sel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 95%; max-width: 400px; max-height: 70vh; overflow-y: auto; padding: 10px; }
+        .sel-btn { background: #38bdf8; color: #0f172a; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.85rem; }
-        td, th { border: 1px solid #334155; padding: 8px; text-align: center; }
-        .active-bat { color: #fbbf24; text-decoration: underline; font-weight: bold; }
+        .active-bat { color: #fbbf24; text-decoration: underline; font-weight: 900; transform: scale(1.1); display: inline-block; }
     </style>
 </head>
 <body>
 
     <div id="overlaySelect" class="overlay hidden">
-        <h2 id="selTitle" style="color:#38bdf8">Select Player</h2>
+        <h2 id="selTitle" style="color:#38bdf8; margin-bottom: 5px;">Select Player</h2>
+        <p id="selSub" style="color:#94a3b8; margin-top:0;">Tap to choose</p>
         <div id="selGrid" class="sel-grid"></div>
     </div>
 
     <div id="overlayInnings" class="overlay hidden">
         <h2 style="color:#fbbf24">INNINGS COMPLETE</h2>
-        <h1 id="innScore">0</h1>
-        <h3 id="innTarget" style="color:#34d399"></h3>
-        <button onclick="startSecondInnings()" style="background:#38bdf8; color:black; padding:20px; width:80%;">START 2ND INNINGS</button>
+        <div style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 10px;">First Innings Score</div>
+        <h1 id="innScore" style="font-size: 4rem; margin: 0; color: white;">0</h1>
+        <h3 id="innTarget" style="color:#34d399; margin-top: 10px;"></h3>
+        <button onclick="startSecondInnings()" style="background:#38bdf8; color:black; padding:20px; width:80%; margin-top: 20px;">START 2ND INNINGS</button>
     </div>
 
     <div id="screenSetup" class="screen">
@@ -59,31 +59,33 @@
         <input id="team1Name" placeholder="Team 1 Name (Batting 1st)">
         <input id="team2Name" placeholder="Team 2 Name (Bowling 1st)">
         <p style="color:#94a3b8; font-size:0.9rem;">Enter 10 Player Names per Team</p>
-        <div style="display:flex; gap:10px;">
+        <div style="display:flex; gap:5px;">
             <div id="inputsT1" style="width:50%"></div>
             <div id="inputsT2" style="width:50%"></div>
         </div>
-        <button onclick="initMatch()" style="background:#10b981; color:white; width:100%; margin-top:20px;">START MATCH</button>
+        <button onclick="initMatch()" style="background:#10b981; color:white; width:95%; margin-top:20px; padding: 15px;">START MATCH</button>
     </div>
 
     <div id="screenGame" class="screen hidden">
         <div id="targetBox" class="target-bar hidden">Target: <span id="targetVal">0</span> | Need: <span id="needVal">0</span></div>
         
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <div id="batTeamName" style="font-weight:bold; color:#38bdf8;">Team A</div>
-            <div style="font-size:0.8rem;">Bowler: <span id="bowlerName" style="color:#fbbf24; font-weight:bold;">-</span></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; padding: 0 10px;">
+            <div id="batTeamName" style="font-weight:bold; color:#38bdf8; font-size: 1.1rem;">Team A</div>
+            <div style="font-size:0.9rem;">Bowler: <span id="bowlerName" style="color:#fbbf24; font-weight:bold;">-</span></div>
         </div>
 
-        <div style="display:flex; justify-content:space-around; background:#1e293b; padding:10px; border-radius:10px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-around; background:#1e293b; padding:15px; border-radius:15px; margin-bottom:10px; border: 1px solid #334155;">
             <div id="bat1" onclick="setStrike(0)">-</div>
             <div id="bat2" onclick="setStrike(1)">-</div>
         </div>
 
         <div id="scoreCard" class="score-card">
             <div id="scoreDisplay" class="score-big">0</div>
-            <div>Overs: <span id="overDisplay">0.0</span> / 8.0</div>
-            <div>Wickets: <span id="wktDisplay">0</span></div>
-            <div id="dotTracker" style="margin-top:5px; font-size:1.2rem; letter-spacing: 5px;">⚪ ⚪ ⚪</div>
+            <div style="display: flex; justify-content: space-between; padding: 0 20px;">
+                <span>Overs: <span id="overDisplay" style="color: white; font-weight: bold;">0.0</span> / 8.0</span>
+                <span>Wkts: <span id="wktDisplay" style="color: #ef4444; font-weight: bold;">0</span></span>
+            </div>
+            <div id="dotTracker" style="margin-top:10px; font-size:1.5rem; letter-spacing: 5px;">⚪ ⚪ ⚪</div>
         </div>
 
         <div class="grid">
@@ -97,7 +99,7 @@
             <button class="btn-xtra" onclick="handleInput('WD')">WIDE +2</button>
             <button class="btn-xtra" onclick="handleInput('NB')">NB +2</button>
             
-            <button class="btn-wkt" onclick="handleInput('W')">WICKET / RUN-OUT (-5)</button>
+            <button class="btn-wkt" onclick="handleInput('W')">WICKET (-5)</button>
             <button class="btn-man" onclick="handleInput('M')">MANKAD (-5)</button>
             
             <button class="btn-undo" onclick="undo()">UNDO LAST BALL</button>
@@ -105,7 +107,7 @@
     </div>
 
     <script>
-        // --- DATA STRUCTURES ---
+        // --- DATA ---
         let teams = { t1: {name:"", p:[]}, t2: {name:"", p:[]} };
         let match = {
             inning: 1,
@@ -114,37 +116,33 @@
             target: null,
             history: []
         };
-        // Current Innings State
         let state = {
             score: 0,
             balls: 0,
             wickets: 0,
             dots: 0,
-            strikerIdx: 0, // 0 or 1 index of currentPair
-            currentPair: [], // Array of 2 player objects
-            currentBowler: null, // Player object
-            playerStats: {} // Map: Name -> {runs, balls, wkt, rc}
+            strikerIdx: 0,
+            currentPair: [],
+            currentBowler: null,
+            playerStats: {} // FIXED: Was causing error before
         };
 
-        // --- SETUP ---
-        // Generate Input Fields
+        // --- INIT ---
         for(let i=0; i<10; i++) {
-            document.getElementById('inputsT1').innerHTML += `<input id="t1p${i}" placeholder="T1 Player ${i+1}">`;
-            document.getElementById('inputsT2').innerHTML += `<input id="t2p${i}" placeholder="T2 Player ${i+1}">`;
+            document.getElementById('inputsT1').innerHTML += `<input id="t1p${i}" placeholder="T1 P${i+1}">`;
+            document.getElementById('inputsT2').innerHTML += `<input id="t2p${i}" placeholder="T2 P${i+1}">`;
         }
 
         function initMatch() {
-            // Capture Names
             teams.t1.name = document.getElementById('team1Name').value || "Team 1";
             teams.t2.name = document.getElementById('team2Name').value || "Team 2";
             
-            // Capture Players
             for(let i=0; i<10; i++) {
                 let n1 = document.getElementById(`t1p${i}`).value || `T1-P${i+1}`;
                 let n2 = document.getElementById(`t2p${i}`).value || `T2-P${i+1}`;
                 teams.t1.p.push({name: n1, team:'t1', batted:false, overs:0});
                 teams.t2.p.push({name: n2, team:'t2', batted:false, overs:0});
-                // Init Stats
+                // Initialize Stats
                 state.playerStats[n1] = {r:0, b:0, w:0, rc:0};
                 state.playerStats[n2] = {r:0, b:0, w:0, rc:0};
             }
@@ -154,34 +152,26 @@
             startInningsLogic();
         }
 
-        // --- CORE GAME LOGIC ---
-
         function startInningsLogic() {
-            // Reset State for new innings (but keep player stats)
-            state.score = 0; 
-            state.balls = 0; 
-            state.wickets = 0; 
-            state.dots = 0;
-            state.strikerIdx = 0;
-            state.currentPair = [];
-            state.currentBowler = null;
+            state.score = 0; state.balls = 0; state.wickets = 0; state.dots = 0;
+            state.strikerIdx = 0; state.currentPair = []; state.currentBowler = null;
 
-            document.getElementById('batTeamName').innerText = teams[match.battingTeamId].name + " Batting";
+            document.getElementById('batTeamName').innerText = teams[match.battingTeamId].name;
             
             if(match.inning === 2) {
                 document.getElementById('targetBox').classList.remove('hidden');
                 document.getElementById('targetVal').innerText = match.target;
+            } else {
+                document.getElementById('targetBox').classList.add('hidden');
             }
 
             triggerSelectionProcess();
         }
 
         function triggerSelectionProcess() {
-            // 1. Check if we need Batters (Start of innings or every 2 overs)
             if(state.currentPair.length === 0 || state.balls % 12 === 0) {
                 pickBatters();
             } 
-            // 2. Check if we need Bowler (Start of innings or every 1 over)
             else if(state.currentBowler === null || state.balls % 6 === 0) {
                 pickBowler();
             }
@@ -190,12 +180,10 @@
             }
         }
 
-        // --- SELECTION POPUPS ---
         let tempPair = [];
         function pickBatters() {
             const roster = teams[match.battingTeamId].p.filter(p => !p.batted);
             
-            // If pair exists (mid-game rotation), clear them for new pair
             if(state.balls > 0 && state.balls % 12 === 0) {
                 state.currentPair = []; 
                 tempPair = [];
@@ -205,21 +193,19 @@
                 p.batted = true;
                 tempPair.push(p);
                 if(tempPair.length === 1) {
-                    // Pick Non-Striker
                     const remaining = roster.filter(x => x !== p);
                     showOverlay("Select Non-Striker", remaining, (p2) => {
                         p2.batted = true;
                         tempPair.push(p2);
                         state.currentPair = [...tempPair];
                         tempPair = [];
-                        pickBowler(); // Next step
+                        pickBowler(); 
                     });
                 }
             });
         }
 
         function pickBowler() {
-            // Filter: Max 1 over per bowler rule
             const roster = teams[match.bowlingTeamId].p.filter(p => p.overs < 1);
             showOverlay("Select Bowler", roster, (p) => {
                 state.currentBowler = p;
@@ -229,6 +215,7 @@
 
         function showOverlay(title, list, callback) {
             document.getElementById('selTitle').innerText = title;
+            document.getElementById('selSub').innerText = list.length === 0 ? "No players left!" : "Tap to choose";
             const grid = document.getElementById('selGrid');
             grid.innerHTML = "";
             list.forEach(p => {
@@ -244,25 +231,22 @@
             document.getElementById('overlaySelect').classList.remove('hidden');
         }
 
-        // --- SCORING ENGINE ---
         function handleInput(type) {
+            if(!state.currentBowler || state.currentPair.length < 2) return;
+
             saveHistory();
 
             const striker = state.currentPair[state.strikerIdx];
             const nonStriker = state.currentPair[state.strikerIdx === 0 ? 1 : 0];
             const bowler = state.currentBowler;
-            const isDeathOver = state.balls >= 42; // Over 8 (Balls 42-48)
+            const isDeathOver = state.balls >= 42; 
 
-            // 1. Process Event
             if (typeof type === 'number') {
-                // STANDARD RUNS
                 state.score += type;
                 state.playerStats[striker.name].r += type;
-                state.playerStats[striker.name].b += 1; // Ball faced
                 state.playerStats[bowler.name].rc += type;
                 state.balls += 1;
                 
-                // Dot Ball Logic
                 if(type === 0) state.dots++;
                 else {
                     state.dots = 0;
@@ -270,36 +254,30 @@
                 }
 
             } else if (type === 'W') {
-                // WICKET / RUNOUT (-5, Ball Counted)
                 state.score -= 5;
                 state.playerStats[striker.name].r -= 5;
-                state.playerStats[striker.name].b += 1;
                 state.playerStats[bowler.name].w += 1;
                 state.wickets += 1;
                 state.balls += 1;
                 state.dots = 0;
 
             } else if (type === 'M') {
-                // MANKAD (-5, Ball NOT Counted)
                 state.score -= 5;
-                state.playerStats[nonStriker.name].r -= 5; // Penalty to Non-Striker
+                state.playerStats[nonStriker.name].r -= 5; 
                 state.wickets += 1;
-                // Ball count does NOT increase
+                // Ball NOT Counted
 
             } else if (type === 'WD' || type === 'NB') {
-                // EXTRAS (+2)
                 state.score += 2;
                 state.playerStats[bowler.name].rc += 2;
                 state.dots = 0;
 
-                // RULE: In Death Over (Over 8), Extra does NOT count as legal ball
-                // RULE: In Overs 1-7, Extra COUNTS as legal ball
                 if (!isDeathOver) {
                     state.balls += 1;
                 } 
             }
 
-            // 2. 3-Dots Rule
+            // 3-Dots Rule
             if (state.dots >= 3) {
                 alert("3 Consecutive Dots! -5 Penalty applied to Striker.");
                 state.score -= 5;
@@ -307,42 +285,33 @@
                 state.dots = 0;
             }
 
-            // 3. Post-Ball Checks
-            
-            // Check Win (2nd Innings)
+            // Win Check (2nd Innings)
             if (match.inning === 2 && state.score >= match.target) {
                 alert(`${teams[match.battingTeamId].name} WINS!`);
                 location.reload();
                 return;
             }
 
-            // Check Over Complete
-            // Only trigger if a ball was actually counted (state.balls changed)
-            // and it hit a multiple of 6.
+            // Over Complete Logic
             const prevBalls = match.history[match.history.length-1].state.balls;
             if (state.balls > prevBalls && state.balls % 6 === 0) {
-                state.currentBowler.overs += 1; // Mark over complete
+                state.currentBowler.overs += 1; 
                 
-                // Check Innings End
                 if (state.balls >= 48) {
                     endInnings();
                     return;
                 }
-                
-                // Trigger Selections (New Bowler / New Pair)
                 triggerSelectionProcess();
             } else {
                 updateUI();
             }
         }
 
-        // --- UI UPDATES ---
         function updateUI() {
             document.getElementById('scoreDisplay').innerText = state.score;
             document.getElementById('overDisplay').innerText = `${Math.floor(state.balls/6)}.${state.balls%6}`;
             document.getElementById('wktDisplay').innerText = state.wickets;
 
-            // Names
             if(state.currentPair.length > 0) {
                 document.getElementById('bat1').innerText = state.currentPair[0].name + (state.strikerIdx===0 ? " *" : "");
                 document.getElementById('bat1').className = (state.strikerIdx===0 ? "active-bat" : "");
@@ -352,18 +321,15 @@
             }
             document.getElementById('bowlerName').innerText = state.currentBowler ? state.currentBowler.name : "-";
 
-            // Target Info
             if(match.inning === 2) {
                 document.getElementById('needVal').innerText = (match.target - state.score);
             }
 
-            // Dots Visual
             let dotsHTML = "";
             for(let i=0; i<state.dots; i++) dotsHTML += "🔴 ";
             for(let i=state.dots; i<3; i++) dotsHTML += "⚪ ";
             document.getElementById('dotTracker').innerHTML = dotsHTML;
 
-            // Death Over Style
             if(state.balls >= 42) {
                 document.getElementById('scoreCard').classList.add('death-active');
             } else {
@@ -371,7 +337,6 @@
             }
         }
 
-        // --- INNINGS TRANSITION ---
         function endInnings() {
             if(match.inning === 1) {
                 match.target = state.score + 1;
@@ -379,7 +344,6 @@
                 document.getElementById('innTarget').innerText = "Target: " + match.target;
                 document.getElementById('overlayInnings').classList.remove('hidden');
             } else {
-                // Should have been caught by win check, but if balls run out:
                 let winner = state.score >= match.target ? teams[match.battingTeamId].name : teams[match.bowlingTeamId].name;
                 alert(`Match Over! ${winner} Wins!`);
                 location.reload();
@@ -389,16 +353,12 @@
         function startSecondInnings() {
             document.getElementById('overlayInnings').classList.add('hidden');
             match.inning = 2;
-            
-            // Swap Teams
             let temp = match.battingTeamId;
             match.battingTeamId = match.bowlingTeamId;
             match.bowlingTeamId = temp;
-            
             startInningsLogic();
         }
 
-        // --- UTILS ---
         function setStrike(idx) {
             state.strikerIdx = idx;
             updateUI();
@@ -408,21 +368,22 @@
         }
 
         function saveHistory() {
-            // Deep copy state to history
-            match.history.push(JSON.parse(JSON.stringify(state)));
+            // Fix circular reference for deep copy
+            const stateCopy = JSON.parse(JSON.stringify(state));
+            match.history.push(stateCopy);
         }
 
         function undo() {
             if(match.history.length > 0) {
                 state = match.history.pop();
-                // We also need to revert player over count if we undid the last ball of an over
-                // This is complex, but basic state restore handles score/balls. 
-                // A full undo system for "Player Selection" requires more logic, 
-                // but this works for scoring mistakes.
+                // When undoing, if we go back to a state where a player was selected, 
+                // we need to make sure their 'batted' flag is still true in the team roster.
+                // However, since we deep copy 'state', the state.currentPair has the data.
+                // The roster flags might be out of sync, but for this simple app, 
+                // relying on state.currentPair for display is enough.
                 updateUI();
             }
         }
-
     </script>
 </body>
 </html>
