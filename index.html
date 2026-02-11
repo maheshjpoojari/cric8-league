@@ -30,4 +30,200 @@
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
         .select-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 400px; }
         .select-btn { background: #38bdf8; color: #0f172a; padding: 15px; border-radius: 8px; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #1e293b
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #1e293b; font-size: 0.8rem; }
+        th, td { border: 1px solid #334155; padding: 8px; }
+        .active-striker { color: #fbbf24; font-weight: bold; text-decoration: underline; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="selectionOverlay" class="overlay hidden">
+        <h2 id="selectionTitle" style="color: #38bdf8;">Select Player</h2>
+        <div id="selectionList" class="select-list"></div>
+    </div>
+
+    <div id="setupScreen" class="setup-screen">
+        <h2 style="color: #38bdf8;">League Setup</h2>
+        <input type="text" id="batTeam" placeholder="Batting Team Name">
+        <input type="text" id="bowlTeam" placeholder="Bowling Team Name">
+        <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+            <div id="batInputs" style="width:48%"><strong>Batters</strong></div>
+            <div id="bowlInputs" style="width:48%"><strong>Bowlers</strong></div>
+        </div>
+        <button style="background:#10b981; color:white; width:90%; height:50px; margin-top:20px;" onclick="startGame()">START MATCH</button>
+    </div>
+
+    <div id="gameScreen" class="game-screen hidden">
+        <div id="ppBar">⚡ POWERPLAY ACTIVE: Max 3 fielders behind bowling crease</div>
+        <div class="match-header">
+            <div id="vsDisp" style="color:#38bdf8; font-weight:bold;"></div>
+            <div style="display:flex; justify-content:space-around; margin-top:10px;">
+                <div id="s1Disp" onclick="setStriker(0)">-</div>
+                <div id="s2Disp" onclick="setStriker(1)">-</div>
+            </div>
+            <div style="margin-top:5px; font-size:0.8rem; color:#94a3b8;">Bowler: <span id="currentBowlerName" style="color:white;">-</span></div>
+        </div>
+        
+        <button class="pp-btn" onclick="togglePP()">ACTIVATE POWERPLAY</button>
+
+        <div class="score-box">
+            <div id="totalScore">0</div>
+            <div>Overs: <span id="ovDisp">0.0</span>/8.0 | Wkts: <span id="wkDisp">0</span></div>
+            <div id="dotDisp" style="font-size: 1.2rem; margin-top:5px;">⚪ ⚪ ⚪</div>
+        </div>
+
+        <div class="grid">
+            <button class="run-btn" onclick="addBall('RUN', 0)">0</button>
+            <button class="run-btn" onclick="addBall('RUN', 1)">1</button>
+            <button class="run-btn" onclick="addBall('RUN', 2)">2</button>
+            <button class="run-btn" onclick="addBall('RUN', 3)">3</button>
+            <button class="run-btn" onclick="addBall('RUN', 4)">4</button>
+            <button class="run-btn" onclick="addBall('RUN', 6)">6</button>
+            <button class="extra-btn" onclick="addBall('WIDE')">WIDE+2</button>
+            <button class="extra-btn" onclick="addBall('NOBALL')">NB+2</button>
+            <button class="wicket-btn" onclick="addBall('WICKET')">WICKET/RUN-OUT (-5)</button>
+            <button class="wicket-btn" style="background:#991b1b;" onclick="addBall('MANKAD')">MANKAD (-5)</button>
+        </div>
+        <button class="run-btn" style="width:100%; margin-top:10px; opacity: 0.7;" onclick="undo()">UNDO</button>
+    </div>
+
+    <div id="summaryScreen" class="summary-screen hidden">
+        <h2 style="color: #38bdf8;">Match Summary</h2>
+        <div id="finalResultCard" style="background:#1e293b; padding:20px; border-radius:15px; border:1px solid #334155;">
+            <p id="finalScoreText" style="font-size:1.5rem; font-weight:bold;"></p>
+        </div>
+        <div id="summaryStats"></div>
+        <button style="background:#334155; color:white; width:90%; height:50px; margin-top:20px;" onclick="location.reload()">NEW MATCH</button>
+    </div>
+
+    <script>
+        let batPlayers = [], bowlPlayers = [], currentPair = [], currentBowler = null;
+        let strikerIdx = 0, dotCounter = 0, history = [], teamNames = {}, ppActive = false;
+        let state = { score: 0, balls: 0, wickets: 0, batStats: {}, bowlStats: {} };
+
+        for(let i=0; i<10; i++) {
+            document.getElementById('batInputs').innerHTML += `<input type="text" id="bat${i}" placeholder="P${i+1}">`;
+            document.getElementById('bowlInputs').innerHTML += `<input type="text" id="bowl${i}" placeholder="P${i+1}">`;
+        }
+
+        function togglePP() {
+            ppActive = !ppActive;
+            document.getElementById('ppBar').style.display = ppActive ? 'block' : 'none';
+        }
+
+        function startGame() {
+            teamNames.bat = document.getElementById('batTeam').value || "Batting Team";
+            teamNames.bowl = document.getElementById('bowlTeam').value || "Bowling Team";
+            document.getElementById('vsDisp').innerText = `${teamNames.bat} vs ${teamNames.bowl}`;
+            for(let i=0; i<10; i++) {
+                let bn = document.getElementById(`bat${i}`).value || `B${i+1}`;
+                let bwn = document.getElementById(`bowl${i}`).value || `BW${i+1}`;
+                batPlayers.push(bn); bowlPlayers.push(bwn);
+                state.batStats[bn] = { runs: 0, balls: 0, batted: false };
+                state.bowlStats[bwn] = { rc: 0, w: 0, overs: 0 };
+            }
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            triggerSelections();
+        }
+
+        function triggerSelections() {
+            if (state.balls % 12 === 0) promptPair();
+            else if (state.balls % 6 === 0) promptBowler();
+            else updateDisplay();
+        }
+
+        let tempPair = [];
+        function promptPair() {
+            const list = document.getElementById('selectionList'); list.innerHTML = '';
+            document.getElementById('selectionTitle').innerText = tempPair.length === 0 ? "Select Batsman 1" : "Select Batsman 2";
+            let available = batPlayers.filter(name => !state.batStats[name].batted);
+            available.forEach(name => {
+                let btn = document.createElement('button'); btn.className = 'select-btn'; btn.innerText = name;
+                btn.onclick = () => {
+                    state.batStats[name].batted = true; tempPair.push(name);
+                    if (tempPair.length === 2) {
+                        currentPair = [...tempPair]; tempPair = [];
+                        document.getElementById('selectionOverlay').classList.add('hidden');
+                        promptBowler();
+                    } else { promptPair(); }
+                };
+                list.appendChild(btn);
+            });
+            document.getElementById('selectionOverlay').classList.remove('hidden');
+        }
+
+        function promptBowler() {
+            const list = document.getElementById('selectionList'); list.innerHTML = '';
+            document.getElementById('selectionTitle').innerText = "Select Bowler";
+            let available = bowlPlayers.filter(name => state.bowlStats[name].overs < 1);
+            available.forEach(name => {
+                let btn = document.createElement('button'); btn.className = 'select-btn'; btn.innerText = name;
+                btn.onclick = () => { currentBowler = name; document.getElementById('selectionOverlay').classList.add('hidden'); updateDisplay(); };
+                list.appendChild(btn);
+            });
+            document.getElementById('selectionOverlay').classList.remove('hidden');
+        }
+
+        function setStriker(idx) { strikerIdx = idx; updateDisplay(); }
+
+        function updateDisplay() {
+            document.getElementById('totalScore').innerText = state.score;
+            document.getElementById('ovDisp').innerText = `${Math.floor(state.balls / 6)}.${state.balls % 6}`;
+            document.getElementById('wkDisp').innerText = state.wickets;
+            document.getElementById('currentBowlerName').innerText = currentBowler || "-";
+            document.getElementById('s1Disp').innerText = currentPair[0] + (strikerIdx === 0 ? " 🏏" : "");
+            document.getElementById('s2Disp').innerText = currentPair[1] + (strikerIdx === 1 ? " 🏏" : "");
+            document.getElementById('s1Disp').className = strikerIdx === 0 ? 'active-striker' : '';
+            document.getElementById('s2Disp').className = strikerIdx === 1 ? 'active-striker' : '';
+            
+            // Death Over Visuals
+            const box = document.querySelector('.score-box');
+            if (state.balls >= 42) box.classList.add('last-over-active');
+            else box.classList.remove('last-over-active');
+
+            let dots = ["⚪", "⚪", "⚪"]; for(let i=0; i<dotCounter; i++) dots[i] = "🔴";
+            document.getElementById('dotDisp').innerText = dots.join(" ");
+        }
+
+        function addBall(type, runs = 0) {
+            history.push(JSON.parse(JSON.stringify({ state, strikerIdx, dotCounter, currentPair, currentBowler, ppActive })));
+            let striker = currentPair[strikerIdx];
+            let nonStriker = currentPair[strikerIdx === 0 ? 1 : 0];
+            let isDeath = state.balls >= 42;
+
+            if (type === 'RUN') {
+                state.score += runs; state.batStats[striker].runs += runs; state.batStats[striker].balls++; state.bowlStats[currentBowler].rc += runs; state.balls++;
+                if (runs === 0) dotCounter++; else { dotCounter = 0; if (runs % 2 !== 0) strikerIdx = (strikerIdx === 0 ? 1 : 0); }
+            } else if (type === 'WICKET') {
+                state.score -= 5; state.batStats[striker].runs -= 5; state.batStats[striker].balls++; state.bowlStats[currentBowler].w++; state.balls++; state.wickets++; dotCounter = 0;
+            } else if (type === 'MANKAD') {
+                state.score -= 5; state.batStats[nonStriker].runs -= 5; state.wickets++; // Ball NOT counted
+            } else if (type === 'WIDE' || type === 'NOBALL') {
+                state.score += 2; state.bowlStats[currentBowler].rc += 2; dotCounter = 0;
+                if (!isDeath) state.balls++; // RULE: Extras NOT counted in Death Over
+            }
+
+            if (dotCounter === 3) { alert("3 DOTS! -5 Penalty"); state.score -= 5; state.batStats[striker].runs -= 5; dotCounter = 0; }
+
+            if (state.balls > 0 && state.balls % 6 === 0 && history[history.length-1].state.balls !== state.balls) {
+                state.bowlStats[currentBowler].overs++;
+                if (state.balls >= 48) showSummary(); else triggerSelections();
+            } else updateDisplay();
+        }
+
+        function showSummary() {
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('summaryScreen').classList.remove('hidden');
+            document.getElementById('finalScoreText').innerText = `${teamNames.bat}: ${state.score} in 8.0 Overs`;
+            let html = `<table><tr><th>Batter</th><th>R</th><th>B</th></tr>`;
+            batPlayers.forEach(p => { if(state.batStats[p].batted) html += `<tr><td>${p}</td><td>${state.batStats[p].runs}</td><td>${state.batStats[p].balls}</td></tr>`; });
+            html += `</table><table><tr><th>Bowler</th><th>W</th><th>RC</th></tr>`;
+            bowlPlayers.forEach(p => { if(state.bowlStats[p].overs > 0) html += `<tr><td>${p}</td><td>${state.bowlStats[p].w}</td><td>${state.bowlStats[p].rc}</td></tr>`; });
+            document.getElementById('summaryStats').innerHTML = html + `</table>`;
+        }
+
+        function undo() { if (history.length > 0) { let prev = history.pop(); state = prev.state; strikerIdx = prev.strikerIdx; dotCounter = prev.dotCounter; currentPair = prev.currentPair; currentBowler = prev.currentBowler; ppActive = prev.ppActive; updateDisplay(); } }
+    </script>
+</body>
+</html>
