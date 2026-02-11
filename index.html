@@ -8,7 +8,8 @@
         body { font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: white; text-align: center; margin: 0; padding: 10px; }
         .hidden { display: none !important; }
         .setup-screen, .game-screen { max-width: 500px; margin: auto; }
-        input { padding: 12px; margin: 5px; width: 85%; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; }
+        .team-input-group { background: #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #334155; }
+        input { padding: 10px; margin: 5px; width: 85%; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 0.9rem; }
         
         .match-header { background: #1e293b; padding: 12px; border-radius: 15px; margin-bottom: 10px; border: 1px solid #334155; }
         #vsDisp { color: #38bdf8; font-size: 1.2rem; font-weight: bold; }
@@ -20,31 +21,53 @@
         #totalScore { font-size: 3.5rem; font-weight: 800; margin: 5px 0; color: #38bdf8; }
         
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        button { padding: 15px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; }
+        button { padding: 15px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
+        button:active { transform: scale(0.95); }
         .run-btn { background: #334155; color: white; }
         .wicket-btn { background: #ef4444; color: white; grid-column: span 3; }
         .extra-btn { background: #f59e0b; color: #000; }
         
-        /* Selection Overlay */
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; padding: 20px; }
         .select-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 20px; }
-        .select-btn { background: #38bdf8; color: #0f172a; padding: 12px; border-radius: 8px; font-size: 0.9rem; }
+        .select-btn { background: #38bdf8; color: #0f172a; padding: 12px; border-radius: 8px; font-size: 0.8rem; border: none; font-weight: bold; }
+        .toss-btn { background: #334155; color: white; margin: 5px; width: 40%; }
+        .selected-toss { background: #38bdf8; color: #0f172a; }
     </style>
 </head>
 <body>
 
     <div id="selectionOverlay" class="overlay hidden">
-        <h3 id="selectionTitle">Select Players</h3>
+        <h3 id="selectionTitle" style="color: #38bdf8;">Select Players</h3>
+        <p id="selectionSubtitle" style="font-size: 0.8rem; margin-bottom: 10px;"></p>
         <div id="selectionList" class="select-list"></div>
     </div>
 
     <div id="setupScreen" class="setup-screen">
         <h2 style="color: #38bdf8;">Match Setup</h2>
-        <input type="text" id="teamA" placeholder="Team A Name">
-        <input type="text" id="teamB" placeholder="Team B Name">
-        <h3>Register 10 Players</h3>
-        <div id="playerInputs"></div>
-        <button style="background:#10b981; color:white; width:90%; margin-top:20px; height:50px;" onclick="startGame()">START MATCH</button>
+        
+        <div class="team-input-group">
+            <input type="text" id="teamAName" placeholder="Team A Name">
+            <div id="teamAPlayers"></div>
+        </div>
+
+        <div class="team-input-group">
+            <input type="text" id="teamBName" placeholder="Team B Name">
+            <div id="teamBPlayers"></div>
+        </div>
+
+        <div class="team-input-group">
+            <h4 style="margin: 0 0 10px 0;">Toss Result</h4>
+            <div>
+                <button id="tossA" class="toss-btn" onclick="setToss('A')">Team A won</button>
+                <button id="tossB" class="toss-btn" onclick="setToss('B')">Team B won</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button id="optBat" class="toss-btn" onclick="setOption('BAT')">Opted to Bat</button>
+                <button id="optBowl" class="toss-btn" onclick="setOption('BOWL')">Opted to Bowl</button>
+            </div>
+        </div>
+
+        <button style="background:#10b981; color:white; width:90%; height:50px; margin-bottom: 30px;" onclick="startGame()">START MATCH</button>
     </div>
 
     <div id="gameScreen" class="game-screen hidden">
@@ -72,80 +95,101 @@
             <button class="extra-btn" onclick="addBall('NOBALL')">NB+2</button>
             <button class="wicket-btn" onclick="addBall('WICKET')">WICKET (-5)</button>
         </div>
-        <button class="run-btn" style="width:100%; margin-top:10px; opacity:0.6;" onclick="undo()">UNDO</button>
+        <button class="run-btn" style="width:100%; margin-top:10px; opacity:0.6; font-size: 0.8rem;" onclick="undo()">UNDO LAST BALL</button>
     </div>
 
     <script>
-        let players = [], currentPair = [], currentBowler = null;
-        let strikerIdx = 0; // 0 or 1 within the currentPair
-        let history = [];
-        let state = { score: 0, balls: 0, wickets: 0, pStats: [] };
+        let teamA = { name: "", players: [] };
+        let teamB = { name: "", players: [] };
+        let tossWinner = null, option = null;
+        let battingTeam = null, bowlingTeam = null;
+        let currentPair = [], currentBowler = null;
+        let strikerIdx = 0, history = [], state = { score: 0, balls: 0, wickets: 0 };
 
-        const inputDiv = document.getElementById('playerInputs');
-        for(let i=0; i<10; i++) inputDiv.innerHTML += `<input type="text" id="p${i}" placeholder="Player ${i+1} Name">`;
+        const divA = document.getElementById('teamAPlayers');
+        const divB = document.getElementById('teamBPlayers');
+        for(let i=0; i<10; i++) {
+            divA.innerHTML += `<input type="text" class="pA" placeholder="Team A - Player ${i+1}">`;
+            divB.innerHTML += `<input type="text" class="pB" placeholder="Team B - Player ${i+1}">`;
+        }
+
+        function setToss(team) {
+            tossWinner = team;
+            document.getElementById('tossA').className = team === 'A' ? 'toss-btn selected-toss' : 'toss-btn';
+            document.getElementById('tossB').className = team === 'B' ? 'toss-btn selected-toss' : 'toss-btn';
+        }
+
+        function setOption(opt) {
+            option = opt;
+            document.getElementById('optBat').className = opt === 'BAT' ? 'toss-btn selected-toss' : 'toss-btn';
+            document.getElementById('optBowl').className = opt === 'BOWL' ? 'toss-btn selected-toss' : 'toss-btn';
+        }
 
         function startGame() {
-            document.getElementById('vsDisp').innerText = `${document.getElementById('teamA').value || 'Team A'} VS ${document.getElementById('teamB').value || 'Team B'}`;
-            for(let i=0; i<10; i++) players.push({ name: document.getElementById(`p${i}`).value || `P${i+1}`, batted: false, oversBowled: 0, runs: 0, wickets: 0 });
+            if (!tossWinner || !option) return alert("Please select toss winner and option.");
             
+            teamA.name = document.getElementById('teamAName').value || "Team A";
+            teamB.name = document.getElementById('teamBName').value || "Team B";
+            
+            document.querySelectorAll('.pA').forEach(input => teamA.players.push({ name: input.value || "A-Player", batted: false, oversBowled: 0, runs: 0 }));
+            document.querySelectorAll('.pB').forEach(input => teamB.players.push({ name: input.value || "B-Player", batted: false, oversBowled: 0, runs: 0 }));
+
+            if ((tossWinner === 'A' && option === 'BAT') || (tossWinner === 'B' && option === 'BOWL')) {
+                battingTeam = teamA; bowlingTeam = teamB;
+            } else {
+                battingTeam = teamB; bowlingTeam = teamA;
+            }
+
             document.getElementById('setupScreen').classList.add('hidden');
             document.getElementById('gameScreen').classList.remove('hidden');
+            document.getElementById('vsDisp').innerText = `${teamA.name} VS ${teamB.name}`;
+            
             checkSelections();
         }
 
         function checkSelections() {
-            // Need new pair every 12 balls (2 overs)
-            if (state.balls % 12 === 0) {
-                showPairSelection();
-            } else if (state.balls % 6 === 0) {
-                showBowlerSelection();
-            } else {
-                updateDisplay();
-            }
+            if (state.balls % 12 === 0) showPairSelection();
+            else if (state.balls % 6 === 0) showBowlerSelection();
+            else updateDisplay();
         }
 
         function showPairSelection() {
             const list = document.getElementById('selectionList');
             list.innerHTML = '';
-            document.getElementById('selectionTitle').innerText = "Select Next Batting Pair";
+            document.getElementById('selectionTitle').innerText = "Select Batting Pair";
+            document.getElementById('selectionSubtitle').innerText = `From ${battingTeam.name}`;
             
-            let available = players.filter(p => !p.batted);
+            let available = battingTeam.players.filter(p => !p.batted);
             available.forEach(p => {
                 let btn = document.createElement('button');
                 btn.className = 'select-btn';
                 btn.innerText = p.name;
-                btn.onclick = () => selectForPair(p);
+                btn.onclick = () => {
+                    p.batted = true;
+                    tempPair.push(p);
+                    if (tempPair.length === 2) {
+                        currentPair = [...tempPair]; tempPair = [];
+                        document.getElementById('selectionOverlay').classList.add('hidden');
+                        showBowlerSelection();
+                    } else { showPairSelection(); }
+                };
                 list.appendChild(btn);
             });
             document.getElementById('selectionOverlay').classList.remove('hidden');
         }
 
         let tempPair = [];
-        function selectForPair(player) {
-            player.batted = true;
-            tempPair.push(player);
-            if (tempPair.length === 2) {
-                currentPair = [...tempPair];
-                tempPair = [];
-                document.getElementById('selectionOverlay').classList.add('hidden');
-                showBowlerSelection();
-            } else {
-                // Refresh list to remove the one just picked
-                showPairSelection();
-            }
-        }
-
         function showBowlerSelection() {
             const list = document.getElementById('selectionList');
             list.innerHTML = '';
-            document.getElementById('selectionTitle').innerText = "Select Bowler for Over";
+            document.getElementById('selectionTitle').innerText = "Select Bowler";
+            document.getElementById('selectionSubtitle').innerText = `From ${bowlingTeam.name} (Max 1 Over)`;
             
-            // Filter: Max 2 overs per bowler
-            let available = players.filter(p => p.oversBowled < 2);
+            let available = bowlingTeam.players.filter(p => p.oversBowled < 1);
             available.forEach(p => {
                 let btn = document.createElement('button');
                 btn.className = 'select-btn';
-                btn.innerText = `${p.name} (${p.oversBowled} Overs)`;
+                btn.innerText = p.name;
                 btn.onclick = () => {
                     currentBowler = p;
                     document.getElementById('selectionOverlay').classList.add('hidden');
@@ -163,48 +207,38 @@
             document.getElementById('ovDisp').innerText = `${Math.floor(state.balls / 6)}.${state.balls % 6}`;
             document.getElementById('wkDisp').innerText = state.wickets;
             document.getElementById('s1Disp').innerText = currentPair[0].name + (strikerIdx === 0 ? " 🏏" : "");
-            document.getElementById('s2Disp').innerText = currentPair[1].name + (strikerIdx === 1 ? " 🏏" : "");
             document.getElementById('s1Disp').className = strikerIdx === 0 ? 'active-striker' : 'non-striker';
+            document.getElementById('s2Disp').innerText = currentPair[1].name + (strikerIdx === 1 ? " 🏏" : "");
             document.getElementById('s2Disp').className = strikerIdx === 1 ? 'active-striker' : 'non-striker';
             document.getElementById('bowlerDisp').innerText = currentBowler ? currentBowler.name : "-";
         }
 
         function addBall(type, runs = 0) {
-            history.push(JSON.parse(JSON.stringify({ state, currentPair, currentBowler, strikerIdx, players })));
+            history.push(JSON.parse(JSON.stringify({ state, currentPair, currentBowler, strikerIdx, teamA, teamB, battingTeam, bowlingTeam })));
             let striker = currentPair[strikerIdx];
 
             if (type === 'RUN') {
-                state.score += runs;
-                striker.runs += runs;
-                state.balls += 1;
+                state.score += runs; striker.runs += runs; state.balls += 1;
                 if (runs % 2 !== 0) strikerIdx = strikerIdx === 0 ? 1 : 0;
             } else if (type === 'WICKET') {
-                state.score -= 5;
-                striker.runs -= 5;
-                state.balls += 1;
-                state.wickets += 1;
+                state.score -= 5; striker.runs -= 5; state.balls += 1; state.wickets += 1;
             } else if (type === 'WIDE' || type === 'NOBALL') {
-                state.score += 2;
-                state.balls += 1;
+                state.score += 2; state.balls += 1;
             }
 
             if (state.balls > 0 && state.balls % 6 === 0) {
                 currentBowler.oversBowled += 1;
                 if (state.balls >= 48) alert("Match Complete!");
                 else checkSelections();
-            } else {
-                updateDisplay();
-            }
+            } else { updateDisplay(); }
         }
 
         function undo() {
             if (history.length > 0) {
                 let prev = history.pop();
-                state = prev.state;
-                currentPair = prev.currentPair;
-                currentBowler = prev.currentBowler;
-                strikerIdx = prev.strikerIdx;
-                players = prev.players;
+                state = prev.state; currentPair = prev.currentPair; currentBowler = prev.currentBowler;
+                strikerIdx = prev.strikerIdx; teamA = prev.teamA; teamB = prev.teamB;
+                battingTeam = prev.battingTeam; bowlingTeam = prev.bowlingTeam;
                 updateDisplay();
             }
         }
