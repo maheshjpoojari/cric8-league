@@ -222,7 +222,7 @@
             const nonStriker = state.currentPair[state.strikerIdx === 0 ? 1 : 0];
             const bowler = state.currentBowler;
             const isDeathOver = state.balls >= 42; 
-            const prevBalls = state.balls; // Crucial fix: Check balls locally, not from history
+            const prevBalls = state.balls; 
 
             // 2. Apply Runs & Penalties
             if (typeof type === 'number') {
@@ -231,8 +231,9 @@
                 state.playerStats[bowler.name].rc += type;
                 state.balls += 1;
                 
-                if(type === 0) state.dots++;
-                else {
+                if(type === 0) {
+                    state.dots++;
+                } else {
                     state.dots = 0;
                     if(type % 2 !== 0) swapStrike();
                 }
@@ -260,7 +261,7 @@
 
             // 3. Three-Dots Rule
             if (state.dots >= 3) {
-                alert("3 Consecutive Dots! -5 Penalty applied to Striker.");
+                setTimeout(() => { alert("3 Consecutive Dots! -5 Penalty applied to Striker."); }, 50);
                 state.score -= 5;
                 state.playerStats[striker.name].r -= 5;
                 state.dots = 0;
@@ -278,7 +279,7 @@
 
             // 5. Over Transition Logic
             if (state.balls > prevBalls && state.balls % 6 === 0) {
-                swapStrike(); // Swap at end of over
+                swapStrike(); // This now safely resets state.dots to 0!
                 state.currentBowler.overs += 1;
                 state.currentBowler = null; // Clears bowler for router
                 
@@ -354,8 +355,10 @@
             state.strikerIdx = idx;
             updateUI();
         }
+
         function swapStrike() {
             state.strikerIdx = state.strikerIdx === 0 ? 1 : 0;
+            state.dots = 0; // FIXED: Ensures new batsman starts with 0 dots!
         }
 
         function undo() {
