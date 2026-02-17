@@ -23,13 +23,11 @@
         .target-text { color: #10b981; font-weight: bold; font-size: 1rem; margin-bottom: 10px; }
         
         /* DYNAMIC TRACKER */
-        .over-tracker { display: flex; justify-content: center; gap: 6px; margin-top: 15px; flex-wrap: wrap; }
+        .over-tracker { display: flex; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap; }
         .ball { width: 30px; height: 30px; border-radius: 50%; background: #ffffff; color: #0f172a; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75rem; border: 2px solid #334155; transition: 0.3s; }
         .ball-dot { background: #ef4444 !important; color: white !important; }
         .ball-score { background: #38bdf8 !important; color: #0f172a !important; }
         .ball-extra { background: #fbbf24 !important; color: black !important; }
-
-        .legal-countdown { font-size: 0.8rem; font-weight: bold; color: #fbbf24; margin-bottom: 5px; text-transform: uppercase; }
 
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         button { padding: 18px; border: none; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; color: white; }
@@ -65,7 +63,7 @@
     </div>
 
     <div id="overlayScorecard" class="overlay hidden">
-        <h2 style="color:#38bdf8; margin-top: 20px;">MATCH RESULT</h2>
+        <h2 style="color:#38bdf8; margin-top: 20px;">MATCH ENDED</h2>
         <div id="finalResultText" style="font-size:1.4rem; font-weight: bold; color: #fbbf24; margin-bottom:10px;"></div>
         <button id="btnCopy" class="btn-orange" style="width:100%;">📋 COPY WHATSAPP SUMMARY</button>
         <table class="sc-table">
@@ -91,7 +89,6 @@
             <div id="uiTarget" class="target-text hidden">Target: 0 | Need: 0</div>
             <h1 id="uiScore" class="big-score">0</h1>
             <div class="sub-text">Overs: <span id="uiOvers">0.0</span> / 8.0 | Wkts: <span id="uiWkts">0</span></div>
-            <div id="uiLegalCount" class="legal-countdown hidden"></div>
             <div class="over-tracker" id="uiTracker"></div>
             <div id="uiPauseMsg" class="tap-msg hidden">OVER COMPLETE! TAP HERE TO CONTINUE</div>
         </div>
@@ -220,7 +217,6 @@
             const box = document.getElementById('mainScoreBox');
             const tracker = document.getElementById('uiTracker');
             const btns = document.querySelectorAll('#btnGrid button');
-            const countdown = document.getElementById('uiLegalCount');
             
             document.getElementById('uiScore').innerText = state.score;
             document.getElementById('uiOvers').innerText = `${Math.floor(state.balls/6)}.${state.balls%6}`;
@@ -232,14 +228,8 @@
             document.getElementById('p1').innerText = state.curPair[1]?.name + (state.strIdx===1?" *":"");
             document.getElementById('p1').className = state.strIdx===1 ? "active-bat" : "";
 
-            if(state.balls >= 42) {
-                box.classList.add('death-over-bg');
-                countdown.classList.remove('hidden');
-                countdown.innerText = `Legal Deliveries Left: ${48 - state.balls}`;
-            } else {
-                box.classList.remove('death-over-bg');
-                countdown.classList.add('hidden');
-            }
+            if(state.balls >= 42) box.classList.add('death-over-bg');
+            else box.classList.remove('death-over-bg');
 
             if(state.isPaused) {
                 box.classList.add('pause-active');
@@ -256,6 +246,7 @@
                 document.getElementById('uiTarget').innerText = diff > 0 ? `Target: ${match.target} | Need: ${diff}` : `Target: ${match.target} | Passed by: ${Math.abs(diff)}`;
             }
 
+            // DYNAMIC TRACKER LOGIC
             tracker.innerHTML = "";
             let maxDots = Math.max(6, state.overBalls.length);
             for(let i=0; i<maxDots; i++) {
