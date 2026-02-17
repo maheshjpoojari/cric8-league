@@ -19,4 +19,244 @@
         .sub-text { color: #94a3b8; font-size: 1rem; margin-top: 10px; }
         .target-text { color: #10b981; font-weight: bold; font-size: 1rem; margin-bottom: 10px; }
         
-        .over-tracker { display
+        .over-tracker { display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
+        .ball { width: 36px; height: 36px; border-radius: 50%; background: #ffffff; color: #0f172a; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; border: 2px solid #334155; }
+        .ball-dot { background: #ef4444 !important; color: white !important; }
+        .ball-score { background: #38bdf8 !important; color: #0f172a !important; }
+
+        input { width: 95%; padding: 12px; margin: 5px 0; border-radius: 8px; background: #1e293b; color: white; border: 1px solid #334155; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        button { padding: 18px; border: none; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; color: white; }
+        .btn-gray { background: #334155; }
+        .btn-orange { background: #d97706; color: black; }
+        .btn-red { background: #ef4444; grid-column: span 3; }
+        .btn-dark-red { background: #7f1d1d; grid-column: span 3; }
+        .btn-green { background: #10b981; width: 100%; margin-top: 10px; }
+
+        .overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.98); z-index: 1000; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+        .sel-btn { background: #38bdf8; color: #0f172a; padding: 15px; margin: 5px; width: 100%; max-width: 300px; border-radius: 10px; font-weight: bold; }
+        
+        .sc-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 10px; overflow: hidden; margin: 15px 0; }
+        .sc-table th { background: #334155; color: #38bdf8; padding: 10px; font-size: 0.8rem; }
+        .sc-table td { padding: 10px; border-bottom: 1px solid #334155; text-align: center; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+    <div id="customAlertBox" class="overlay hidden">
+        <div style="background: white; color: black; padding: 25px; border-radius: 15px; width: 85%; max-width: 320px;">
+            <p id="alertText" style="font-size: 1.1rem; margin-bottom: 20px; font-weight: 500;"></p>
+            <button id="alertBtn" style="background:transparent; color:#059669; float:right; width:auto; font-weight:bold;">OK</button>
+            <div style="clear: both;"></div>
+        </div>
+    </div>
+
+    <div id="overlaySelect" class="overlay hidden">
+        <h2 id="selTitle" style="color:#fbbf24; margin-top: 40px;">Select Player</h2>
+        <div id="selGrid" style="width:100%; display: flex; flex-direction: column; align-items: center;"></div>
+    </div>
+
+    <div id="overlayScorecard" class="overlay hidden">
+        <h2 style="color:#38bdf8; margin-top: 20px;">MATCH ENDED</h2>
+        <div id="finalResultText" style="font-size:1.4rem; font-weight: bold; color: #fbbf24; margin-bottom:10px;"></div>
+        <div id="finalScores" style="font-size:1rem; margin-bottom:15px;"></div>
+        <button id="btnCopy" class="btn-orange" style="width:100%; margin-bottom:10px;">📋 COPY WHATSAPP SUMMARY</button>
+        <table class="sc-table">
+            <thead><tr><th>Player</th><th>Runs</th><th>Wkts</th></tr></thead>
+            <tbody id="scBody"></tbody>
+        </table>
+        <button onclick="location.reload()" class="btn-green">START NEW MATCH</button>
+    </div>
+
+    <div id="screenSetup" class="screen">
+        <h2 style="color:#38bdf8">Cric-8 League</h2>
+        <input id="t1Name" placeholder="Team 1 Name">
+        <input id="t2Name" placeholder="Team 2 Name">
+        <div style="display:flex; gap:5px; margin-top:10px;"><div id="in1" style="width:50%"></div><div id="in2" style="width:50%"></div></div>
+        <button onclick="init()" class="btn-green">START SEASON</button>
+    </div>
+
+    <div id="screenGame" class="screen hidden">
+        <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">-</span></div>
+        <div class="player-row"><div id="p0" onclick="setStr(0)">-</div><div id="p1" onclick="setStr(1)">-</div></div>
+        <div class="score-box">
+            <div id="uiTarget" class="target-text hidden">Target: 0 | Need: 0</div>
+            <h1 id="uiScore" class="big-score">0</h1>
+            <div class="sub-text">Overs: <span id="uiOvers">0.0</span> / 8.0 &nbsp;|&nbsp; Wkts: <span id="uiWkts">0</span></div>
+            <div class="over-tracker" id="uiTracker"><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div></div>
+        </div>
+        <div class="grid">
+            <button class="btn-gray" onclick="hit(0)">0</button><button class="btn-gray" onclick="hit(1)">1</button><button class="btn-gray" onclick="hit(2)">2</button>
+            <button class="btn-gray" onclick="hit(3)">3</button><button class="btn-gray" onclick="hit(4)">4</button><button class="btn-gray" onclick="hit(6)">6</button>
+            <button class="btn-orange" onclick="hit('WD')">WD+2</button><button class="btn-orange" onclick="hit('NB')">NB+2</button>
+            <button class="btn-gray" onclick="undo()">UNDO</button>
+            <button class="btn-red" onclick="hit('W')">WICKET / RUN-OUT (-5)</button>
+            <button class="btn-dark-red" onclick="hit('M')">MANKAD (-5)</button>
+        </div>
+    </div>
+
+    <script>
+        let teams = {t1:{name:"",p:[]}, t2:{name:"",p:[]}};
+        let match = {inn:1, batId:'t1', bowlId:'t2', t1Score:0, t2Score:0};
+        let state = {score:0, balls:0, wkts:0, dots:0, strIdx:0, curPair:[], curBowl:null, overBalls:[]};
+        let history = [];
+
+        for(let i=0; i<10; i++){
+            document.getElementById('in1').innerHTML += `<input id="t1p${i}" placeholder="T1-P${i+1}">`;
+            document.getElementById('in2').innerHTML += `<input id="t2p${i}" placeholder="T2-P${i+1}">`;
+        }
+
+        function showAlert(msg, callback) {
+            document.getElementById('alertText').innerText = msg;
+            document.getElementById('customAlertBox').classList.remove('hidden');
+            document.getElementById('alertBtn').onclick = () => { document.getElementById('customAlertBox').classList.add('hidden'); if(callback) callback(); };
+        }
+
+        function init() {
+            teams.t1.name = document.getElementById('t1Name').value || "Team 1";
+            teams.t2.name = document.getElementById('t2Name').value || "Team 2";
+            [teams.t1, teams.t2].forEach(t => { 
+                for(let i=0; i<10; i++) t.p.push({name: document.getElementById(`${t==teams.t1?'t1':'t2'}p${i}`).value || `${t==teams.t1?'T1':'T2'}-P${i+1}`, runs:0, wkts:0, batted:false, overs:0});
+            });
+            document.getElementById('screenSetup').classList.add('hidden');
+            document.getElementById('screenGame').classList.remove('hidden');
+            startInn();
+        }
+
+        function startInn() {
+            state.score=0; state.balls=0; state.wkts=0; state.dots=0; state.curPair=[]; state.curBowl=null; state.overBalls=[];
+            if(match.inn === 2) document.getElementById('uiTarget').classList.remove('hidden');
+            triggerSelection();
+        }
+
+        function triggerSelection() {
+            if (state.balls >= 48) { endInn(); return; }
+            if (state.curPair.length < 2 || state.balls % 12 === 0) { pickBatters(); }
+            else if (!state.curBowl || state.balls % 6 === 0) { pickBowler(); }
+            else { updateUI(); }
+        }
+
+        function pickBatters() {
+            let roster = teams[match.batId].p.filter(p => !p.batted);
+            showOverlay("Select Striker", roster, (p1) => {
+                p1.batted = true;
+                showOverlay("Select Non-Striker", roster.filter(x => x !== p1), (p2) => {
+                    p2.batted = true; state.curPair = [p1, p2]; state.strIdx = 0; pickBowler();
+                });
+            });
+        }
+
+        function pickBowler() {
+            showOverlay("Select Bowler", teams[match.bowlId].p.filter(p => p.overs < 1), (p) => { state.curBowl = p; state.overBalls = []; updateUI(); });
+        }
+
+        function showOverlay(title, list, callback) {
+            document.getElementById('selTitle').innerText = title;
+            const grid = document.getElementById('selGrid'); grid.innerHTML = "";
+            list.forEach(p => {
+                let btn = document.createElement('button'); btn.className = 'sel-btn'; btn.innerText = p.name;
+                btn.onclick = () => { document.getElementById('overlaySelect').classList.add('hidden'); callback(p); };
+                grid.appendChild(btn);
+            });
+            document.getElementById('overlaySelect').classList.remove('hidden');
+        }
+
+        function hit(val) {
+            if(!state.curBowl || state.curPair.length < 2) return;
+            history.push(JSON.parse(JSON.stringify({state, p1R: state.curPair[0].runs, p2R: state.curPair[1].runs, bW: state.curBowl.wkts})));
+
+            if(typeof val === 'number') {
+                state.score += val; state.balls++; state.curPair[state.strIdx].runs += val; state.overBalls.push(val);
+                if(val === 0) {
+                    state.dots++;
+                    if(state.dots >= 3) {
+                        state.score -= 5; state.curPair[state.strIdx].runs -= 5; state.dots = 0;
+                        updateUI(); showAlert("3 Dots! -5 Penalty.", checkOver); return;
+                    }
+                } else { state.dots = 0; if(val % 2 !== 0) state.strIdx = state.strIdx===0?1:0; }
+            } else if(val === 'W' || val === 'M') {
+                state.score -= 5; state.curPair[state.strIdx].runs -= 5; state.wkts++; state.balls++; state.dots = 0;
+                state.curBowl.wkts++; state.overBalls.push('W');
+            } else if(val === 'WD' || val === 'NB') {
+                state.score += 2; state.dots = 0; state.overBalls.push(val==='WD'?'Wd':'Nb'); if(state.balls < 42) state.balls++;
+            }
+            checkOver();
+        }
+
+        function checkOver() {
+            if (state.balls > 0 && state.balls % 6 === 0) { state.curBowl.overs++; if(state.balls % 12 !== 0) state.strIdx = state.strIdx===0?1:0; triggerSelection(); }
+            else { updateUI(); }
+        }
+
+        function updateUI() {
+            document.getElementById('uiScore').innerText = state.score;
+            document.getElementById('uiOvers').innerText = `${Math.floor(state.balls/6)}.${state.balls%6}`;
+            document.getElementById('uiWkts').innerText = state.wkts;
+            document.getElementById('uiBatTeam').innerText = teams[match.batId].name;
+            document.getElementById('uiBowler').innerText = "Bowler: " + (state.curBowl?.name || "-");
+            document.getElementById('p0').innerText = state.curPair[0]?.name + (state.strIdx===0?" *":"");
+            document.getElementById('p0').className = state.strIdx===0 ? "active-bat" : "";
+            document.getElementById('p1').innerText = state.curPair[1]?.name + (state.strIdx===1?" *":"");
+            document.getElementById('p1').className = state.strIdx===1 ? "active-bat" : "";
+
+            if(match.inn === 2) {
+                let diff = (match.t1Score + 1) - state.score;
+                document.getElementById('uiTarget').innerText = diff > 0 ? `Need: ${diff}` : `Lead: ${Math.abs(diff)}`;
+            }
+
+            const balls = document.querySelectorAll('.ball');
+            balls.forEach((b, i) => {
+                b.innerText = ""; b.className = "ball";
+                if(state.overBalls[i] !== undefined) {
+                    let v = state.overBalls[i]; b.innerText = v;
+                    if(v === 0) b.classList.add('ball-dot'); else b.classList.add('ball-score');
+                }
+            });
+        }
+
+        function endInn() {
+            if(match.inn === 1) {
+                match.t1Score = state.score;
+                showAlert(`Innings Over! Target: ${state.score + 1}`, () => { match.inn = 2; match.batId = 't2'; match.bowlId = 't1'; startInn(); });
+            } else {
+                match.t2Score = state.score;
+                showFinalScorecard();
+            }
+        }
+
+        function showFinalScorecard() {
+            let winner = match.t2Score > match.t1Score ? teams.t2.name : (match.t2Score < match.t1Score ? teams.t1.name : "DRAW");
+            document.getElementById('finalResultText').innerText = winner + " WINS!";
+            document.getElementById('finalScores').innerText = `${teams.t1.name}: ${match.t1Score} | ${teams.t2.name}: ${match.t2Score}`;
+            
+            const body = document.getElementById('scBody'); body.innerHTML = "";
+            let shareText = `🏏 *Cric-8 Match Result* 🏏\n\n🏆 *${winner} WINS*\n\n${teams.t1.name}: ${match.t1Score}\n${teams.t2.name}: ${match.t2Score}\n\n*Top Stats:*\n`;
+
+            [teams.t1, teams.t2].forEach(t => {
+                t.p.forEach(p => {
+                    if(p.runs !== 0 || p.wkts !== 0) {
+                        body.innerHTML += `<tr><td>${p.name}</td><td>${p.runs}</td><td>${p.wkts}</td></tr>`;
+                        shareText += `• ${p.name}: ${p.runs} runs, ${p.wkts} wkts\n`;
+                    }
+                });
+            });
+
+            document.getElementById('btnCopy').onclick = () => {
+                navigator.clipboard.writeText(shareText);
+                alert("Summary Copied to Clipboard!");
+            };
+
+            document.getElementById('overlayScorecard').classList.remove('hidden');
+        }
+
+        function undo() { 
+            if(history.length > 0) { 
+                let prev = history.pop(); state = prev.state; 
+                state.curPair[0].runs = prev.p1R; state.curPair[1].runs = prev.p2R; state.curBowl.wkts = prev.bW;
+                updateUI(); 
+            } 
+        }
+        function setStr(i) { state.strIdx = i; updateUI(); }
+    </script>
+</body>
+</html>
