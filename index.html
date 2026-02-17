@@ -20,10 +20,11 @@
         .sub-text { color: #9ca3af; font-size: 1rem; margin-top: 8px; }
         .target-text { color: #10b981; font-weight: bold; font-size: 0.9rem; margin-bottom: 10px; }
         
-        /* 3 DOT INDICATORS */
-        .dot-indicators { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
-        .dot-circle { width: 18px; height: 18px; border-radius: 50%; background: #6b7280; }
-        .dot-active { background: #ef4444; }
+        /* 6 BALL TRACKER */
+        .over-tracker { display: flex; justify-content: center; gap: 6px; margin-top: 20px; }
+        .ball { width: 32px; height: 32px; border-radius: 50%; background: white; color: #111827; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8rem; border: 2px solid #374151; transition: 0.3s; }
+        .ball-dot { background: #ef4444 !important; color: white !important; } /* Red for Dot */
+        .ball-filled { background: #38bdf8; color: #111827; } /* Blue for Runs */
 
         /* BUTTONS */
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -34,20 +35,15 @@
         .btn-dark-red { background: #7f1d1d; grid-column: span 3; font-size: 1rem; }
         .btn-undo { background: #4b5563; grid-column: span 3; margin-top: 10px; font-size: 0.9rem; }
 
-        /* SETUP INPUTS */
         input { width: 90%; padding: 12px; margin: 5px 0; border-radius: 5px; background: #1f2937; color: white; border: 1px solid #374151; box-sizing: border-box; }
 
-        /* OVERLAYS & MODALS */
+        /* MODALS */
         .overlay { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.95); z-index: 100; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
         .sel-btn { background: #38bdf8; color: #111827; padding: 15px; margin: 5px; width: 100%; max-width: 300px; border-radius: 8px; }
-        
-        /* CUSTOM ALERT (REPLACES window.alert) */
         #customAlertBox { z-index: 9999; justify-content: center; }
-        .alert-content { background: white; color: black; padding: 25px; border-radius: 12px; width: 85%; max-width: 320px; text-align: left; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-        .alert-text { font-size: 1.1rem; margin: 0 0 20px 0; }
+        .alert-content { background: white; color: black; padding: 25px; border-radius: 12px; width: 85%; max-width: 320px; text-align: left; }
         .alert-btn { background: transparent; color: #059669; font-weight: bold; padding: 10px; width: auto; float: right; font-size: 1rem; }
-
-        /* LEAGUE TABLE */
+        
         table { width: 100%; max-width: 400px; border-collapse: collapse; background: #1f2937; margin-top: 15px; border-radius: 8px; overflow: hidden; }
         th, td { padding: 12px; border-bottom: 1px solid #374151; font-size: 0.85rem; text-align: center; }
         th { background: #374151; color: #38bdf8; }
@@ -57,7 +53,7 @@
 
     <div id="customAlertBox" class="overlay hidden">
         <div class="alert-content">
-            <p id="alertText" class="alert-text"></p>
+            <p id="alertText" style="font-size: 1.1rem; margin-bottom: 20px;"></p>
             <button id="alertBtn" class="alert-btn">OK</button>
             <div style="clear: both;"></div>
         </div>
@@ -76,34 +72,25 @@
         </table>
         <button onclick="document.getElementById('overlayLeague').classList.add('hidden')" style="background:#4b5563; width:100%; max-width:300px; margin-top:20px;">BACK TO GAME</button>
         <button onclick="location.reload()" style="background:#059669; width:100%; max-width:300px; margin-top:10px;">HOME SCREEN</button>
-        <button onclick="if(confirm('Wipe Data?')) { localStorage.clear(); location.reload(); }" style="background:#7f1d1d; width:100%; max-width:300px; margin-top:30px; font-size:0.8rem;">RESET FULL TOURNAMENT</button>
     </div>
 
     <div id="screenSetup" class="screen">
         <h2 style="color:#38bdf8">Cric-8 Tournament</h2>
         <input id="t1Name" placeholder="Team 1 Name">
         <input id="t2Name" placeholder="Team 2 Name">
-        <p style="font-size: 0.9rem; color: #9ca3af;">Enter 10 Players per team:</p>
         <div style="display:flex; gap:5px;"><div id="in1" style="width:50%"></div><div id="in2" style="width:50%"></div></div>
         <button onclick="init()" style="background:#10b981; width:100%; margin-top:20px;">START MATCH</button>
-        <button onclick="showLeague()" style="background:#374151; width:100%; margin-top:10px;">VIEW STANDINGS</button>
     </div>
 
     <div id="screenGame" class="screen hidden">
-        <div class="header-info">
-            <span id="uiBatTeam">-</span>
-            <span id="uiBowler">Bowler: -</span>
-        </div>
-        <div class="player-row">
-            <div id="p0" onclick="setStr(0)">-</div>
-            <div id="p1" onclick="setStr(1)">-</div>
-        </div>
+        <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">-</span></div>
+        <div class="player-row"><div id="p0" onclick="setStr(0)">-</div><div id="p1" onclick="setStr(1)">-</div></div>
         <div class="score-box">
             <div id="uiTarget" class="target-text hidden">Target: 0 | Need: 0</div>
             <h1 id="uiScore" class="big-score">0</h1>
             <div class="sub-text">Overs: <span id="uiOvers">0.0</span> / 8.0 &nbsp;&nbsp;|&nbsp;&nbsp; Wkts: <span id="uiWkts">0</span></div>
-            <div class="dot-indicators" id="uiDots">
-                <div class="dot-circle"></div><div class="dot-circle"></div><div class="dot-circle"></div>
+            <div class="over-tracker" id="uiOverTracker">
+                <div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div>
             </div>
         </div>
         <div class="grid">
@@ -115,7 +102,8 @@
             <button class="btn-gray" onclick="hit(6)">6</button>
             <button class="btn-orange" onclick="hit('WD')">WIDE +2</button>
             <button class="btn-orange" onclick="hit('NB')">NB +2</button>
-            <div></div> <button class="btn-red" onclick="hit('W')">WICKET / RUN-OUT (-5)</button>
+            <div></div>
+            <button class="btn-red" onclick="hit('W')">WICKET / RUN-OUT (-5)</button>
             <button class="btn-dark-red" onclick="hit('M')">MANKAD (-5)</button>
             <button class="btn-undo" onclick="undo()">UNDO LAST BALL</button>
         </div>
@@ -124,24 +112,19 @@
     <script>
         let teams = {t1:{name:"",p:[]}, t2:{name:"",p:[]}};
         let match = {inn:1, batId:'t1', bowlId:'t2', firstScore:0};
-        let state = {score:0, balls:0, wkts:0, dots:0, strIdx:0, curPair:[], curBowl:null};
+        let state = {score:0, balls:0, wkts:0, dots:0, strIdx:0, curPair:[], curBowl:null, currentOverBalls: []};
         let history = [];
         let league = JSON.parse(localStorage.getItem('cric8_league_v2')) || {};
 
-        // Generate Setup Inputs
         for(let i=0; i<10; i++){
             document.getElementById('in1').innerHTML += `<input id="t1p${i}" placeholder="T1-P${i+1}">`;
             document.getElementById('in2').innerHTML += `<input id="t2p${i}" placeholder="T2-P${i+1}">`;
         }
 
-        // CUSTOM ALERT LOGIC
         function showAlert(msg, callback) {
             document.getElementById('alertText').innerText = msg;
             document.getElementById('customAlertBox').classList.remove('hidden');
-            document.getElementById('alertBtn').onclick = () => {
-                document.getElementById('customAlertBox').classList.add('hidden');
-                if(callback) callback();
-            };
+            document.getElementById('alertBtn').onclick = () => { document.getElementById('customAlertBox').classList.add('hidden'); if(callback) callback(); };
         }
 
         function init() {
@@ -160,7 +143,7 @@
         }
 
         function startInn() {
-            state.score=0; state.balls=0; state.wkts=0; state.dots=0; state.curPair=[]; state.curBowl=null;
+            state.score=0; state.balls=0; state.wkts=0; state.dots=0; state.curPair=[]; state.curBowl=null; state.currentOverBalls=[];
             if(match.inn === 2) {
                 document.getElementById('uiTarget').innerText = `Target: ${match.firstScore + 1} | Need: ${match.firstScore + 1}`;
                 document.getElementById('uiTarget').classList.remove('hidden');
@@ -168,7 +151,6 @@
             triggerSelection();
         }
 
-        // PLAYER SELECTION LOGIC
         function triggerSelection() {
             if (state.balls >= 48) { endInn(); return; }
             if (state.curPair.length < 2 || state.balls % 12 === 0) { state.curPair = []; pickBatters(); }
@@ -183,18 +165,14 @@
                 p1.batted = true;
                 let rem = roster.filter(x => x.name !== p1.name);
                 showOverlay("Select Non-Striker", rem, (p2) => {
-                    p2.batted = true;
-                    state.curPair = [p1, p2]; state.strIdx = 0;
-                    pickBowler();
+                    p2.batted = true; state.curPair = [p1, p2]; state.strIdx = 0; pickBowler();
                 });
             });
         }
 
         function pickBowler() {
             let roster = teams[match.bowlId].p.filter(p => p.overs < 1);
-            showOverlay("Select Bowler", roster, (p) => {
-                state.curBowl = p; updateUI();
-            });
+            showOverlay("Select Bowler", roster, (p) => { state.curBowl = p; state.currentOverBalls = []; updateUI(); });
         }
 
         function showOverlay(title, list, callback) {
@@ -209,31 +187,33 @@
             document.getElementById('overlaySelect').classList.remove('hidden');
         }
 
-        // SCORING LOGIC
         function hit(val) {
             if(!state.curBowl || state.curPair.length < 2) return;
-            history.push(JSON.parse(JSON.stringify({state, match})));
+            history.push(JSON.parse(JSON.stringify(state)));
             
+            let ballLabel = val;
+
             if(typeof val === 'number') {
                 state.score += val; state.balls++;
+                state.currentOverBalls.push(val);
                 if(val === 0) {
                     state.dots++;
                     if(state.dots >= 3) {
                         state.score -= 5; state.dots = 0;
                         updateUI();
-                        showAlert("3 Consecutive Dots! -5 Penalty applied to Striker.", checkState);
-                        return; // pause game loop for alert
+                        showAlert("3 Consecutive Dots! -5 Penalty.", checkState);
+                        return;
                     }
                 } else {
                     state.dots = 0;
                     if(val % 2 !== 0) state.strIdx = state.strIdx===0?1:0;
                 }
-            } else if(val === 'W') {
+            } else if(val === 'W' || val === 'M') {
                 state.score -= 5; state.wkts++; state.balls++; state.dots = 0;
-            } else if(val === 'M') {
-                state.score -= 5; state.wkts++; state.dots = 0;
+                state.currentOverBalls.push('W');
             } else if(val === 'WD' || val === 'NB') {
                 state.score += 2; state.dots = 0;
+                state.currentOverBalls.push(val === 'WD' ? 'Wd' : 'Nb');
                 if(state.balls < 42) state.balls++;
             }
             checkState();
@@ -243,7 +223,7 @@
             if (match.inn === 2 && state.score > match.firstScore) { endInn(); return; }
             if (state.balls > 0 && state.balls % 6 === 0) {
                 state.curBowl.overs++;
-                if(state.balls % 12 !== 0) state.strIdx = state.strIdx===0?1:0; // Swap strike end of over if batters stay
+                if(state.balls % 12 !== 0) state.strIdx = state.strIdx===0?1:0;
                 triggerSelection();
             } else { updateUI(); }
         }
@@ -254,7 +234,6 @@
             document.getElementById('uiWkts').innerText = state.wkts;
             document.getElementById('uiBatTeam').innerText = teams[match.batId].name + " Batting";
             document.getElementById('uiBowler').innerText = "Bowler: " + (state.curBowl ? state.curBowl.name : "-");
-            
             document.getElementById('p0').innerText = state.curPair[0] ? state.curPair[0].name + (state.strIdx===0?" *":"") : "-";
             document.getElementById('p0').className = state.strIdx===0 ? "active-bat" : "";
             document.getElementById('p1').innerText = state.curPair[1] ? state.curPair[1].name + (state.strIdx===1?" *":"") : "-";
@@ -262,47 +241,45 @@
 
             if(match.inn === 2) document.getElementById('uiTarget').innerText = `Target: ${match.firstScore + 1} | Need: ${(match.firstScore + 1) - state.score}`;
 
-            let dotsHtml = "";
-            for(let i=0; i<3; i++) dotsHtml += `<div class="dot-circle ${i<state.dots?'dot-active':''}"></div>`;
-            document.getElementById('uiDots').innerHTML = dotsHtml;
+            // Update Over Tracker (6 White Balls)
+            const balls = document.querySelectorAll('.ball');
+            balls.forEach((b, i) => {
+                b.innerText = ""; b.className = "ball";
+                if(state.currentOverBalls[i] !== undefined) {
+                    let val = state.currentOverBalls[i];
+                    b.innerText = val;
+                    if(val === 0) b.classList.add('ball-dot');
+                    else b.classList.add('ball-filled');
+                }
+            });
         }
 
         function endInn() {
             if(match.inn === 1) {
                 match.firstScore = state.score;
-                showAlert(`Innings Over!\nTarget for ${teams.t2.name} is ${state.score + 1}.`, () => {
-                    match.inn = 2; match.batId = 't2'; match.bowlId = 't1';
-                    startInn();
-                });
+                showAlert(`Innings Over! Target: ${state.score + 1}.`, () => { match.inn = 2; match.batId = 't2'; match.bowlId = 't1'; startInn(); });
             } else {
-                let txt = state.score > match.firstScore ? `${teams.t2.name} WINS!` : `${teams.t1.name} WINS!`;
-                if(state.score === match.firstScore) txt = "MATCH TIED!";
-                showAlert(txt, () => { finishMatch(); });
+                let win = state.score > match.firstScore ? teams.t2.name : teams.t1.name;
+                showAlert(win + " WINS!", () => {
+                    league[teams.t1.name].p++; league[teams.t2.name].p++;
+                    if(state.score > match.firstScore) { league[teams.t2.name].w++; league[teams.t2.name].pts+=2; league[teams.t1.name].l++; }
+                    else { league[teams.t1.name].w++; league[teams.t1.name].pts+=2; league[teams.t2.name].l++; }
+                    localStorage.setItem('cric8_league_v2', JSON.stringify(league));
+                    showLeague();
+                });
             }
-        }
-
-        function finishMatch() {
-            league[teams.t1.name].p++; league[teams.t2.name].p++;
-            if(state.score > match.firstScore) { league[teams.t2.name].w++; league[teams.t2.name].pts+=2; league[teams.t1.name].l++; }
-            else if(state.score < match.firstScore) { league[teams.t1.name].w++; league[teams.t1.name].pts+=2; league[teams.t2.name].l++; }
-            localStorage.setItem('cric8_league_v2', JSON.stringify(league));
-            showLeague();
         }
 
         function showLeague() {
             const body = document.getElementById('leagueBody'); body.innerHTML = "";
             Object.keys(league).sort((a,b) => league[b].pts - league[a].pts).forEach(n => {
-                let t = league[n];
-                body.innerHTML += `<tr><td>${n}</td><td>${t.p}</td><td>${t.w}</td><td>${t.l}</td><td>${t.pts}</td></tr>`;
+                let t = league[n]; body.innerHTML += `<tr><td>${n}</td><td>${t.p}</td><td>${t.w}</td><td>${t.l}</td><td>${t.pts}</td></tr>`;
             });
             document.getElementById('overlayLeague').classList.remove('hidden');
         }
 
-        function undo() { if(history.length > 0) { let p = history.pop(); state=p.state; match=p.match; updateUI(); } }
+        function undo() { if(history.length > 0) { state = history.pop(); updateUI(); } }
         function setStr(i) { state.strIdx = i; updateUI(); }
-        
-        // Auto-load if league exists
-        window.onload = () => { if(Object.keys(league).length > 0) document.getElementById('leagueTitle').innerText = "RESUME TOURNAMENT"; }
     </script>
 </body>
 </html>
