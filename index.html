@@ -5,47 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cric-8 League</title>
     <style>
-        body { font-family: sans-serif; background: #162130; color: white; margin: 0; padding: 10px; text-align: center; touch-action: manipulation; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #111827; color: white; margin: 0; padding: 10px; text-align: center; touch-action: manipulation; }
         .hidden { display: none !important; }
-        .screen { max-width: 450px; margin: auto; }
+        .screen { max-width: 450px; margin: auto; padding-bottom: 20px; }
         
-        /* MATCH UI FROM IMAGES */
+        /* HEADER & BATTERS */
         .header-info { display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; padding: 5px; font-size: 0.9rem; }
-        .player-row { display: flex; justify-content: space-around; background: #1a2635; padding: 15px; margin: 10px 0; border-radius: 8px; font-size: 1.1rem; }
+        .player-row { display: flex; justify-content: space-around; background: #1f2937; padding: 15px; margin: 10px 0; border-radius: 8px; font-size: 1.1rem; border: 1px solid #374151; }
         .active-bat { color: #fbbf24; border-bottom: 2px solid #fbbf24; font-weight: bold; }
         
-        .score-box { background: #1a2635; padding: 25px; border-radius: 15px; margin-bottom: 15px; }
-        .big-score { font-size: 5rem; font-weight: 800; color: #38bdf8; margin: 0; }
-        .sub-text { color: #cbd5e1; font-size: 1.1rem; margin-top: 5px; }
+        /* SCORECARD */
+        .score-box { background: #1f2937; padding: 25px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #374151; }
+        .big-score { font-size: 5rem; font-weight: 800; color: #38bdf8; margin: 0; line-height: 1; }
+        .sub-text { color: #9ca3af; font-size: 1rem; margin-top: 8px; }
+        .target-text { color: #10b981; font-weight: bold; font-size: 0.9rem; margin-bottom: 10px; }
+        
+        /* 3 DOT INDICATORS */
         .dot-indicators { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
-        .dot-circle { width: 18px; height: 18px; border-radius: 50%; background: #cbd5e1; }
+        .dot-circle { width: 18px; height: 18px; border-radius: 50%; background: #6b7280; }
         .dot-active { background: #ef4444; }
 
-        /* BUTTONS FROM image_a96cf2.png */
+        /* BUTTONS */
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        button { padding: 18px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.2rem; cursor: pointer; color: white; }
-        .btn-gray { background: #2d3e50; }
-        .btn-orange { background: #f59e0b; color: #000; grid-column: span 1; }
-        .btn-red { background: #ef4444; grid-column: span 3; }
-        .btn-dark-red { background: #7f1d1d; grid-column: span 3; color: #fca5a5; }
-        .btn-undo { background: #334155; grid-column: span 3; margin-top: 10px; font-size: 0.9rem; }
+        button { padding: 18px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; color: white; }
+        .btn-gray { background: #374151; }
+        .btn-orange { background: #d97706; color: black; grid-column: span 1; font-size: 1rem; }
+        .btn-red { background: #ef4444; grid-column: span 3; font-size: 1rem; }
+        .btn-dark-red { background: #7f1d1d; grid-column: span 3; font-size: 1rem; }
+        .btn-undo { background: #4b5563; grid-column: span 3; margin-top: 10px; font-size: 0.9rem; }
 
-        /* OVERLAYS */
-        .overlay { position: fixed; inset: 0; background: rgba(15,23,32,0.98); z-index: 100; padding: 20px; overflow-y: auto; }
-        .league-table { width: 100%; border-collapse: collapse; background: #1a2635; margin-top: 15px; }
-        .league-table th, .league-table td { padding: 12px; border: 1px solid #334155; font-size: 0.8rem; }
-        .award-item { background: #1e293b; border: 1px solid #fbbf24; margin: 5px 0; padding: 10px; border-radius: 8px; }
+        /* SETUP INPUTS */
+        input { width: 90%; padding: 12px; margin: 5px 0; border-radius: 5px; background: #1f2937; color: white; border: 1px solid #374151; box-sizing: border-box; }
+
+        /* OVERLAYS & MODALS */
+        .overlay { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.95); z-index: 100; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+        .sel-btn { background: #38bdf8; color: #111827; padding: 15px; margin: 5px; width: 100%; max-width: 300px; border-radius: 8px; }
+        
+        /* CUSTOM ALERT (REPLACES window.alert) */
+        #customAlertBox { z-index: 9999; justify-content: center; }
+        .alert-content { background: white; color: black; padding: 25px; border-radius: 12px; width: 85%; max-width: 320px; text-align: left; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        .alert-text { font-size: 1.1rem; margin: 0 0 20px 0; }
+        .alert-btn { background: transparent; color: #059669; font-weight: bold; padding: 10px; width: auto; float: right; font-size: 1rem; }
+
+        /* LEAGUE TABLE */
+        table { width: 100%; max-width: 400px; border-collapse: collapse; background: #1f2937; margin-top: 15px; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px; border-bottom: 1px solid #374151; font-size: 0.85rem; text-align: center; }
+        th { background: #374151; color: #38bdf8; }
     </style>
 </head>
-<body onload="checkSave()">
+<body>
+
+    <div id="customAlertBox" class="overlay hidden">
+        <div class="alert-content">
+            <p id="alertText" class="alert-text"></p>
+            <button id="alertBtn" class="alert-btn">OK</button>
+            <div style="clear: both;"></div>
+        </div>
+    </div>
+
+    <div id="overlaySelect" class="overlay hidden">
+        <h2 id="selTitle" style="color:#fbbf24; margin-top: 40px;">Select Player</h2>
+        <div id="selGrid" style="width:100%; display: flex; flex-direction: column; align-items: center;"></div>
+    </div>
+
+    <div id="overlayLeague" class="overlay hidden">
+        <h2 id="leagueTitle" style="color:#38bdf8; margin-top: 20px;">TOURNAMENT HUB</h2>
+        <table id="leagueTable">
+            <thead><tr><th>Team</th><th>P</th><th>W</th><th>L</th><th>Pts</th></tr></thead>
+            <tbody id="leagueBody"></tbody>
+        </table>
+        <button onclick="document.getElementById('overlayLeague').classList.add('hidden')" style="background:#4b5563; width:100%; max-width:300px; margin-top:20px;">BACK TO GAME</button>
+        <button onclick="location.reload()" style="background:#059669; width:100%; max-width:300px; margin-top:10px;">HOME SCREEN</button>
+        <button onclick="if(confirm('Wipe Data?')) { localStorage.clear(); location.reload(); }" style="background:#7f1d1d; width:100%; max-width:300px; margin-top:30px; font-size:0.8rem;">RESET FULL TOURNAMENT</button>
+    </div>
 
     <div id="screenSetup" class="screen">
         <h2 style="color:#38bdf8">Cric-8 Tournament</h2>
-        <input id="t1Name" placeholder="Team 1 Name" style="width:90%; padding:12px; margin:5px; border-radius:5px; background:#1a2635; color:white; border:1px solid #334155;">
-        <input id="t2Name" placeholder="Team 2 Name" style="width:90%; padding:12px; margin:5px; border-radius:5px; background:#1a2635; color:white; border:1px solid #334155;">
-        <p>Enter 10 Players per team:</p>
+        <input id="t1Name" placeholder="Team 1 Name">
+        <input id="t2Name" placeholder="Team 2 Name">
+        <p style="font-size: 0.9rem; color: #9ca3af;">Enter 10 Players per team:</p>
         <div style="display:flex; gap:5px;"><div id="in1" style="width:50%"></div><div id="in2" style="width:50%"></div></div>
-        <button onclick="init()" style="background:#10b981; width:95%; margin-top:20px; padding:15px;">START SEASON</button>
+        <button onclick="init()" style="background:#10b981; width:100%; margin-top:20px;">START MATCH</button>
+        <button onclick="showLeague()" style="background:#374151; width:100%; margin-top:10px;">VIEW STANDINGS</button>
     </div>
 
     <div id="screenGame" class="screen hidden">
@@ -58,9 +99,9 @@
             <div id="p1" onclick="setStr(1)">-</div>
         </div>
         <div class="score-box">
+            <div id="uiTarget" class="target-text hidden">Target: 0 | Need: 0</div>
             <h1 id="uiScore" class="big-score">0</h1>
-            <div class="sub-text">Overs: <span id="uiOvers">0.0</span> / 8.0</div>
-            <div class="sub-text">Wickets: <span id="uiWkts">0</span></div>
+            <div class="sub-text">Overs: <span id="uiOvers">0.0</span> / 8.0 &nbsp;&nbsp;|&nbsp;&nbsp; Wkts: <span id="uiWkts">0</span></div>
             <div class="dot-indicators" id="uiDots">
                 <div class="dot-circle"></div><div class="dot-circle"></div><div class="dot-circle"></div>
             </div>
@@ -80,28 +121,27 @@
         </div>
     </div>
 
-    <div id="overlayLeague" class="overlay hidden">
-        <h3 style="color:#fbbf24">🏆 TOURNAMENT HUB</h3>
-        <div id="awardsContainer"></div>
-        <table class="league-table">
-            <thead><tr><th>Team</th><th>P</th><th>W</th><th>L</th><th>Pts</th></tr></thead>
-            <tbody id="leagueBody"></tbody>
-        </table>
-        <button onclick="document.getElementById('overlayLeague').classList.add('hidden')" style="background:#334155; width:100%; margin-top:20px; padding:15px;">BACK</button>
-        <button onclick="fullReset()" style="background:#450a0a; width:100%; margin-top:10px; font-size:0.7rem;">RESET ENTIRE LEAGUE</button>
-    </div>
-
     <script>
         let teams = {t1:{name:"",p:[]}, t2:{name:"",p:[]}};
-        let match = {inn:1, batId:'t1', bowlId:'t2', target:0};
-        let state = {score:0, balls:0, wkts:0, dots:0, strIdx:0, curPair:[], curBowl:null, stats:{}};
+        let match = {inn:1, batId:'t1', bowlId:'t2', firstScore:0};
+        let state = {score:0, balls:0, wkts:0, dots:0, strIdx:0, curPair:[], curBowl:null};
         let history = [];
-        let league = JSON.parse(localStorage.getItem('c8_league')) || {};
-        let tStats = JSON.parse(localStorage.getItem('c8_tStats')) || {};
+        let league = JSON.parse(localStorage.getItem('cric8_league_v2')) || {};
 
+        // Generate Setup Inputs
         for(let i=0; i<10; i++){
             document.getElementById('in1').innerHTML += `<input id="t1p${i}" placeholder="T1-P${i+1}">`;
             document.getElementById('in2').innerHTML += `<input id="t2p${i}" placeholder="T2-P${i+1}">`;
+        }
+
+        // CUSTOM ALERT LOGIC
+        function showAlert(msg, callback) {
+            document.getElementById('alertText').innerText = msg;
+            document.getElementById('customAlertBox').classList.remove('hidden');
+            document.getElementById('alertBtn').onclick = () => {
+                document.getElementById('customAlertBox').classList.add('hidden');
+                if(callback) callback();
+            };
         }
 
         function init() {
@@ -112,8 +152,6 @@
                 for(let i=0; i<10; i++){
                     let n = document.getElementById(`${t==teams.t1?'t1':'t2'}p${i}`).value || `${t==teams.t1?'T1':'T2'}-P${i+1}`;
                     t.p.push({name:n, batted:false, overs:0});
-                    state.stats[n] = {r:0, w:0, b:0};
-                    if(!tStats[n]) tStats[n] = {r:0, w:0};
                 }
             });
             document.getElementById('screenSetup').classList.add('hidden');
@@ -123,64 +161,91 @@
 
         function startInn() {
             state.score=0; state.balls=0; state.wkts=0; state.dots=0; state.curPair=[]; state.curBowl=null;
-            pickNextPair();
+            if(match.inn === 2) {
+                document.getElementById('uiTarget').innerText = `Target: ${match.firstScore + 1} | Need: ${match.firstScore + 1}`;
+                document.getElementById('uiTarget').classList.remove('hidden');
+            }
+            triggerSelection();
         }
 
-        function pickNextPair() {
+        // PLAYER SELECTION LOGIC
+        function triggerSelection() {
+            if (state.balls >= 48) { endInn(); return; }
+            if (state.curPair.length < 2 || state.balls % 12 === 0) { state.curPair = []; pickBatters(); }
+            else if (!state.curBowl || state.balls % 6 === 0) { pickBowler(); }
+            else { updateUI(); }
+        }
+
+        function pickBatters() {
             let roster = teams[match.batId].p.filter(p => !p.batted);
-            if(roster.length < 1) { endInn(); return; }
-            state.curPair = [roster[0], roster[1]];
-            roster[0].batted = roster[1].batted = true;
-            pickBowler();
+            if(roster.length === 0) { endInn(); return; }
+            showOverlay("Select Striker", roster, (p1) => {
+                p1.batted = true;
+                let rem = roster.filter(x => x.name !== p1.name);
+                showOverlay("Select Non-Striker", rem, (p2) => {
+                    p2.batted = true;
+                    state.curPair = [p1, p2]; state.strIdx = 0;
+                    pickBowler();
+                });
+            });
         }
 
         function pickBowler() {
-            let bowlers = teams[match.bowlId].p.filter(p => p.overs < 1);
-            if(bowlers.length < 1) { endInn(); return; }
-            state.curBowl = bowlers[0];
-            updateUI();
+            let roster = teams[match.bowlId].p.filter(p => p.overs < 1);
+            showOverlay("Select Bowler", roster, (p) => {
+                state.curBowl = p; updateUI();
+            });
         }
 
-        function hit(val) {
-            history.push(JSON.parse(JSON.stringify({state, match})));
-            let s = state.curPair[state.strIdx];
-            let ns = state.curPair[state.strIdx===0?1:0];
+        function showOverlay(title, list, callback) {
+            document.getElementById('selTitle').innerText = title;
+            const grid = document.getElementById('selGrid'); grid.innerHTML = "";
+            list.forEach(p => {
+                let btn = document.createElement('button'); btn.className = 'sel-btn';
+                btn.innerText = p.name;
+                btn.onclick = () => { document.getElementById('overlaySelect').classList.add('hidden'); callback(p); };
+                grid.appendChild(btn);
+            });
+            document.getElementById('overlaySelect').classList.remove('hidden');
+        }
 
+        // SCORING LOGIC
+        function hit(val) {
+            if(!state.curBowl || state.curPair.length < 2) return;
+            history.push(JSON.parse(JSON.stringify({state, match})));
+            
             if(typeof val === 'number') {
-                state.score += val; state.stats[s.name].r += val; state.stats[s.name].b++;
-                state.balls++;
+                state.score += val; state.balls++;
                 if(val === 0) {
                     state.dots++;
                     if(state.dots >= 3) {
-                        alert("3 Dots! -5 Penalty.");
-                        state.score -= 5; state.stats[s.name].r -= 5;
-                        state.dots = 0;
+                        state.score -= 5; state.dots = 0;
+                        updateUI();
+                        showAlert("3 Consecutive Dots! -5 Penalty applied to Striker.", checkState);
+                        return; // pause game loop for alert
                     }
                 } else {
                     state.dots = 0;
                     if(val % 2 !== 0) state.strIdx = state.strIdx===0?1:0;
                 }
             } else if(val === 'W') {
-                state.score -= 5; state.stats[s.name].r -= 5; state.stats[s.name].b++;
-                state.wkts++; state.balls++; state.dots = 0;
-                state.stats[state.curBowl.name].w++;
+                state.score -= 5; state.wkts++; state.balls++; state.dots = 0;
             } else if(val === 'M') {
                 state.score -= 5; state.wkts++; state.dots = 0;
-                if(ns) state.stats[ns.name].r -= 5;
             } else if(val === 'WD' || val === 'NB') {
                 state.score += 2; state.dots = 0;
-                if(state.balls < 42) { state.balls++; state.stats[s.name].b++; }
+                if(state.balls < 42) state.balls++;
             }
+            checkState();
+        }
 
-            if(state.balls > 0 && state.balls % 6 === 0) {
+        function checkState() {
+            if (match.inn === 2 && state.score > match.firstScore) { endInn(); return; }
+            if (state.balls > 0 && state.balls % 6 === 0) {
                 state.curBowl.overs++;
-                state.strIdx = state.strIdx===0?1:0;
-                if(state.balls >= 48) endInn();
-                else if(state.balls % 12 === 0) pickNextPair();
-                else pickBowler();
-            }
-            updateUI();
-            save();
+                if(state.balls % 12 !== 0) state.strIdx = state.strIdx===0?1:0; // Swap strike end of over if batters stay
+                triggerSelection();
+            } else { updateUI(); }
         }
 
         function updateUI() {
@@ -190,10 +255,12 @@
             document.getElementById('uiBatTeam').innerText = teams[match.batId].name + " Batting";
             document.getElementById('uiBowler').innerText = "Bowler: " + (state.curBowl ? state.curBowl.name : "-");
             
-            document.getElementById('p0').innerText = state.curPair[0] ? state.curPair[0].name + (state.strIdx===0?"*":"") : "-";
+            document.getElementById('p0').innerText = state.curPair[0] ? state.curPair[0].name + (state.strIdx===0?" *":"") : "-";
             document.getElementById('p0').className = state.strIdx===0 ? "active-bat" : "";
-            document.getElementById('p1').innerText = state.curPair[1] ? state.curPair[1].name + (state.strIdx===1?"*":"") : "-";
+            document.getElementById('p1').innerText = state.curPair[1] ? state.curPair[1].name + (state.strIdx===1?" *":"") : "-";
             document.getElementById('p1').className = state.strIdx===1 ? "active-bat" : "";
+
+            if(match.inn === 2) document.getElementById('uiTarget').innerText = `Target: ${match.firstScore + 1} | Need: ${(match.firstScore + 1) - state.score}`;
 
             let dotsHtml = "";
             for(let i=0; i<3; i++) dotsHtml += `<div class="dot-circle ${i<state.dots?'dot-active':''}"></div>`;
@@ -203,25 +270,23 @@
         function endInn() {
             if(match.inn === 1) {
                 match.firstScore = state.score;
-                alert(`Innings Over! ${teams.t1.name} scored ${state.score}.`);
-                match.inn = 2; match.batId = 't2'; match.bowlId = 't1';
-                startInn();
-            } else {
-                let res = state.score > match.firstScore ? teams.t2.name : teams.t1.name;
-                alert(res + " WINS!");
-                league[teams.t1.name].p++; league[teams.t2.name].p++;
-                if(state.score > match.firstScore) { league[teams.t2.name].w++; league[teams.t2.name].pts+=2; league[teams.t1.name].l++; }
-                else { league[teams.t1.name].w++; league[teams.t1.name].pts+=2; league[teams.t2.name].l++; }
-                
-                Object.keys(state.stats).forEach(n => {
-                    tStats[n].r += state.stats[n].r;
-                    tStats[n].w += state.stats[n].w;
+                showAlert(`Innings Over!\nTarget for ${teams.t2.name} is ${state.score + 1}.`, () => {
+                    match.inn = 2; match.batId = 't2'; match.bowlId = 't1';
+                    startInn();
                 });
-                
-                localStorage.setItem('c8_league', JSON.stringify(league));
-                localStorage.setItem('c8_tStats', JSON.stringify(tStats));
-                showLeague();
+            } else {
+                let txt = state.score > match.firstScore ? `${teams.t2.name} WINS!` : `${teams.t1.name} WINS!`;
+                if(state.score === match.firstScore) txt = "MATCH TIED!";
+                showAlert(txt, () => { finishMatch(); });
             }
+        }
+
+        function finishMatch() {
+            league[teams.t1.name].p++; league[teams.t2.name].p++;
+            if(state.score > match.firstScore) { league[teams.t2.name].w++; league[teams.t2.name].pts+=2; league[teams.t1.name].l++; }
+            else if(state.score < match.firstScore) { league[teams.t1.name].w++; league[teams.t1.name].pts+=2; league[teams.t2.name].l++; }
+            localStorage.setItem('cric8_league_v2', JSON.stringify(league));
+            showLeague();
         }
 
         function showLeague() {
@@ -230,31 +295,14 @@
                 let t = league[n];
                 body.innerHTML += `<tr><td>${n}</td><td>${t.p}</td><td>${t.w}</td><td>${t.l}</td><td>${t.pts}</td></tr>`;
             });
-
-            let pot = {n:"-", v:-999}, orange = {n:"-", v:-999}, purple = {n:"-", v:-999};
-            Object.keys(tStats).forEach(n => {
-                let p = tStats[n]; let pts = p.r + (p.w*10);
-                if(pts > pot.v) pot = {n, v:pts};
-                if(p.r > orange.v) orange = {n, v:p.r};
-                if(p.w > purple.v) purple = {n, v:p.w};
-            });
-
-            document.getElementById('awardsContainer').innerHTML = `
-                <div class="award-item">🏆 POT: ${pot.n} (${pot.v} pts)</div>
-                <div class="award-item" style="border-color:#f97316">🏏 Orange: ${orange.n} (${orange.v} runs)</div>
-                <div class="award-item" style="border-color:#a855f7">🧶 Purple: ${purple.n} (${purple.v} wkts)</div>
-            `;
             document.getElementById('overlayLeague').classList.remove('hidden');
         }
 
-        function save() { localStorage.setItem('c8_match_save', JSON.stringify({teams, match, state, history})); }
-        function checkSave() { 
-            let d = JSON.parse(localStorage.getItem('c8_match_save'));
-            if(d) { teams=d.teams; match=d.match; state=d.state; history=d.history; document.getElementById('screenSetup').classList.add('hidden'); document.getElementById('screenGame').classList.remove('hidden'); updateUI(); }
-        }
-        function undo() { if(history.length > 0) { let p = history.pop(); state=p.state; match=p.match; updateUI(); save(); } }
-        function fullReset() { if(confirm("Clear Season?")) { localStorage.clear(); location.reload(); } }
-        function setStr(i) { state.strIdx = i; updateUI(); save(); }
+        function undo() { if(history.length > 0) { let p = history.pop(); state=p.state; match=p.match; updateUI(); } }
+        function setStr(i) { state.strIdx = i; updateUI(); }
+        
+        // Auto-load if league exists
+        window.onload = () => { if(Object.keys(league).length > 0) document.getElementById('leagueTitle').innerText = "RESUME TOURNAMENT"; }
     </script>
 </body>
 </html>
