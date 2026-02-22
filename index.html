@@ -3,30 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Unified UI</title>
+    <title>Cric-8 Pro Final</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: white; margin: 0; padding: 10px; text-align: center; }
         .hidden { display: none !important; }
         .screen { max-width: 450px; margin: auto; padding-bottom: 20px; }
-        .header-info { display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; padding: 10px; font-size: 0.9rem; }
-        .player-row { display: flex; justify-content: space-around; background: #1e293b; padding: 15px; margin: 10px 0; border-radius: 12px; border: 1px solid #334155; }
-        .score-box { background: #1e293b; padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid #334155; }
-        .big-score { font-size: 5rem; font-weight: 900; color: #38bdf8; margin: 0; line-height: 1; }
-        .over-tracker { display: flex; justify-content: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
+        .header-info { display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; padding: 10px; font-size: 0.85rem; }
+        .player-row { display: flex; justify-content: space-around; background: #1e293b; padding: 12px; margin: 8px 0; border-radius: 12px; border: 1px solid #334155; }
+        .active-bat { color: #fbbf24; border-bottom: 2px solid #fbbf24; }
+        .score-box { background: #1e293b; padding: 15px; border-radius: 20px; margin-bottom: 12px; border: 1px solid #334155; }
+        .big-score { font-size: 4.5rem; font-weight: 900; color: #38bdf8; margin: 0; line-height: 1; }
+        .over-tracker { display: flex; justify-content: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; height: 36px; }
         .ball { width: 34px; height: 34px; border-radius: 50%; background: #ffffff; color: #0f172a; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.65rem; }
+        .ball-dot { background: #ef4444 !important; color: white !important; }
         .ball-w { background: #ef4444 !important; color: white !important; }
         .ball-extra { background: #fbbf24 !important; color: black !important; width: auto; padding: 0 6px; border-radius: 12px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        button { padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; font-size: 0.9rem; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        button { padding: 14px 5px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; font-size: 0.85rem; }
         .btn-gray { background: #334155; } 
         .btn-orange { background: #d97706; } 
         .btn-red { background: #ef4444; } 
         .btn-teal { background: #115e59; }
         .btn-green { background: #10b981; width: 100%; }
-        /* Modal Styles */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 2000; }
-        .modal-content { background: #1e293b; padding: 20px; border-radius: 15px; width: 80%; border: 1px solid #334155; }
-        .tap-msg { color: #fbbf24; font-size: 0.8rem; margin-top: 10px; font-weight: bold; animation: blink 1s infinite; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-content { background: #1e293b; padding: 20px; border-radius: 15px; width: 85%; border: 1px solid #334155; }
+        .tap-msg { color: #fbbf24; font-size: 0.8rem; margin-top: 8px; font-weight: bold; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
@@ -40,8 +41,11 @@
     </div>
 
     <div id="screenGame" class="screen hidden">
-        <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">Bowler: T2-P1</span></div>
-        <div class="player-row"><div id="p0" onclick="setStr(0)">-</div><div id="p1" onclick="setStr(1)">-</div></div>
+        <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">Bowler: P1</span></div>
+        <div class="player-row">
+            <div id="p0" onclick="setStr(0)">-</div>
+            <div id="p1" onclick="setStr(1)">-</div>
+        </div>
         
         <div class="score-box" id="mainScoreBox" onclick="handlePauseClick()">
             <h1 id="uiScore" class="big-score">0</h1>
@@ -59,17 +63,18 @@
             <button class="btn-gray" onclick="hit(6)">6</button>
             <button class="btn-orange" onclick="hitExtra('WD')">WD+?</button>
             <button class="btn-orange" onclick="hitExtra('NB')">NB+?</button>
+            <button class="btn-teal" onclick="hitNBDeclare()">NB+1R DECL</button>
             <button class="btn-teal" onclick="hitDeclare()">1R DECLARE</button>
-            <button class="btn-red" style="grid-column: span 2;" onclick="showOutModal()">OUT / MANKAD (-5)</button>
+            <button class="btn-red" style="grid-column: span 2;" onclick="showOutModal()">WICKET / RUNOUT / MANKAD (-5)</button>
             <button class="btn-gray" onclick="undo()">UNDO</button>
         </div>
     </div>
 
     <div id="outModal" class="modal hidden">
         <div class="modal-content">
-            <h3 style="margin-top:0">Select Dismissal Type</h3>
-            <button class="btn-red" style="width:100%; margin: 5px 0;" onclick="handleOut('W')">WICKET / RUN-OUT (-5)</button>
-            <button class="btn-orange" style="width:100%; margin: 5px 0; background:#7f1d1d" onclick="handleOut('M')">MANKAD (-5)</button>
+            <h3>Dismissal Type</h3>
+            <button class="btn-red" style="width:100%; margin: 8px 0;" onclick="handleOut('W')">WICKET / RUN-OUT (-5)</button>
+            <button class="btn-orange" style="width:100%; margin: 8px 0; background:#7f1d1d" onclick="handleOut('M')">MANKAD (-5)</button>
             <button class="btn-gray" style="width:100%; margin-top: 15px;" onclick="hideOutModal()">CANCEL</button>
         </div>
     </div>
@@ -77,14 +82,14 @@
     <script>
         let teams = {t1:{name:"",p:[]}, t2:{name:"",p:[]}};
         let match = {inn:1, batId:'t1', bowlId:'t2'};
-        let state = {score:0, balls:0, wkts:0, strIdx:0, curPairIdx:[0,1], overBalls:[], isPaused: false};
+        let state = {score:0, balls:0, wkts:0, strIdx:0, curPairIdx:[0,1], overBalls:[], isPaused: false, dotCount:0};
         let history = [];
 
         function init() {
             teams.t1.name = document.getElementById('t1Name').value || "Team 1";
             teams.t2.name = document.getElementById('t2Name').value || "Team 2";
             [teams.t1, teams.t2].forEach(t => {
-                for(let i=0; i<10; i++) t.p.push({name: `P${i+1}`, runs:0, wkts:0, id:i});
+                for(let i=0; i<10; i++) t.p.push({name: `P${i+1}`, runs:0, id:i});
             });
             document.getElementById('screenSetup').classList.add('hidden');
             document.getElementById('screenGame').classList.remove('hidden');
@@ -99,6 +104,18 @@
             state.score += val;
             teams[match.batId].p[state.curPairIdx[state.strIdx]].runs += val;
             state.balls++; state.overBalls.push(val);
+            
+            // 3-Dot Ball Logic
+            if(val === 0) {
+                state.dotCount++;
+                if(state.dotCount === 3) {
+                    state.score -= 5;
+                    state.wkts++;
+                    state.overBalls[state.overBalls.length-1] = "3D(-5)";
+                    state.dotCount = 0;
+                }
+            } else { state.dotCount = 0; }
+
             if(val % 2 !== 0) state.strIdx = state.strIdx === 0 ? 1 : 0;
             checkOver();
         }
@@ -108,7 +125,17 @@
             state.score += 1;
             teams[match.batId].p[state.curPairIdx[state.strIdx]].runs += 1;
             state.balls++; state.overBalls.push('1R');
+            state.dotCount = 0;
             checkOver();
+        }
+
+        function hitNBDeclare() {
+            if(state.isPaused) return; saveHistory();
+            state.score += 3; // 2 for NB + 1 for Declare
+            teams[match.batId].p[state.curPairIdx[state.strIdx]].runs += 1;
+            state.overBalls.push('NB+1R');
+            state.dotCount = 0;
+            updateUI();
         }
 
         function showOutModal() { document.getElementById('outModal').classList.remove('hidden'); }
@@ -118,12 +145,9 @@
             saveHistory();
             state.score -= 5;
             state.wkts++;
-            if(type === 'W') {
-                state.balls++;
-                state.overBalls.push('W');
-            } else {
-                state.overBalls.push('M');
-            }
+            state.dotCount = 0;
+            if(type === 'W') { state.balls++; state.overBalls.push('W'); } 
+            else { state.overBalls.push('M'); }
             hideOutModal();
             checkOver();
         }
@@ -133,6 +157,7 @@
             saveHistory();
             state.score += (2 + r);
             state.overBalls.push(`${type}+${r}`);
+            state.dotCount = 0;
             if(r % 2 !== 0) state.strIdx = state.strIdx === 0 ? 1 : 0;
             updateUI();
         }
@@ -158,13 +183,19 @@
             document.getElementById('uiOvers').innerText = Math.floor(state.balls/6) + "." + (state.balls%6);
             document.getElementById('uiWkts').innerText = state.wkts;
             document.getElementById('uiBatTeam').innerText = teams[match.batId].name;
-            document.getElementById('p0').innerText = teams[match.batId].p[state.curPairIdx[0]].name + (state.strIdx===0?"*":"");
-            document.getElementById('p1').innerText = teams[match.batId].p[state.curPairIdx[1]].name + (state.strIdx===1?"*":"");
+            
+            let b1 = document.getElementById('p0');
+            let b2 = document.getElementById('p1');
+            b1.innerText = teams[match.batId].p[state.curPairIdx[0]].name + (state.strIdx===0?"*":"");
+            b2.innerText = teams[match.batId].p[state.curPairIdx[1]].name + (state.strIdx===1?"*":"");
+            b1.className = state.strIdx === 0 ? "active-bat" : "";
+            b2.className = state.strIdx === 1 ? "active-bat" : "";
             
             const tr = document.getElementById('uiTracker'); tr.innerHTML = "";
             state.overBalls.forEach(v => {
                 let d = document.createElement('div'); d.className='ball'; d.innerText=v;
-                if(v==='W' || v==='M') d.classList.add('ball-w');
+                if(v === 0) d.classList.add('ball-dot');
+                else if(v === 'W' || v === 'M' || v === '3D(-5)') d.classList.add('ball-w');
                 else if(typeof v === 'string') d.classList.add('ball-extra');
                 tr.appendChild(d);
             });
