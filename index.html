@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Final Pro</title>
+    <title>Cric-8 Pro Master</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0f172a; color: white; margin: 0; padding: 10px; text-align: center; }
         .hidden { display: none !important; }
@@ -13,6 +13,7 @@
         .active-bat { color: #fbbf24; border-bottom: 3px solid #fbbf24; font-weight: bold; }
         .score-box { background: #1e293b; padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 2px solid #fbbf24; cursor: pointer; }
         .big-score { font-size: 5rem; font-weight: 900; color: #38bdf8; margin: 0; line-height: 1; }
+        .target-box { color: #fbbf24; font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         button { padding: 16px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: white; font-size: 0.85rem; }
         .btn-gray { background: #334155; } .btn-orange { background: #d97706; } .btn-red { background: #ef4444; } .btn-teal { background: #115e59; } .btn-green { background: #10b981; }
@@ -28,210 +29,10 @@
 <body>
 
     <div id="screenSetup" class="screen">
-        <h2 style="color:#38bdf8; margin-top:40px;">Cric-8 Custom Scoring App</h2>
-        <input id="t1Name" placeholder="Batting Team Name" style="width:85%; padding:15px; margin:10px; border-radius:10px; background:#1e293b; color:white; border:1px solid #334155;">
-        <button onclick="initMatch()" class="btn-green" style="width:85%; margin-top:20px; padding:20px;">START TOURNAMENT MATCH</button>
+        <h2 style="color:#38bdf8; margin-top:40px;">Cric-8 Tournament</h2>
+        <input id="t1Name" placeholder="Team 1 Name" style="width:85%; padding:15px; margin:10px; border-radius:10px; background:#1e293b; color:white; border:1px solid #334155;">
+        <input id="t2Name" placeholder="Team 2 Name" style="width:85%; padding:15px; margin:10px; border-radius:10px; background:#1e293b; color:white; border:1px solid #334155;">
+        <button onclick="initMatch()" class="btn-green" style="width:85%; margin-top:20px; padding:20px;">START MATCH</button>
     </div>
 
-    <div id="screenGame" class="screen hidden">
-        <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">Bowler: -</span></div>
-        <div class="player-row"><div id="p0" onclick="setStr(0)">-</div><div id="p1" onclick="setStr(1)">-</div></div>
-        
-        <div class="score-box" onclick="handleTransition()">
-            <h1 id="uiScore" class="big-score">0</h1>
-            <div style="color:#94a3b8; font-weight:bold;">Overs: <span id="uiOvers">0.0</span> / 8.0 | Wkts: <span id="uiWkts">0</span></div>
-            <div class="over-tracker" id="uiTracker"></div>
-            <div id="uiPauseMsg" class="tap-msg">TAP TO START</div>
-        </div>
-
-        <div class="grid">
-            <button class="btn-gray" onclick="addRuns(0)">0</button><button class="btn-gray" onclick="addRuns(1)">1</button><button class="btn-gray" onclick="addRuns(2)">2</button>
-            <button class="btn-gray" onclick="addRuns(3)">3</button><button class="btn-gray" onclick="addRuns(4)">4</button><button class="btn-gray" onclick="addRuns(6)">6</button>
-            <button class="btn-orange" onclick="handleExtra('WD')">WD+?</button><button class="btn-orange" onclick="handleExtra('NB')">NB+?</button><button class="btn-teal" onclick="handleNBDeclare()">NB+1R</button>
-            <button class="btn-teal" onclick="handleDeclare()">1R DECL</button><button class="btn-red" style="grid-column: span 2;" onclick="handleWicket()">WICKET/RUNOUT/MANKAD (-5)</button>
-            <button class="btn-gray" style="grid-column: span 3;" onclick="undo()">UNDO LAST ACTION</button>
-        </div>
-    </div>
-
-    <div id="selectionModal" class="modal hidden">
-        <div class="modal-content" id="modalContent"></div>
-    </div>
-
-    <script>
-        let match = {
-            batName: "", score: 0, balls: 0, wkts: 0, dots: 0, overBalls: [], 
-            curStrIdx: 0, strikerIdx: null, nonStrikerIdx: null, curBowler: null,
-            players: [], usedBatsmen: [], usedBowlers: [],
-            isPaused: true, needsNewPair: true, needsNewBowler: true, isFinished: false
-        };
-        let history = [];
-
-        function initMatch() {
-            match.batName = document.getElementById('t1Name').value || "Team 1";
-            for(let i=1; i<=10; i++) match.players.push({ name: `P${i}`, runs: 0, id: i-1 });
-            document.getElementById('screenSetup').classList.add('hidden');
-            document.getElementById('screenGame').classList.remove('hidden');
-            updateUI();
-        }
-
-        function saveState() { history.push(JSON.stringify(match)); }
-        function undo() { if(history.length > 0) { match = JSON.parse(history.pop()); updateUI(); } }
-
-        function handleTransition() {
-            if (match.isFinished) return;
-            if (!match.isPaused) return;
-            if (match.needsNewPair) showPairSelection();
-            else if (match.needsNewBowler) showBowlerSelection();
-        }
-
-        function showPairSelection() {
-            const mc = document.getElementById('modalContent');
-            mc.innerHTML = `<h3>Select Pair for Overs ${Math.floor(match.balls/6)+1}-${Math.floor(match.balls/6)+2}</h3><div class="selection-grid" id="pairGrid"></div>`;
-            const grid = document.getElementById('pairGrid');
-            let selected = [];
-            match.players.forEach(p => {
-                if(match.usedBatsmen.includes(p.id)) return;
-                let b = document.createElement('button');
-                b.className = "btn-gray"; b.innerText = p.name;
-                b.onclick = () => {
-                    if (selected.includes(p.id)) return;
-                    selected.push(p.id); b.className = "btn-green";
-                    if (selected.length === 2) {
-                        saveState();
-                        match.strikerIdx = selected[0]; match.nonStrikerIdx = selected[1];
-                        match.usedBatsmen.push(selected[0], selected[1]);
-                        match.needsNewPair = false;
-                        showBowlerSelection();
-                    }
-                };
-                grid.appendChild(b);
-            });
-            document.getElementById('selectionModal').classList.remove('hidden');
-        }
-
-        function showBowlerSelection() {
-            const mc = document.getElementById('modalContent');
-            mc.innerHTML = `<h3>Select Bowler for Over ${Math.floor(match.balls/6)+1}</h3><div class="selection-grid" id="bowlGrid"></div>`;
-            const grid = document.getElementById('bowlGrid');
-            for(let i=1; i<=10; i++) {
-                let bName = "P" + i;
-                if(match.usedBowlers.includes(bName)) continue;
-                let b = document.createElement('button');
-                b.className = "btn-gray"; b.innerText = bName;
-                b.onclick = () => {
-                    saveState();
-                    match.curBowler = bName; match.usedBowlers.push(bName);
-                    match.needsNewBowler = false; match.isPaused = false;
-                    match.overBalls = [];
-                    document.getElementById('selectionModal').classList.add('hidden');
-                    updateUI();
-                };
-                grid.appendChild(b);
-            }
-            document.getElementById('selectionModal').classList.remove('hidden');
-        }
-
-        function addRuns(val) {
-            if(match.isPaused || match.isFinished) return; saveState();
-            match.score += val; getStriker().runs += val;
-            match.balls++; match.overBalls.push(val);
-            if(val === 0) {
-                match.dots++;
-                if(match.dots === 3) {
-                    match.score -= 5; match.wkts++; getStriker().runs -= 5;
-                    match.overBalls[match.overBalls.length-1] = "3D(-5)";
-                    match.dots = 0;
-                }
-            } else match.dots = 0;
-            if(val % 2 !== 0) match.curStrIdx = match.curStrIdx === 0 ? 1 : 0;
-            checkOverStatus();
-        }
-
-        function handleDeclare() {
-            if(match.isPaused || match.isFinished) return; saveState();
-            match.score += 1; getStriker().runs += 1;
-            match.balls++; match.overBalls.push('1R');
-            match.dots = 0; checkOverStatus();
-        }
-
-        function handleNBDeclare() {
-            if(match.isPaused || match.isFinished) return; saveState();
-            match.score += 3; getStriker().runs += 1;
-            match.overBalls.push('NB+1R'); match.dots = 0;
-            if(match.balls < 42) match.balls++; // Legal only 1-7
-            checkOverStatus();
-        }
-
-        function handleExtra(type) {
-            if(match.isPaused || match.isFinished) return;
-            let r = parseInt(prompt(`${type} + Runs?`, "0")) || 0;
-            saveState();
-            match.score += (2 + r); match.overBalls.push(`${type}+${r}`); match.dots = 0;
-            if(r % 2 !== 0) match.curStrIdx = match.curStrIdx === 0 ? 1 : 0;
-            if(match.balls < 42) match.balls++; // Legal only 1-7
-            checkOverStatus();
-        }
-
-        function handleWicket() {
-            if(match.isPaused || match.isFinished) return; saveState();
-            match.score -= 5; match.wkts++; match.dots = 0;
-            getStriker().runs -= 5; match.balls++; match.overBalls.push('W');
-            checkOverStatus();
-        }
-
-        function checkOverStatus() {
-            if(match.balls >= 48) {
-                match.isFinished = true;
-                match.isPaused = false;
-                showScorecard();
-            } else if(match.balls > 0 && match.balls % 6 === 0) {
-                match.isPaused = true;
-                match.needsNewBowler = true;
-                if(match.balls % 12 === 0) match.needsNewPair = true;
-                else match.curStrIdx = (match.curStrIdx === 0 ? 1 : 0);
-            }
-            updateUI();
-        }
-
-        function getStriker() { return match.players[match.curStrIdx === 0 ? match.strikerIdx : match.nonStrikerIdx]; }
-
-        function updateUI() {
-            document.getElementById('uiScore').innerText = match.score;
-            document.getElementById('uiOvers').innerText = Math.floor(match.balls/6) + "." + (match.balls%6);
-            document.getElementById('uiWkts').innerText = match.wkts;
-            document.getElementById('uiBatTeam').innerText = match.batName;
-            document.getElementById('uiBowler').innerText = "Bowler: " + (match.curBowler || "-");
-            if(match.strikerIdx !== null) {
-                document.getElementById('p0').innerText = match.players[match.strikerIdx].name + (match.curStrIdx===0?"*":"") + " (" + match.players[match.strikerIdx].runs + ")";
-                document.getElementById('p1').innerText = match.players[match.nonStrikerIdx].name + (match.curStrIdx===1?"*":"") + " (" + match.players[match.nonStrikerIdx].runs + ")";
-                document.getElementById('p0').className = match.curStrIdx === 0 ? "active-bat" : "";
-                document.getElementById('p1').className = match.curStrIdx === 1 ? "active-bat" : "";
-            }
-            const tr = document.getElementById('uiTracker'); tr.innerHTML = "";
-            match.overBalls.forEach(v => {
-                let d = document.createElement('div'); d.className='ball'; d.innerText=v;
-                if(v === 0 || v === 'W' || v === '3D(-5)') { d.style.background = "#ef4444"; d.style.color = "white"; }
-                else if(isNaN(v)) { d.style.background = "#fbbf24"; d.style.color = "black"; d.style.width = "auto"; d.style.padding = "0 8px"; d.style.borderRadius = "12px"; }
-                tr.appendChild(d);
-            });
-            const msg = document.getElementById('uiPauseMsg');
-            msg.className = (match.isPaused && !match.isFinished) ? "tap-msg" : "tap-msg hidden";
-            if(match.balls === 0) msg.innerText = "TAP TO START MATCH";
-            else if(match.needsNewPair) msg.innerText = "OVER COMPLETE! TAP FOR NEW PAIR";
-            else if(match.needsNewBowler) msg.innerText = "OVER COMPLETE! TAP FOR NEXT BOWLER";
-        }
-
-        function showScorecard() {
-            const mc = document.getElementById('modalContent');
-            mc.innerHTML = `<h2>MATCH COMPLETE</h2><div style="font-size:2rem; color:#fbbf24; margin:10px 0;">${match.batName}: ${match.score}</div>
-            <table style="width:100%; margin-top:15px; border-collapse:collapse; text-align:left;">
-            <tr style="color:#94a3b8; border-bottom:1px solid #334155"><th>Player</th><th>Runs</th></tr>
-            ${match.players.filter(p => match.usedBatsmen.includes(p.id)).map(p => `<tr style="border-bottom:1px solid #334155"><td style="padding:10px">${p.name}</td><td>${p.runs}</td></tr>`).join('')}
-            </table><button onclick="location.reload()" class="btn-green" style="margin-top:20px; width:100%; padding:15px;">NEW MATCH</button>`;
-            document.getElementById('selectionModal').classList.remove('hidden');
-        }
-
-        function setStr(i) { if(!match.isPaused && !match.isFinished) { match.curStrIdx = i; updateUI(); } }
-    </script>
-</body>
-</html>
+    <div id="screen
