@@ -98,4 +98,186 @@
             for(let i=1; i<=10; i++) match.players.push({ name: `P${i}`, runs: 0, balls: 0, outs: 0, id: i-1 });
             match.bowlers = {}; match.usedBatsmen = []; match.usedBowlers = [];
             match.balls = 0; match.score = 0; match.wkts = 0; match.dots = 0; match.overBalls = [];
-            match.needsNewPair = true;
+            match.needsNewPair = true; match.needsNewBowler = true; match.isPaused = true;
+        }
+
+        function handleTransition() {
+            if (!match.isPaused) return;
+            if (match.needsNewPair) showStrikerSelection();
+            else if (match.needsNewBowler) showBowlerSelection();
+        }
+
+        function showStrikerSelection() {
+            const mc = document.getElementById('modalContent');
+            mc.innerHTML = `<h3>Select Striker</h3><div class="selection-grid" id="selGrid"></div>`;
+            match.players.forEach(p => {
+                if(match.usedBatsmen.includes(p.id)) return;
+                let b = document.createElement('button'); b.className = "btn-gray"; b.innerText = p.name;
+                b.onclick = () => { match.strikerIdx = p.id; showNonStrikerSelection(); };
+                document.getElementById('selGrid').appendChild(b);
+            });
+            document.getElementById('selectionModal').classList.remove('hidden');
+        }
+
+        function showNonStrikerSelection() {
+            const mc = document.getElementById('modalContent');
+            mc.innerHTML = `<h3>Select Non-Striker</h3><div class="selection-grid" id="selGrid"></div>`;
+            match.players.forEach(p => {
+                if(match.usedBatsmen.includes(p.id) || p.id === match.strikerIdx) return;
+                let b = document.createElement('button'); b.className = "btn-gray"; b.innerText = p.name;
+                b.onclick = () => {
+                    saveState(); match.nonStrikerIdx = p.id;
+                    match.usedBatsmen.push(match.strikerIdx, match.nonStrikerIdx);
+                    match.needsNewPair = false; showBowlerSelection();
+                };
+                document.getElementById('selGrid').appendChild(b);
+            });
+        }
+
+        function showBowlerSelection() {
+            const mc = document.getElementById('modalContent');
+            mc.innerHTML = `<h3>Select Bowler</h3><div class="selection-grid" id="bowlGrid"></div>`;
+            for(let i=1; i<=10; i++) {
+                let bName = "P" + i;
+                if(match.usedBowlers.includes(bName)) continue;
+                let b = document.createElement('button'); b.className = "btn-gray"; b.innerText = bName;
+                b.onclick = () => {
+                    saveState(); match.curBowler = bName; match.usedBowlers.push(bName);
+                    if(!match.bowlers[bName]) match.bowlers[bName] = { runs: 0, wkts: 0, balls: 0, extras: 0 };
+                    match.needsNewBowler = false; match.isPaused = false; match.overBalls = [];
+                    document.getElementById('selectionModal').classList.add('hidden'); updateUI();
+                };
+                document.getElementById('bowlGrid').appendChild(b);
+            }
+            document.getElementById('selectionModal').classList.remove('hidden');
+        }
+
+        function addRuns(val) {
+            if(match.isPaused) return; saveState();
+            let s = getStriker(); let b = getBowler();
+            match.score += val; s.runs += val; s.balls++; b.runs += val; b.balls++;
+            match.balls++; match.overBalls.push(val);
+            if(val === 0) {
+                match.dots++;
+                if(match.dots === 3) { applyOut(true); match.dots = 0; }
+            } else match.dots = 0;
+            if(val % 2 !== 0) match.curStrIdx = match.curStrIdx === 0 ? 1 : 0;
+            checkMatchEnd();
+        }
+
+        function handleWicket() {
+            if(match.isPaused) return; saveState();
+            applyOut(false); match.dots = 0;
+            checkMatchEnd();
+        }
+
+        function handleExtra(type) {
+            if(match.isPaused) return;
+            let r = parseInt(prompt(`${type} + Runs?`, "0")) || 0;
+            saveState();
+            match.score += (2 + r); getBowler().runs += (2 + r); getBowler().extras++;
+            match.overBalls.push(`${type}+${r}`);
+            if(r % 2 !== 0) match.curStrIdx = match.curStrIdx === 0 ? 1 : 0;
+            if(match.balls < 42) { match.balls++; getStriker().balls++; getBowler().balls++; }
+            checkMatchEnd();
+        }
+
+        function handleDeclare() {
+            if(match.isPaused) return; saveState();
+            match.score += 1; getStriker().runs += 1; getStriker().balls++;
+            getBowler().runs += 1; getBowler().balls++;
+            match.balls++; match.overBalls.push('1R'); match.dots = 0;
+            checkMatchEnd();
+        }
+
+        function handleNBDeclare() {
+            if(match.isPaused) return; saveState();
+            match.score += 3; getStriker().runs += 1; getStriker().balls++;
+            getBowler().runs += 3; getBowler().extras++; match.overBalls.push('NB+1R');
+            if(match.balls < 42) { match.balls++; getBowler().balls++; }
+            checkMatchEnd();
+        }
+
+        function applyOut(isThreeDots) {
+            match.score -= 5; match.wkts++;
+            let s = getStriker(); let b = getBowler();
+            s.runs -= 5; s.outs++; b.wkts++;
+            if(!isThreeDots) { s.balls++; b.balls++; match.balls++; match.overBalls.push('W'); }
+            else { match.overBalls[match.overBalls.length-1] = "3D(-5)"; }
+        }
+
+        function checkMatchEnd() {
+            if(match.balls >= 48) { match.isPaused = true; showSummary(); }
+            else if(match.balls > 0 && match.balls % 6 === 0) {
+                match.isPaused = true; match.needsNewBowler = true;
+                if(match.balls % 12 === 0) match.needsNewPair = true;
+                else match.curStrIdx = (match.curStrIdx === 0 ? 1 : 0);
+            }
+            updateUI();
+        }
+
+        function showSummary() {
+            const mc = document.getElementById('modalContent');
+            const team = match.innings === 1 ? match.t1Name : match.t2Name;
+            let sBat = [...match.players].filter(p => p.balls > 0).sort((a,b) => b.runs - a.runs || a.outs - b.outs);
+            let sBowl = []; for(let n in match.bowlers) { sBowl.push({name: n, ...match.bowlers[n]}); }
+            sBowl.sort((a,b) => b.wkts - a.wkts || a.extras - b.extras);
+
+            let html = `<h2>${team} Summary</h2><table><tr><th>Batter</th><th>R</th><th>B</th><th>Out</th><th>SR</th></tr>`;
+            sBat.forEach(p => html += `<tr><td>${p.name}</td><td>${p.runs}</td><td>${p.balls}</td><td>${p.outs}</td><td>${((p.runs/p.balls)*100 || 0).toFixed(0)}</td></tr>`);
+            html += `</table><table><tr><th>Bowler</th><th>W</th><th>R</th><th>Ex</th><th>Eco</th></tr>`;
+            sBowl.forEach(b => html += `<tr><td>${b.name}</td><td>${b.wkts}</td><td>${b.runs}</td><td>${b.extras}</td><td>${(b.runs/(b.balls/6 || 1)).toFixed(1)}</td></tr>`);
+            html += `</table>`;
+
+            if(match.innings === 1) {
+                match.target = match.score + 1;
+                html += `<h3>Target: ${match.target}</h3><button onclick="startInnings2()" class="btn-green" style="width:100%; padding:15px;">START 2ND INNINGS</button>`;
+            } else {
+                let win = match.score >= match.target ? match.t2Name : match.t1Name;
+                html += `<h2 style="color:#fbbf24">${win} WON!</h2><button onclick="location.reload()" class="btn-green" style="width:100%; padding:15px;">NEW MATCH</button>`;
+            }
+            mc.innerHTML = html; document.getElementById('selectionModal').classList.remove('hidden');
+        }
+
+        function startInnings2() { match.innings = 2; resetInnings(); document.getElementById('selectionModal').classList.add('hidden'); updateUI(); }
+        function getStriker() { return match.players[match.curStrIdx === 0 ? match.strikerIdx : match.nonStrikerIdx]; }
+        function getBowler() { return match.bowlers[match.curBowler]; }
+
+        function updateUI() {
+            document.getElementById('uiBatTeam').innerText = match.innings === 1 ? match.t1Name : match.t2Name;
+            document.getElementById('uiScore').innerText = match.score;
+            document.getElementById('uiOvers').innerText = Math.floor(match.balls/6) + "." + (match.balls%6);
+            document.getElementById('uiWkts').innerText = match.wkts;
+            document.getElementById('uiBowler').innerText = "Bowler: " + (match.curBowler || "-");
+            
+            // Disable all buttons when paused (waiting for player selection)
+            const btns = document.querySelectorAll('#controlPanel button');
+            btns.forEach(b => b.disabled = match.isPaused);
+
+            if(match.innings === 2) {
+                document.getElementById('uiTargetLabel').classList.remove('hidden'); document.getElementById('valTarget').innerText = match.target;
+                document.getElementById('uiRunsNeeded').classList.remove('hidden'); document.getElementById('valNeed').innerText = match.target - match.score;
+                document.getElementById('valBallsLeft').innerText = 48 - match.balls;
+            }
+            if(match.strikerIdx !== null) {
+                document.getElementById('p0').innerText = match.players[match.strikerIdx].name + (match.curStrIdx===0?"*":"") + " (" + match.players[match.strikerIdx].runs + ")";
+                document.getElementById('p1').innerText = match.players[match.nonStrikerIdx].name + (match.curStrIdx===1?"*":"") + " (" + match.players[match.nonStrikerIdx].runs + ")";
+                document.getElementById('p0').className = match.curStrIdx === 0 ? "active-bat" : "";
+                document.getElementById('p1').className = match.curStrIdx === 1 ? "active-bat" : "";
+            }
+            const tr = document.getElementById('uiTracker'); tr.innerHTML = "";
+            match.overBalls.forEach(v => {
+                let d = document.createElement('div'); d.className='ball'; d.innerText=v;
+                if(v === 0 || v === 'W' || v === '3D(-5)') { d.style.background = "#ef4444"; d.style.color = "#fff"; }
+                else if(isNaN(v)) { d.style.background = "#fbbf24"; d.style.width = "auto"; d.style.padding = "0 8px"; d.style.borderRadius = "10px"; }
+                tr.appendChild(d);
+            });
+            document.getElementById('uiPauseMsg').className = match.isPaused ? "tap-msg" : "tap-msg hidden";
+        }
+
+        function saveState() { history.push(JSON.stringify(match)); }
+        function undo() { if(history.length > 0) { match = JSON.parse(history.pop()); updateUI(); } }
+        function setStr(i) { if(!match.isPaused) { match.curStrIdx = i; updateUI(); } }
+    </script>
+</body>
+</html>
