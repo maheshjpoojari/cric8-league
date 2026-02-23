@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Pro Master</title>
+    <title>Cric-8 Final Master</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0f172a; color: white; margin: 0; padding: 10px; text-align: center; }
         .hidden { display: none !important; }
@@ -13,11 +13,11 @@
         .active-bat { color: #fbbf24; border-bottom: 3px solid #fbbf24; font-weight: bold; }
         .score-box { background: #1e293b; padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 2px solid #fbbf24; cursor: pointer; }
         .big-score { font-size: 5rem; font-weight: 900; color: #38bdf8; margin: 0; line-height: 1; }
-        .target-box { color: #fbbf24; font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; }
+        .target-box { color: #fbbf24; font-size: 1.1rem; font-weight: bold; margin-bottom: 5px; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         button { padding: 16px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: white; font-size: 0.85rem; }
         .btn-gray { background: #334155; } .btn-orange { background: #d97706; } .btn-red { background: #ef4444; } .btn-teal { background: #115e59; } .btn-green { background: #10b981; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; z-index: 9999; }
         .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 85%; border: 2px solid #38bdf8; max-height: 85vh; overflow-y: auto; }
         .selection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
         .ball { width: 34px; height: 34px; border-radius: 50%; background: #ffffff; color: #0f172a; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.7rem; margin: 2px; }
@@ -29,7 +29,7 @@
 <body>
 
     <div id="screenSetup" class="screen">
-        <h2 style="color:#38bdf8; margin-top:40px;">Cric-8 Runs App</h2>
+        <h2 style="color:#38bdf8; margin-top:40px;">Cric-8 Scorer pro +</h2>
         <input id="t1Name" placeholder="Team 1 Name" style="width:85%; padding:15px; margin:10px; border-radius:10px; background:#1e293b; color:white; border:1px solid #334155;">
         <input id="t2Name" placeholder="Team 2 Name" style="width:85%; padding:15px; margin:10px; border-radius:10px; background:#1e293b; color:white; border:1px solid #334155;">
         <button onclick="initMatch()" class="btn-green" style="width:85%; margin-top:20px; padding:20px;">START MATCH</button>
@@ -42,22 +42,17 @@
         <div class="score-box" onclick="handleTransition()">
             <div id="uiTargetLabel" class="target-box hidden">Target: <span id="valTarget">0</span></div>
             <h1 id="uiScore" class="big-score">0</h1>
-            <div id="uiRunsNeeded" class="target-box hidden">Need <span id="valNeed">0</span> from <span id="valBallsLeft">48</span> balls</div>
+            <div id="uiRunsNeeded" class="target-box hidden">Need <span id="valNeed">0</span> from <span id="valBallsLeft">48</span></div>
             <div style="color:#94a3b8; font-weight:bold;">Overs: <span id="uiOvers">0.0</span> / 8.0 | Wkts: <span id="uiWkts">0</span></div>
             <div class="over-tracker" id="uiTracker"></div>
             <div id="uiPauseMsg" class="tap-msg">TAP TO START</div>
         </div>
 
         <div class="grid">
-            <button class="btn-gray" onclick="addRuns(0)">0</button>
-            <button class="btn-gray" onclick="addRuns(1)">1</button>
-            <button class="btn-gray" onclick="addRuns(2)">2</button>
-            <button class="btn-gray" onclick="addRuns(3)">3</button>
-            <button class="btn-gray" onclick="addRuns(4)">4</button>
-            <button class="btn-gray" onclick="addRuns(5)">5</button>
+            <button class="btn-gray" onclick="addRuns(0)">0</button><button class="btn-gray" onclick="addRuns(1)">1</button><button class="btn-gray" onclick="addRuns(2)">2</button>
+            <button class="btn-gray" onclick="addRuns(3)">3</button><button class="btn-gray" onclick="addRuns(4)">4</button><button class="btn-gray" onclick="addRuns(5)">5</button>
             <button class="btn-gray" onclick="addRuns(6)">6</button>
-            <button class="btn-orange" onclick="handleExtra('WD')">WD+?</button>
-            <button class="btn-orange" onclick="handleExtra('NB')">NB+?</button>
+            <button class="btn-orange" onclick="handleExtra('WD')">WD+?</button><button class="btn-orange" onclick="handleExtra('NB')">NB+?</button>
             <button class="btn-teal" onclick="handleNBDeclare()">NB+1R</button>
             <button class="btn-teal" onclick="handleDeclare()">1R DECL</button>
             <button class="btn-red" style="grid-column: span 2;" onclick="handleWicket()">WICKET/RUNOUT/MANKAD</button>
@@ -82,28 +77,18 @@
         function initMatch() {
             match.t1Name = document.getElementById('t1Name').value || "Team 1";
             match.t2Name = document.getElementById('t2Name').value || "Team 2";
-            resetPlayers();
+            resetInnings();
             document.getElementById('screenSetup').classList.add('hidden');
             document.getElementById('screenGame').classList.remove('hidden');
             updateUI();
         }
 
-        function resetPlayers() {
+        function resetInnings() {
             match.players = [];
             for(let i=1; i<=10; i++) match.players.push({ name: `P${i}`, runs: 0, id: i-1 });
-            match.usedBatsmen = [];
-            match.usedBowlers = [];
-            match.strikerIdx = null;
-            match.nonStrikerIdx = null;
-            match.curBowler = null;
-            match.balls = 0;
-            match.score = 0;
-            match.wkts = 0;
-            match.dots = 0;
-            match.overBalls = [];
-            match.needsNewPair = true;
-            match.needsNewBowler = true;
-            match.isPaused = true;
+            match.usedBatsmen = []; match.usedBowlers = []; match.strikerIdx = null; match.nonStrikerIdx = null;
+            match.curBowler = null; match.balls = 0; match.score = 0; match.wkts = 0; match.dots = 0;
+            match.overBalls = []; match.needsNewPair = true; match.needsNewBowler = true; match.isPaused = true;
         }
 
         function saveState() { history.push(JSON.stringify(match)); }
@@ -131,8 +116,7 @@
                         saveState();
                         match.strikerIdx = selected[0]; match.nonStrikerIdx = selected[1];
                         match.usedBatsmen.push(selected[0], selected[1]);
-                        match.needsNewPair = false;
-                        showBowlerSelection();
+                        match.needsNewPair = false; showBowlerSelection();
                     }
                 };
                 grid.appendChild(b);
@@ -142,7 +126,7 @@
 
         function showBowlerSelection() {
             const mc = document.getElementById('modalContent');
-            mc.innerHTML = `<h3>Select Bowler</h3><div class="selection-grid" id="bowlGrid"></div>`;
+            mc.innerHTML = `<h3>Select Next Bowler</h3><div class="selection-grid" id="bowlGrid"></div>`;
             const grid = document.getElementById('bowlGrid');
             for(let i=1; i<=10; i++) {
                 let bName = "P" + i;
@@ -174,22 +158,22 @@
                 }
             } else match.dots = 0;
             if(val % 2 !== 0) match.curStrIdx = match.curStrIdx === 0 ? 1 : 0;
-            checkMatchStatus();
+            checkOverLogic();
         }
 
         function handleDeclare() {
             if(match.isPaused || match.isFinished) return; saveState();
             match.score += 1; getStriker().runs += 1;
-            match.balls++; match.overBalls.push('1R');
-            match.dots = 0; checkMatchStatus();
+            match.balls++; match.overBalls.push('1R'); match.dots = 0;
+            checkOverLogic();
         }
 
         function handleNBDeclare() {
             if(match.isPaused || match.isFinished) return; saveState();
             match.score += 3; getStriker().runs += 1;
             match.overBalls.push('NB+1R'); match.dots = 0;
-            if(match.balls < 42) match.balls++;
-            checkMatchStatus();
+            if(match.balls < 42) match.balls++; // Over 8 extras don't count as ball
+            checkOverLogic();
         }
 
         function handleExtra(type) {
@@ -198,21 +182,18 @@
             saveState();
             match.score += (2 + r); match.overBalls.push(`${type}+${r}`); match.dots = 0;
             if(r % 2 !== 0) match.curStrIdx = match.curStrIdx === 0 ? 1 : 0;
-            if(match.balls < 42) match.balls++;
-            checkMatchStatus();
+            if(match.balls < 42) match.balls++; // Over 8 extras don't count as ball
+            checkOverLogic();
         }
 
         function handleWicket() {
             if(match.isPaused || match.isFinished) return; saveState();
             match.score -= 5; match.wkts++; match.dots = 0;
             getStriker().runs -= 5; match.balls++; match.overBalls.push('W');
-            checkMatchStatus();
+            checkOverLogic();
         }
 
-        function checkMatchStatus() {
-            if(match.innings === 2 && match.score >= match.target) {
-                match.isFinished = true; showScorecard(); return;
-            }
+        function checkOverLogic() {
             if(match.balls >= 48) {
                 if(match.innings === 1) endInnings1();
                 else { match.isFinished = true; showScorecard(); }
@@ -229,13 +210,13 @@
             match.target = match.score + 1;
             match.isPaused = true;
             const mc = document.getElementById('modalContent');
-            mc.innerHTML = `<h2>End of 1st Innings</h2><p>${match.t1Name} scored ${match.score}</p><h1 style="color:#fbbf24">Target: ${match.target}</h1>
+            mc.innerHTML = `<h2>1st Innings Over</h2><p>${match.t1Name}: ${match.score}</p><h1 style="color:#fbbf24">Target: ${match.target}</h1>
             <button onclick="startInnings2()" class="btn-green" style="width:100%; padding:15px;">START 2ND INNINGS</button>`;
             document.getElementById('selectionModal').classList.remove('hidden');
         }
 
         function startInnings2() {
-            match.innings = 2; resetPlayers();
+            match.innings = 2; resetInnings();
             document.getElementById('selectionModal').classList.add('hidden');
             updateUI();
         }
@@ -286,7 +267,7 @@
             else winText = `${match.t1Name} WON!`;
 
             const mc = document.getElementById('modalContent');
-            mc.innerHTML = `<h2>${winText}</h2><div style="font-size:1.2rem; color:#94a3b8">Final Score: ${match.score}</div>
+            mc.innerHTML = `<h2>${winText}</h2><div style="font-size:1.5rem; color:#fbbf24; margin:10px 0;">Final Score: ${match.score}</div>
             <button onclick="location.reload()" class="btn-green" style="margin-top:20px; width:100%; padding:15px;">NEW MATCH</button>`;
             document.getElementById('selectionModal').classList.remove('hidden');
         }
