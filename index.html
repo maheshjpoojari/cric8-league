@@ -21,9 +21,8 @@
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         button { padding: 14px 5px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; font-size: 0.85rem; }
         .btn-gray { background: #334155; } .btn-orange { background: #d97706; } .btn-red { background: #ef4444; } .btn-teal { background: #115e59; } .btn-green { background: #10b981; width: 100%; }
-        /* Modal & Scorecard */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 10px; }
-        .modal-content { background: #1e293b; padding: 20px; border-radius: 15px; width: 90%; border: 1px solid #334155; overflow-y: auto; max-height: 90vh; }
+        .modal-content { background: #1e293b; padding: 20px; border-radius: 15px; width: 85%; border: 1px solid #334155; }
         .sc-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
         .sc-table th { color: #94a3b8; padding: 8px; border-bottom: 1px solid #334155; }
         .sc-table td { padding: 10px; border-bottom: 1px solid #1e293b; }
@@ -42,18 +41,30 @@
 
     <div id="screenGame" class="screen hidden">
         <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">Bowler: P1</span></div>
-        <div class="player-row"><div id="p0" onclick="setStr(0)">-</div><div id="p1" onclick="setStr(1)">-</div></div>
+        <div class="player-row">
+            <div id="p0" onclick="setStr(0)">-</div>
+            <div id="p1" onclick="setStr(1)">-</div>
+        </div>
+        
         <div class="score-box" id="mainScoreBox" onclick="handlePauseClick()">
             <h1 id="uiScore" class="big-score">0</h1>
             <div style="color:#94a3b8">Overs: <span id="uiOvers">0.0</span> / 8.0 | Wkts: <span id="uiWkts">0</span></div>
             <div class="over-tracker" id="uiTracker"></div>
             <div id="uiPauseMsg" class="tap-msg hidden">OVER COMPLETE! TAP HERE</div>
         </div>
+
         <div class="grid">
-            <button class="btn-gray" onclick="hit(0)">0</button><button class="btn-gray" onclick="hit(1)">1</button><button class="btn-gray" onclick="hit(2)">2</button>
-            <button class="btn-gray" onclick="hit(3)">3</button><button class="btn-gray" onclick="hit(4)">4</button><button class="btn-gray" onclick="hit(6)">6</button>
-            <button class="btn-orange" onclick="hitExtra('WD')">WD+?</button><button class="btn-orange" onclick="hitExtra('NB')">NB+?</button><button class="btn-teal" onclick="hitNBDeclare()">NB+1R DECL</button>
-            <button class="btn-teal" onclick="hitDeclare()">1R DECLARE</button><button class="btn-red" style="grid-column: span 2;" onclick="showOutModal()">WICKET / RUNOUT / MANKAD (-5)</button>
+            <button class="btn-gray" onclick="hit(0)">0</button>
+            <button class="btn-gray" onclick="hit(1)">1</button>
+            <button class="btn-gray" onclick="hit(2)">2</button>
+            <button class="btn-gray" onclick="hit(3)">3</button>
+            <button class="btn-gray" onclick="hit(4)">4</button>
+            <button class="btn-gray" onclick="hit(6)">6</button>
+            <button class="btn-orange" onclick="hitExtra('WD')">WD+?</button>
+            <button class="btn-orange" onclick="hitExtra('NB')">NB+?</button>
+            <button class="btn-teal" onclick="hitNBDeclare()">NB+1R DECL</button>
+            <button class="btn-teal" onclick="hitDeclare()">1R DECLARE</button>
+            <button class="btn-red" style="grid-column: span 2;" onclick="showOutModal()">WICKET / RUNOUT / MANKAD (-5)</button>
             <button class="btn-gray" onclick="undo()">UNDO</button>
         </div>
     </div>
@@ -124,9 +135,13 @@
 
         function hitNBDeclare() {
             if(state.isPaused) return; saveHistory();
-            state.score += 3; teams[match.batId].p[state.curPairIdx[state.strIdx]].runs += 1;
-            state.overBalls.push('NB+1R'); state.dotCount = 0;
-            updateUI();
+            state.score += 3; // 2 for NB + 1 for Declare
+            teams[match.batId].p[state.curPairIdx[state.strIdx]].runs += 1;
+            state.overBalls.push('NB+1R');
+            state.dotCount = 0;
+            // Counts as legal delivery in Overs 1-7
+            if(state.balls < 42) { state.balls++; checkOver(); }
+            else { updateUI(); }
         }
 
         function handleOut(type) {
@@ -139,10 +154,16 @@
 
         function hitExtra(type) {
             let r = parseInt(prompt(`${type} + Runs?`, "0")) || 0;
-            saveHistory(); state.score += (2 + r);
-            state.overBalls.push(`${type}+${r}`); state.dotCount = 0;
+            saveHistory();
+            state.score += (2 + r);
+            state.overBalls.push(`${type}+${r}`);
+            state.dotCount = 0;
             if(r % 2 !== 0) state.strIdx = state.strIdx === 0 ? 1 : 0;
-            updateUI();
+            
+            // KEY LOGIC: Counts as legal delivery in Overs 1-7 (balls 0 to 41)
+            // Does NOT count in Over 8 (balls 42 to 47)
+            if(state.balls < 42) { state.balls++; checkOver(); }
+            else { updateUI(); }
         }
 
         function checkOver() {
@@ -155,8 +176,7 @@
             const body = document.getElementById('scBody'); body.innerHTML = "";
             document.getElementById('winMsg').innerText = `${teams[match.batId].name}: ${state.score} Runs`;
             teams[match.batId].p.forEach(p => {
-                let row = `<tr><td align="left">${p.name}</td><td>${p.runs}</td><td>${p.wkts}</td></tr>`;
-                body.innerHTML += row;
+                body.innerHTML += `<tr><td align="left">${p.name}</td><td>${p.runs}</td><td>${p.wkts}</td></tr>`;
             });
             document.getElementById('scorecardModal').classList.remove('hidden');
         }
