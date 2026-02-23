@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Official Scorer</title>
+    <title>Cric-8 Final Pro</title>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; padding: 10px; text-align: center; }
         .hidden { display: none !important; }
@@ -11,21 +11,20 @@
         .header-info { display: flex; justify-content: space-between; color: #38bdf8; font-weight: bold; padding: 10px; font-size: 0.9rem; }
         .player-row { display: flex; justify-content: space-around; background: #1e293b; padding: 15px; margin: 10px 0; border-radius: 12px; border: 1px solid #334155; }
         .active-bat { color: #fbbf24; border-bottom: 3px solid #fbbf24; font-weight: bold; }
-        .score-box { background: #1e293b; padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 2px solid #fbbf24; cursor: pointer; }
+        .score-box { background: #1e293b; padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 2px solid #fbbf24; }
         .big-score { font-size: 5rem; font-weight: 900; color: #38bdf8; margin: 0; line-height: 1; }
         .over-tracker { display: flex; justify-content: center; gap: 6px; margin-top: 15px; flex-wrap: wrap; min-height: 40px; }
-        .ball { width: 38px; height: 38px; border-radius: 50%; background: #ffffff; color: #0f172a; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75rem; border: 2px solid transparent; }
-        .ball-dot { background: #ef4444 !important; color: white !important; }
-        .ball-w { background: #ef4444 !important; color: white !important; border-color: #f87171; }
+        .ball { width: 38px; height: 38px; border-radius: 50%; background: #ffffff; color: #0f172a; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75rem; }
+        .ball-w { background: #ef4444 !important; color: white !important; }
         .ball-extra { background: #fbbf24 !important; color: black !important; padding: 0 8px; border-radius: 15px; width: auto; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        button { padding: 16px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: white; font-size: 0.9rem; transition: 0.2s; }
+        button { padding: 16px 5px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: white; font-size: 0.9rem; }
         .btn-gray { background: #334155; } .btn-orange { background: #d97706; } .btn-red { background: #ef4444; } .btn-teal { background: #115e59; } .btn-green { background: #10b981; width: 100%; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: flex; align-items: center; justify-content: center; z-index: 9999; }
         .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 85%; border: 2px solid #38bdf8; }
-        .bowler-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 15px; }
+        .bowler-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
         .sc-table { width: 100%; margin-top: 15px; border-collapse: collapse; }
-        .sc-table th, .sc-table td { padding: 12px; border-bottom: 1px solid #334155; }
+        .sc-table td { padding: 12px; border-bottom: 1px solid #334155; }
         .tap-msg { color: #fbbf24; font-size: 1rem; margin-top: 10px; font-weight: bold; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0; } }
     </style>
@@ -33,20 +32,20 @@
 <body>
 
     <div id="screenSetup" class="screen">
-        <h2 style="color:#38bdf8; margin-top:40px;">Cric-8 Tournament</h2>
+        <h2 style="color:#38bdf8; margin-top:40px;">Cric-8 Scorer</h2>
         <input id="t1Name" placeholder="Batting Team Name" style="width:85%; padding:15px; margin:10px; border-radius:10px; background:#1e293b; color:white; border:1px solid #334155;">
         <button onclick="initMatch()" class="btn-green" style="width:85%; margin-top:20px;">START MATCH</button>
     </div>
 
     <div id="screenGame" class="screen hidden">
-        <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">Bowler: P1</span></div>
+        <div class="header-info"><span id="uiBatTeam">-</span><span id="uiBowler">Bowler: Not Selected</span></div>
         <div class="player-row"><div id="p0" onclick="setStr(0)">-</div><div id="p1" onclick="setStr(1)">-</div></div>
         
         <div class="score-box" id="mainScoreBox" onclick="handlePauseClick()">
             <h1 id="uiScore" class="big-score">0</h1>
             <div style="color:#94a3b8; font-weight:bold; margin-top:5px;">Overs: <span id="uiOvers">0.0</span> / 8.0 | Wkts: <span id="uiWkts">0</span></div>
             <div class="over-tracker" id="uiTracker"></div>
-            <div id="uiPauseMsg" class="tap-msg hidden">OVER COMPLETE! TAP TO SELECT BOWLER</div>
+            <div id="uiPauseMsg" class="tap-msg">TAP TO SELECT FIRST BOWLER</div>
         </div>
 
         <div class="grid">
@@ -62,7 +61,7 @@
 
     <div id="bowlerModal" class="modal hidden">
         <div class="modal-content">
-            <h3>Select Next Bowler</h3>
+            <h3>Select Bowler (1 Over Each)</h3>
             <div class="bowler-grid" id="bowlerList"></div>
         </div>
     </div>
@@ -71,13 +70,16 @@
         <div class="modal-content">
             <h2 style="color:#38bdf8">MATCH FINISHED</h2>
             <div id="finalTeamScore" style="font-size: 1.5rem; color:#fbbf24; margin: 15px 0;"></div>
-            <table class="sc-table"><thead><tr><th>Player</th><th>Runs</th></tr></thead><tbody id="scBody"></tbody></table>
+            <table class="sc-table"><tbody id="scBody"></tbody></table>
             <button class="btn-green" style="margin-top:25px;" onclick="location.reload()">NEW MATCH</button>
         </div>
     </div>
 
     <script>
-        let match = { batName: "", players: [], curStr: 0, score: 0, balls: 0, wkts: 0, overBalls: [], isPaused: false, dots: 0 };
+        let match = { 
+            batName: "", players: [], curStr: 0, score: 0, balls: 0, wkts: 0, 
+            overBalls: [], isPaused: true, dots: 0, curBowler: "None", usedBowlers: [] 
+        };
         let history = [];
 
         function initMatch() {
@@ -93,11 +95,8 @@
 
         function addRuns(val) {
             if(match.isPaused) return; saveState();
-            match.score += val;
-            match.players[match.curStr].runs += val;
-            match.balls++;
-            match.overBalls.push(val);
-            
+            match.score += val; match.players[match.curStr].runs += val;
+            match.balls++; match.overBalls.push(val);
             if(val === 0) {
                 match.dots++;
                 if(match.dots === 3) {
@@ -106,8 +105,7 @@
                     match.overBalls[match.overBalls.length-1] = "3D(-5)";
                     match.dots = 0;
                 }
-            } else { match.dots = 0; }
-
+            } else match.dots = 0;
             if(val % 2 !== 0) match.curStr = match.curStr === 0 ? 1 : 0;
             checkOverStatus();
         }
@@ -123,7 +121,7 @@
             if(match.isPaused) return; saveState();
             match.score += 3; match.players[match.curStr].runs += 1;
             match.overBalls.push('NB+1R'); match.dots = 0;
-            if(match.balls < 42) match.balls++; // Legal in Overs 1-7
+            if(match.balls < 42) match.balls++; 
             checkOverStatus();
         }
 
@@ -132,7 +130,7 @@
             saveState();
             match.score += (2 + r); match.overBalls.push(`${type}+${r}`); match.dots = 0;
             if(r % 2 !== 0) match.curStr = match.curStr === 0 ? 1 : 0;
-            if(match.balls < 42) match.balls++; // Legal in Overs 1-7
+            if(match.balls < 42) match.balls++;
             checkOverStatus();
         }
 
@@ -156,13 +154,17 @@
             const list = document.getElementById('bowlerList');
             list.innerHTML = "";
             for(let i=1; i<=10; i++) {
+                let bName = "P" + i;
+                if(match.usedBowlers.includes(bName)) continue;
                 let b = document.createElement('button');
-                b.className = "btn-gray"; b.innerText = "P"+i;
+                b.className = "btn-gray"; b.innerText = bName;
                 b.onclick = () => {
-                    document.getElementById('uiBowler').innerText = "Bowler: P"+i;
+                    saveState(); // Save state before changing bowler for undo support
+                    match.curBowler = bName;
+                    match.usedBowlers.push(bName);
                     match.isPaused = false;
                     match.overBalls = [];
-                    match.curStr = (match.curStr === 0 ? 1 : 0); // Swap ends
+                    if(match.balls > 0) match.curStr = (match.curStr === 0 ? 1 : 0);
                     modal.classList.add('hidden');
                     updateUI();
                 };
@@ -178,6 +180,7 @@
             document.getElementById('uiOvers').innerText = Math.floor(match.balls/6) + "." + (match.balls%6);
             document.getElementById('uiWkts').innerText = match.wkts;
             document.getElementById('uiBatTeam').innerText = match.batName;
+            document.getElementById('uiBowler').innerText = "Bowler: " + match.curBowler;
             document.getElementById('p0').innerText = match.players[0].name + (match.curStr===0?"*":"");
             document.getElementById('p1').innerText = match.players[1].name + (match.curStr===1?"*":"");
             document.getElementById('p0').className = match.curStr === 0 ? "active-bat" : "";
@@ -185,12 +188,13 @@
             const tr = document.getElementById('uiTracker'); tr.innerHTML = "";
             match.overBalls.forEach(v => {
                 let d = document.createElement('div'); d.className='ball'; d.innerText=v;
-                if(v === 0) d.classList.add('ball-dot');
-                else if(v === 'W' || v === '3D(-5)') d.classList.add('ball-w');
-                else if(isNaN(v)) d.classList.add('ball-extra');
+                if(v === 0) d.style.background = "#ef4444";
+                else if(v === 'W' || v === '3D(-5)') { d.style.background = "#ef4444"; d.style.color = "white"; }
+                else if(isNaN(v)) { d.className += ' ball-extra'; }
                 tr.appendChild(d);
             });
             document.getElementById('uiPauseMsg').className = match.isPaused ? "tap-msg" : "tap-msg hidden";
+            document.getElementById('uiPauseMsg').innerText = match.balls === 0 ? "TAP TO SELECT FIRST BOWLER" : "OVER COMPLETE! TAP TO SELECT NEXT BOWLER";
         }
 
         function showScorecard() {
