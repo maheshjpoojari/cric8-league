@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cric-8 | Bulk Squad Manager</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
+            authDomain: "cric8-league.firebaseapp.com",
+            projectId: "cric8-league",
+            appId: "1:623659944427:web:a4ad2da48833e6a4db31ae"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.uploadSquad = async () => {
+            const teamName = document.getElementById('teamName').value.trim();
+            const rawPlayers = document.getElementById('playerList').value.split('\n');
+            const players = rawPlayers.map(p => p.trim()).filter(p => p !== "");
+
+            if(!teamName || players.length === 0) return alert("Enter Team Name and Players!");
+
+            try {
+                // This creates a document for the team in a new "teams" collection
+                await setDoc(doc(db, "teams", teamName), {
+                    name: teamName,
+                    squad: players
+                });
+                alert(`Success! ${teamName} with ${players.length} players uploaded.`);
+                document.getElementById('playerList').value = "";
+                document.getElementById('teamName').value = "";
+            } catch (e) { alert("Error: " + e.message); }
+        };
+    </script>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; padding: 20px; }
+        .box { background: #1e293b; padding: 20px; border-radius: 12px; max-width: 500px; margin: auto; }
+        input, textarea { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #334155; background: #0f172a; color: white; }
+        button { width: 100%; padding: 15px; background: #38bdf8; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Bulk Team Upload</h2>
+        <p style="font-size: 0.8rem; color: #94a3b8;">Type Team Name, then paste player names (one per line).</p>
+        
+        <input type="text" id="teamName" placeholder="e.g. Mumbai Mavericks">
+        <textarea id="playerList" rows="15" placeholder="Mahesh&#10;Suresh&#10;Ramesh..."></textarea>
+        
+        <button onclick="uploadSquad()">UPLOAD TEAM TO CLOUD</button>
+    </div>
+</body>
+</html>
