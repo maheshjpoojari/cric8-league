@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Elite Pro</title>
+    <title>Cric-8 Elite | Final Pro Scorer Cloud</title>
+    
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+        // 1. YOUR VERIFIED CONFIGURATION
         const firebaseConfig = {
             apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
             authDomain: "cric8-league.firebaseapp.com",
@@ -23,122 +25,159 @@
         const auth = getAuth(app);
 
         let isAdmin = false;
-        let isProcessing = false; // Prevents double-clicking
+        let isProcessing = false; 
 
+        // 2. AUTHENTICATION LOGIC
         onAuthStateChanged(auth, (user) => {
             isAdmin = !!user;
             document.getElementById('adminPanel').classList.toggle('hidden', !isAdmin);
+            document.getElementById('loginBtn').classList.toggle('hidden', isAdmin);
+            document.getElementById('logoutBtn').classList.toggle('hidden', !isAdmin);
         });
 
         window.login = async () => {
             const email = prompt("Referee Email:");
             const pass = prompt("Password:");
-            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Login Failed"); }
+            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Login Failed: " + e.message); }
         };
 
+        window.logout = () => signOut(auth);
+
+        // 3. REAL-TIME DATA SYNC
         onSnapshot(doc(db, "matches", "live_match_1"), (snap) => {
             if (!snap.exists()) return;
             const d = snap.data();
-            const t = d.inn === 1 ? d.tA : d.tB;
+            const isFirstInn = d.inn === 1;
+            const t = isFirstInn ? d.tA : d.tB;
+            const otherTeam = isFirstInn ? d.tB : d.tA;
             
-            document.getElementById('teamInfo').innerText = `${d.tA.name} vs ${d.tB.name} (${d.inn === 1 ? '1st Inn' : '2nd Inn'})`;
-            document.getElementById('scoreDisplay').innerText = t.score;
-            document.getElementById('oversDisplay').innerText = `Overs: ${Math.floor(t.balls/6)}.${t.balls%6} / 8.0 | Wkts: ${t.wkts}`;
+            // Header & Basic Stats
+            document.getElementById('headerStatus').innerText = `${t.name} - ${isFirstInn ? 'BAT' : 'CHASE'}`;
+            document.getElementById('mainScore').innerText = t.score;
+            document.getElementById('wickets').innerText = t.wkts;
+            document.getElementById('overs').innerText = `${Math.floor(t.balls/6)}.${t.balls%6}`;
             
+            // Chasing Logic (From your BRD)
+            const targetUI = document.getElementById('targetBox');
+            if (!isFirstInn) {
+                targetUI.classList.remove('hidden');
+                const target = (otherTeam.score || 0) + 1;
+                const needed = target - t.score;
+                const ballsLeft = 48 - t.balls;
+                document.getElementById('targetValue').innerText = `Target: ${target}`;
+                document.getElementById('needValue').innerText = `Need ${needed} from ${ballsLeft} balls`;
+            } else {
+                targetUI.classList.add('hidden');
+            }
+
+            // Timeline
             const logs = document.getElementById('timeline');
             logs.innerHTML = (d.logs || []).slice(0, 5).map(l => `<li>${l}</li>`).join('');
         });
 
-        // FIXED SCORING FUNCTION
+        // 4. CORE SCORING (ANTI-GLITCH)
         window.handleAction = async (runs, isWicket = false) => {
             if (!isAdmin || isProcessing) return;
-            
-            isProcessing = true; // Lock the function
-            if(isWicket) document.getElementById('confirmWickBtn').innerText = "Processing...";
+            isProcessing = true; // LOCK BUTTONS
 
             try {
                 const ref = doc(db, "matches", "live_match_1");
                 const snap = await getDoc(ref);
                 const d = snap.data();
-                const team = d.inn === 1 ? 'tA' : 'tB';
+                const teamKey = d.inn === 1 ? 'tA' : 'tB';
+
+                d.logs = d.logs || []; // Safety check for array
 
                 if (isWicket) {
-                    d[team].score -= 5;
-                    d[team].wkts += 1;
-                    d[team].balls += 1;
-                    d.logs.unshift(`WICKET! -5 Runs deducted`);
+                    d[teamKey].score -= 5;
+                    d[teamKey].wkts += 1;
+                    d[teamKey].balls += 1;
+                    d.logs.unshift(`WICKET! (-5 Runs) | Ovr ${Math.floor(d[teamKey].balls/6)}.${d[teamKey].balls%6}`);
                     closeModal();
                 } else {
-                    d[team].score += runs;
-                    d[team].balls += 1;
-                    d.logs.unshift(`Ovr ${Math.floor((d[team].balls-1)/6)}.${(d[team].balls-1)%6+1}: ${runs} Run(s)`);
+                    d[teamKey].score += runs;
+                    d[teamKey].balls += 1;
+                    d.logs.unshift(`${runs} Run(s) | Ovr ${Math.floor((d[teamKey].balls-1)/6)}.${(d[teamKey].balls-1)%6+1}`);
                 }
 
                 await updateDoc(ref, { 
-                    [`${team}.score`]: d[team].score,
-                    [`${team}.wkts`]: d[team].wkts,
-                    [`${team}.balls`]: d[team].balls,
+                    [`${teamKey}.score`]: d[teamKey].score,
+                    [`${teamKey}.wkts`]: d[teamKey].wkts,
+                    [`${teamKey}.balls`]: d[teamKey].balls,
                     logs: d.logs
                 });
 
-            } catch (e) {
-                console.error(e);
-                alert("Sync Error. Check Internet.");
-            } finally {
-                isProcessing = false; // Unlock
-                document.getElementById('confirmWickBtn').innerText = "CONFIRM (-5 RUNS)";
-            }
+            } catch (e) { alert("Sync Error: Check Connection"); }
+            finally { isProcessing = false; } // UNLOCK BUTTONS
         };
 
         window.openModal = () => document.getElementById('wickModal').classList.remove('hidden');
         window.closeModal = () => document.getElementById('wickModal').classList.add('hidden');
     </script>
+
     <style>
-        :root { --bg: #0b121e; --card: #162031; --blue: #38bdf8; --red: #f87171; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 15px; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --gold: #fbbf24; --red: #ef4444; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: white; margin: 0; padding: 15px; }
         .hidden { display: none !important; }
-        .card { background: var(--card); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #2d3a4f; margin-bottom: 15px; }
-        .score { font-size: 5rem; color: var(--blue); font-weight: bold; margin: 5px 0; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        .btn { background: #2d3a4f; border: none; padding: 15px; color: white; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn:active { background: #3d4a5f; }
-        .btn-red { background: var(--red); grid-column: span 2; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        li { list-style: none; padding: 5px 0; border-bottom: 1px solid #2d3a4f; font-size: 0.8rem; color: #94a3b8; }
+        .card { background: var(--card); border-radius: 18px; padding: 20px; border: 1px solid #334155; margin-bottom: 15px; position: relative; text-align: center; }
+        .target-box { background: rgba(251, 191, 36, 0.1); border: 1px solid var(--gold); border-radius: 10px; padding: 10px; margin-bottom: 10px; color: var(--gold); font-weight: bold; font-size: 0.9rem; }
+        .score-hero { font-size: 6rem; font-weight: 900; color: var(--accent); line-height: 1; margin: 10px 0; }
+        .stats-row { display: flex; justify-content: space-around; font-weight: bold; color: #94a3b8; border-top: 1px solid #334155; padding-top: 15px; }
+        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .btn { border: none; background: #334155; color: white; padding: 16px; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); background: #475569; }
+        .btn-wick { background: var(--red); grid-column: span 3; margin-top: 5px; text-transform: uppercase; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        #timeline { list-style: none; padding: 0; text-align: left; }
+        #timeline li { padding: 8px 0; border-bottom: 1px solid #2d3a4f; font-size: 0.85rem; color: #cbd5e1; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div id="teamInfo" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Loading...</div>
-        <div id="scoreDisplay" class="score">0</div>
-        <div id="oversDisplay">Overs: 0.0 | Wkts: 0</div>
+    <div style="text-align: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: var(--accent); letter-spacing: 2px;">CRIC-8 ELITE</h2>
+        <div id="headerStatus" style="font-size: 0.8rem; opacity: 0.6; font-weight: bold;">SYNCING...</div>
     </div>
 
-    <div id="adminPanel" class="card hidden">
-        <div class="grid">
-            <button class="btn" onclick="handleAction(0)">0</button>
-            <button class="btn" onclick="handleAction(1)">1</button>
-            <button class="btn" onclick="handleAction(2)">2</button>
-            <button class="btn" onclick="handleAction(4)">4</button>
-            <button class="btn" onclick="handleAction(6)">6</button>
-            <button class="btn btn-red" onclick="openModal()">WICKET / OUT</button>
+    <div class="card">
+        <div id="targetBox" class="target-box hidden">
+            <span id="targetValue">Target: 0</span> • <span id="needValue">Need 0 from 0 balls</span>
+        </div>
+        <div id="mainScore" class="score-hero">0</div>
+        <div class="stats-row">
+            <div>WKTS: <span id="wickets" style="color: white;">0</span></div>
+            <div>OVERS: <span id="overs" style="color: white;">0.0</span> <span style="font-size: 0.7rem; opacity: 0.5;">/ 8.0</span></div>
         </div>
     </div>
 
-    <div class="card" style="text-align: left;">
-        <h4 style="margin-top: 0; color: var(--blue);">Match Timeline</h4>
-        <ul id="timeline" style="padding: 0;"></ul>
+    <div id="adminPanel" class="card hidden">
+        <div class="btn-grid">
+            <button class="btn" onclick="handleAction(0)">0</button>
+            <button class="btn" onclick="handleAction(1)">1</button>
+            <button class="btn" onclick="handleAction(2)">2</button>
+            <button class="btn" onclick="handleAction(3)">3</button>
+            <button class="btn" onclick="handleAction(4)">4</button>
+            <button class="btn" onclick="handleAction(6)">6</button>
+            <button class="btn btn-wick" onclick="openModal()">WICKET / RUNOUT / MANKAD</button>
+        </div>
     </div>
 
-    <button class="btn" style="width: 100%; background: transparent; color: #4b5563;" onclick="login()">Referee Login</button>
+    <div class="card" style="text-align: left; min-height: 150px;">
+        <div style="font-size: 0.75rem; color: var(--accent); font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 5px;">LIVE TIMELINE</div>
+        <ul id="timeline"></ul>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+        <button id="loginBtn" class="btn" style="flex: 1; background: transparent; color: #4b5563; font-size: 0.8rem;" onclick="login()">Referee Login</button>
+        <button id="logoutBtn" class="btn hidden" style="flex: 1; background: transparent; color: var(--red); font-size: 0.8rem;" onclick="logout()">Logout</button>
+    </div>
 
     <div id="wickModal" class="modal hidden">
-        <div class="card" style="width: 85%;">
-            <h3>Confirm Wicket?</h3>
-            <p style="color: #94a3b8; font-size: 0.9rem;">This will deduct 5 runs and count as a ball.</p>
-            <button id="confirmWickBtn" class="btn btn-red" style="width: 100%; margin-bottom: 10px;" onclick="handleAction(0, true)">CONFIRM (-5 RUNS)</button>
-            <button class="btn" style="width: 100%;" onclick="closeModal()">CANCEL</button>
+        <div class="card" style="width: 85%; border: 2px solid var(--red);">
+            <h2 style="color: var(--red); margin-top: 0;">OUT!</h2>
+            <p style="font-size: 0.9rem; color: #94a3b8;">Confirming this will deduct 5 runs and count as a ball delivered.</p>
+            <button class="btn btn-wick" style="width: 100%;" onclick="handleAction(0, true)">CONFIRM (-5 RUNS)</button>
+            <button class="btn" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid #334155;" onclick="closeModal()">CANCEL</button>
         </div>
     </div>
 
