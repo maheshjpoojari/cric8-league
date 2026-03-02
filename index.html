@@ -6,44 +6,33 @@
     <title>Cric-8 League Pro 2026</title>
 
     <script type="module">
+        // 1. Unified Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // --- 1. FIREBASE CONFIGURATION ---
-        const // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+        // 2. Your Verified Firebase Configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
+          authDomain: "cric8-league.firebaseapp.com",
+          projectId: "cric8-league",
+          storageBucket: "cric8-league.firebasestorage.app",
+          messagingSenderId: "623659944427",
+          appId: "1:623659944427:web:a4ad2da48833e6a4db31ae",
+          measurementId: "G-8809SJ0RK4"
+        };
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
-  authDomain: "cric8-league.firebaseapp.com",
-  projectId: "cric8-league",
-  storageBucket: "cric8-league.firebasestorage.app",
-  messagingSenderId: "623659944427",
-  appId: "1:623659944427:web:a4ad2da48833e6a4db31ae",
-  measurementId: "G-8809SJ0RK4"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-        // Initialize Firebase
+        // 3. Initialize Services
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- 2. APP STATE ---
+        // App State
         let isAdmin = false;
         let matchId = "live_match_1"; 
 
-        // --- 3. CORE FUNCTIONS ---
+        // --- CORE FUNCTIONS ---
 
-        // Login Logic
         window.login = async () => {
             const email = prompt("Referee Email:");
             const pass = prompt("Password:");
@@ -55,13 +44,11 @@ const analytics = getAnalytics(app);
 
         window.logout = () => signOut(auth);
 
-        // Role Management
         onAuthStateChanged(auth, (user) => {
             isAdmin = !!user;
             document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin));
         });
 
-        // Real-time Score Sync
         onSnapshot(doc(db, "matches", matchId), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
@@ -75,11 +62,12 @@ const analytics = getAnalytics(app);
                 document.getElementById('displayCRR').innerText = `CRR: ${crr}`;
                 
                 const logList = document.getElementById('displayLogs');
-                logList.innerHTML = data.logs.slice(0, 8).map(l => `<li>${l}</li>`).join('');
+                logList.innerHTML = (data.logs || []).slice(0, 8).map(l => `<li>${l}</li>`).join('');
+            } else {
+                console.log("No match found. Ensure matches/live_match_1 exists in Firestore.");
             }
         });
 
-        // Scoring Logic
         window.updateScore = async (runs) => {
             if(!isAdmin) return;
             const ref = doc(db, "matches", matchId);
@@ -117,7 +105,6 @@ const analytics = getAnalytics(app);
             await updateDoc(ref, { inn: 2 });
         };
 
-        // Navigation
         window.showScreen = (id) => {
             document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
@@ -181,26 +168,4 @@ const analytics = getAnalytics(app);
     <div id="screenRules" class="screen hidden">
         <div class="card">
             <h3>League Rulebook</h3>
-            <p><b>• Wickets:</b> -5 Runs deduction per wicket.</p>
-            <p><b>• 3-Dot Rule:</b> 3 consecutive dots = Batsman OUT.</p>
-            <p><b>• Format:</b> 8 Overs per innings.</p>
-            <button class="btn btn-outline" onclick="showScreen('screenHome')">BACK</button>
-        </div>
-    </div>
-
-    <div id="wicketModal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:100;">
-        <div class="card" style="width:80%;">
-            <h3>Dismissal Type</h3>
-            <select id="wicketType">
-                <option>Bowled</option>
-                <option>Caught</option>
-                <option>Run Out</option>
-                <option>3-Dot Rule</option>
-            </select>
-            <button class="btn btn-red" onclick="addWicket()">CONFIRM OUT</button>
-            <button class="btn btn-outline" onclick="document.getElementById('wicketModal').classList.add('hidden')">CANCEL</button>
-        </div>
-    </div>
-
-</body>
-</html>
+            
