@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Elite Scorer</title>
+    <title>Cric-8 Elite Pro</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -23,116 +23,122 @@
         const auth = getAuth(app);
 
         let isAdmin = false;
-        let matchId = "live_match_1";
+        let isProcessing = false; // Prevents double-clicking
 
         onAuthStateChanged(auth, (user) => {
             isAdmin = !!user;
-            document.getElementById('adminControls').classList.toggle('hidden', !isAdmin);
+            document.getElementById('adminPanel').classList.toggle('hidden', !isAdmin);
         });
 
         window.login = async () => {
-            const email = prompt("Email:");
+            const email = prompt("Referee Email:");
             const pass = prompt("Password:");
-            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert(e.message); }
+            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Login Failed"); }
         };
 
-        onSnapshot(doc(db, "matches", matchId), (snap) => {
+        onSnapshot(doc(db, "matches", "live_match_1"), (snap) => {
             if (!snap.exists()) return;
             const d = snap.data();
             const t = d.inn === 1 ? d.tA : d.tB;
             
-            document.getElementById('teamNames').innerText = `${d.tA.name} vs ${d.tB.name}`;
-            document.getElementById('mainScore').innerText = t.score;
-            document.getElementById('subStats').innerText = `Overs: ${Math.floor(t.balls/6)}.${t.balls%6} | Wkts: ${t.wkts}`;
+            document.getElementById('teamInfo').innerText = `${d.tA.name} vs ${d.tB.name} (${d.inn === 1 ? '1st Inn' : '2nd Inn'})`;
+            document.getElementById('scoreDisplay').innerText = t.score;
+            document.getElementById('oversDisplay').innerText = `Overs: ${Math.floor(t.balls/6)}.${t.balls%6} / 8.0 | Wkts: ${t.wkts}`;
             
-            const crr = t.balls > 0 ? (t.score / (t.balls/6)).toFixed(2) : "0.00";
-            document.getElementById('crrBox').innerText = `CRR: ${crr}`;
-
-            const logs = document.getElementById('logList');
+            const logs = document.getElementById('timeline');
             logs.innerHTML = (d.logs || []).slice(0, 5).map(l => `<li>${l}</li>`).join('');
         });
 
-        window.addBall = async (runs) => {
-            if (!isAdmin) return;
-            const ref = doc(db, "matches", matchId);
-            const snap = await getDoc(ref);
-            const d = snap.data();
-            const teamKey = d.inn === 1 ? 'tA' : 'tB';
+        // FIXED SCORING FUNCTION
+        window.handleAction = async (runs, isWicket = false) => {
+            if (!isAdmin || isProcessing) return;
+            
+            isProcessing = true; // Lock the function
+            if(isWicket) document.getElementById('confirmWickBtn').innerText = "Processing...";
 
-            d[teamKey].score += runs;
-            d[teamKey].balls += 1;
-            d.logs = d.logs || [];
-            d.logs.unshift(`Ovr ${Math.floor((d[teamKey].balls-1)/6)}.${(d[teamKey].balls-1)%6+1}: ${runs} Run(s)`);
+            try {
+                const ref = doc(db, "matches", "live_match_1");
+                const snap = await getDoc(ref);
+                const d = snap.data();
+                const team = d.inn === 1 ? 'tA' : 'tB';
 
-            await setDoc(ref, d);
+                if (isWicket) {
+                    d[team].score -= 5;
+                    d[team].wkts += 1;
+                    d[team].balls += 1;
+                    d.logs.unshift(`WICKET! -5 Runs deducted`);
+                    closeModal();
+                } else {
+                    d[team].score += runs;
+                    d[team].balls += 1;
+                    d.logs.unshift(`Ovr ${Math.floor((d[team].balls-1)/6)}.${(d[team].balls-1)%6+1}: ${runs} Run(s)`);
+                }
+
+                await updateDoc(ref, { 
+                    [`${team}.score`]: d[team].score,
+                    [`${team}.wkts`]: d[team].wkts,
+                    [`${team}.balls`]: d[team].balls,
+                    logs: d.logs
+                });
+
+            } catch (e) {
+                console.error(e);
+                alert("Sync Error. Check Internet.");
+            } finally {
+                isProcessing = false; // Unlock
+                document.getElementById('confirmWickBtn').innerText = "CONFIRM (-5 RUNS)";
+            }
         };
 
-        window.confirmWicket = async () => {
-            if (!isAdmin) return;
-            const ref = doc(db, "matches", matchId);
-            const snap = await getDoc(ref);
-            const d = snap.data();
-            const teamKey = d.inn === 1 ? 'tA' : 'tB';
-
-            d[teamKey].score -= 5;
-            d[teamKey].wkts += 1;
-            d[teamKey].balls += 1;
-            d.logs = d.logs || [];
-            d.logs.unshift(`WICKET! -5 Runs deducted`);
-
-            await setDoc(ref, d);
-            document.getElementById('wickModal').classList.add('hidden');
-        };
-
-        window.showWickModal = () => document.getElementById('wickModal').classList.remove('hidden');
-        window.closeWickModal = () => document.getElementById('wickModal').classList.add('hidden');
+        window.openModal = () => document.getElementById('wickModal').classList.remove('hidden');
+        window.closeModal = () => document.getElementById('wickModal').classList.add('hidden');
     </script>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --danger: #ef4444; }
-        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
-        .hidden { display: none; }
-        .card { background: var(--card); border-radius: 15px; padding: 20px; border: 2px solid #334155; text-align: center; margin-bottom: 15px; }
-        .score-big { font-size: 5rem; font-weight: bold; color: var(--accent); margin: 10px 0; }
-        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        .btn { border: none; border-radius: 10px; padding: 15px; font-weight: bold; color: white; background: #334155; cursor: pointer; }
-        .btn-red { background: var(--danger); grid-column: span 2; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; }
+        :root { --bg: #0b121e; --card: #162031; --blue: #38bdf8; --red: #f87171; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 15px; }
+        .hidden { display: none !important; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #2d3a4f; margin-bottom: 15px; }
+        .score { font-size: 5rem; color: var(--blue); font-weight: bold; margin: 5px 0; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .btn { background: #2d3a4f; border: none; padding: 15px; color: white; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn:active { background: #3d4a5f; }
+        .btn-red { background: var(--red); grid-column: span 2; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        li { list-style: none; padding: 5px 0; border-bottom: 1px solid #2d3a4f; font-size: 0.8rem; color: #94a3b8; }
     </style>
 </head>
 <body>
 
-    <div class="card" style="border-color: var(--accent);">
-        <div id="teamNames" style="font-size: 0.9rem; opacity: 0.8;">Loading Teams...</div>
-        <div id="mainScore" class="score-big">0</div>
-        <div id="subStats" style="font-weight: bold;">Overs: 0.0 | Wkts: 0</div>
-        <div id="crrBox" style="color: #10b981; margin-top: 5px;">CRR: 0.00</div>
+    <div class="card">
+        <div id="teamInfo" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Loading...</div>
+        <div id="scoreDisplay" class="score">0</div>
+        <div id="oversDisplay">Overs: 0.0 | Wkts: 0</div>
     </div>
 
-    <div id="adminControls" class="card hidden">
-        <div class="btn-grid">
-            <button class="btn" onclick="addBall(0)">0</button>
-            <button class="btn" onclick="addBall(1)">1</button>
-            <button class="btn" onclick="addBall(2)">2</button>
-            <button class="btn" onclick="addBall(3)">3</button>
-            <button class="btn" onclick="addBall(4)">4</button>
-            <button class="btn" onclick="addBall(6)">6</button>
-            <button class="btn btn-red" onclick="showWickModal()">WICKET / OUT</button>
+    <div id="adminPanel" class="card hidden">
+        <div class="grid">
+            <button class="btn" onclick="handleAction(0)">0</button>
+            <button class="btn" onclick="handleAction(1)">1</button>
+            <button class="btn" onclick="handleAction(2)">2</button>
+            <button class="btn" onclick="handleAction(4)">4</button>
+            <button class="btn" onclick="handleAction(6)">6</button>
+            <button class="btn btn-red" onclick="openModal()">WICKET / OUT</button>
         </div>
     </div>
 
     <div class="card" style="text-align: left;">
-        <h4 style="margin: 0 0 10px 0;">Live Timeline</h4>
-        <ul id="logList" style="list-style: none; padding: 0; font-size: 0.8rem; color: #94a3b8;"></ul>
+        <h4 style="margin-top: 0; color: var(--blue);">Match Timeline</h4>
+        <ul id="timeline" style="padding: 0;"></ul>
     </div>
 
-    <button class="btn" style="width: 100%; opacity: 0.5;" onclick="login()">Referee Login</button>
+    <button class="btn" style="width: 100%; background: transparent; color: #4b5563;" onclick="login()">Referee Login</button>
 
     <div id="wickModal" class="modal hidden">
-        <div class="card" style="width: 80%;">
+        <div class="card" style="width: 85%;">
             <h3>Confirm Wicket?</h3>
-            <p>This will deduct 5 runs and add 1 ball to the over.</p>
-            <button class="btn btn-red" style="width: 100%; margin-bottom: 10px;" onclick="confirmWicket()">CONFIRM (-5 RUNS)</button>
-            <button class="btn" style="width: 100%;" onclick="closeWickModal()">CANCEL</button>
+            <p style="color: #94a3b8; font-size: 0.9rem;">This will deduct 5 runs and count as a ball.</p>
+            <button id="confirmWickBtn" class="btn btn-red" style="width: 100%; margin-bottom: 10px;" onclick="handleAction(0, true)">CONFIRM (-5 RUNS)</button>
+            <button class="btn" style="width: 100%;" onclick="closeModal()">CANCEL</button>
         </div>
     </div>
 
