@@ -3,169 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 League Pro 2026</title>
-
+    <title>Cric-8 Elite Scorer</title>
     <script type="module">
-        // 1. Unified Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // 2. Your Verified Firebase Configuration
         const firebaseConfig = {
-          apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
-          authDomain: "cric8-league.firebaseapp.com",
-          projectId: "cric8-league",
-          storageBucket: "cric8-league.firebasestorage.app",
-          messagingSenderId: "623659944427",
-          appId: "1:623659944427:web:a4ad2da48833e6a4db31ae",
-          measurementId: "G-8809SJ0RK4"
+            apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
+            authDomain: "cric8-league.firebaseapp.com",
+            projectId: "cric8-league",
+            storageBucket: "cric8-league.firebasestorage.app",
+            messagingSenderId: "623659944427",
+            appId: "1:623659944427:web:a4ad2da48833e6a4db31ae"
         };
 
-        // 3. Initialize Services
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // App State
         let isAdmin = false;
-        let matchId = "live_match_1"; 
-
-        // --- CORE FUNCTIONS ---
-
-        window.login = async () => {
-            const email = prompt("Referee Email:");
-            const pass = prompt("Password:");
-            try {
-                await signInWithEmailAndPassword(auth, email, pass);
-                alert("Login Successful!");
-            } catch (e) { alert("Error: " + e.message); }
-        };
-
-        window.logout = () => signOut(auth);
+        let matchId = "live_match_1";
 
         onAuthStateChanged(auth, (user) => {
             isAdmin = !!user;
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin));
+            document.getElementById('adminControls').classList.toggle('hidden', !isAdmin);
         });
 
-        onSnapshot(doc(db, "matches", matchId), (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.data();
-                const team = data.inn === 1 ? data.tA : data.tB;
-                
-                document.getElementById('displayMatch').innerText = `${data.tA.name} vs ${data.tB.name}`;
-                document.getElementById('displayScore').innerText = `${team.score} - ${team.wkts}`;
-                document.getElementById('displayOvers').innerText = `Overs: ${Math.floor(team.balls/6)}.${team.balls%6} / 8.0`;
-                
-                const crr = team.balls > 0 ? (team.score / (team.balls/6)).toFixed(2) : "0.00";
-                document.getElementById('displayCRR').innerText = `CRR: ${crr}`;
-                
-                const logList = document.getElementById('displayLogs');
-                logList.innerHTML = (data.logs || []).slice(0, 8).map(l => `<li>${l}</li>`).join('');
-            } else {
-                console.log("No match found. Ensure matches/live_match_1 exists in Firestore.");
-            }
+        window.login = async () => {
+            const email = prompt("Email:");
+            const pass = prompt("Password:");
+            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert(e.message); }
+        };
+
+        onSnapshot(doc(db, "matches", matchId), (snap) => {
+            if (!snap.exists()) return;
+            const d = snap.data();
+            const t = d.inn === 1 ? d.tA : d.tB;
+            
+            document.getElementById('teamNames').innerText = `${d.tA.name} vs ${d.tB.name}`;
+            document.getElementById('mainScore').innerText = t.score;
+            document.getElementById('subStats').innerText = `Overs: ${Math.floor(t.balls/6)}.${t.balls%6} | Wkts: ${t.wkts}`;
+            
+            const crr = t.balls > 0 ? (t.score / (t.balls/6)).toFixed(2) : "0.00";
+            document.getElementById('crrBox').innerText = `CRR: ${crr}`;
+
+            const logs = document.getElementById('logList');
+            logs.innerHTML = (d.logs || []).slice(0, 5).map(l => `<li>${l}</li>`).join('');
         });
 
-        window.updateScore = async (runs) => {
-            if(!isAdmin) return;
+        window.addBall = async (runs) => {
+            if (!isAdmin) return;
             const ref = doc(db, "matches", matchId);
             const snap = await getDoc(ref);
-            let data = snap.data();
-            let current = data.inn === 1 ? data.tA : data.tB;
+            const d = snap.data();
+            const teamKey = d.inn === 1 ? 'tA' : 'tB';
 
-            current.score += runs;
-            current.balls += 1;
-            data.logs.unshift(`Ovr ${Math.floor((current.balls-1)/6)}.${(current.balls-1)%6+1}: ${runs} Run(s)`);
+            d[teamKey].score += runs;
+            d[teamKey].balls += 1;
+            d.logs = d.logs || [];
+            d.logs.unshift(`Ovr ${Math.floor((d[teamKey].balls-1)/6)}.${(d[teamKey].balls-1)%6+1}: ${runs} Run(s)`);
 
-            await setDoc(ref, data);
+            await setDoc(ref, d);
         };
 
-        window.addWicket = async () => {
-            if(!isAdmin) return;
-            const type = document.getElementById('wicketType').value;
+        window.confirmWicket = async () => {
+            if (!isAdmin) return;
             const ref = doc(db, "matches", matchId);
             const snap = await getDoc(ref);
-            let data = snap.data();
-            let current = data.inn === 1 ? data.tA : data.tB;
+            const d = snap.data();
+            const teamKey = d.inn === 1 ? 'tA' : 'tB';
 
-            current.score -= 5;
-            current.wkts += 1;
-            current.balls += 1;
-            data.logs.unshift(`WICKET! (${type}) -5 Runs`);
+            d[teamKey].score -= 5;
+            d[teamKey].wkts += 1;
+            d[teamKey].balls += 1;
+            d.logs = d.logs || [];
+            d.logs.unshift(`WICKET! -5 Runs deducted`);
 
-            await setDoc(ref, data);
-            document.getElementById('wicketModal').classList.add('hidden');
+            await setDoc(ref, d);
+            document.getElementById('wickModal').classList.add('hidden');
         };
 
-        window.switchInnings = async () => {
-            if(!confirm("Change to 2nd Innings?")) return;
-            const ref = doc(db, "matches", matchId);
-            await updateDoc(ref, { inn: 2 });
-        };
-
-        window.showScreen = (id) => {
-            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-        };
-
+        window.showWickModal = () => document.getElementById('wickModal').classList.remove('hidden');
+        window.closeWickModal = () => document.getElementById('wickModal').classList.add('hidden');
     </script>
-
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --danger: #ef4444; --success: #10b981; }
-        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 15px; }
-        .hidden { display: none !important; }
-        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 15px; border: 1px solid #334155; }
-        .btn { border: none; border-radius: 8px; padding: 12px; font-weight: bold; cursor: pointer; color: white; width: 100%; margin: 5px 0; }
-        .btn-blue { background: var(--accent); }
-        .btn-red { background: var(--danger); }
-        .btn-outline { background: transparent; border: 1px solid #334155; }
-        .score-box { text-align: center; font-size: 3rem; font-weight: 900; margin: 10px 0; }
-        ul { list-style: none; padding: 0; font-size: 0.85rem; color: #94a3b8; }
-        li { padding: 5px 0; border-bottom: 1px solid #334155; }
-        input, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 6px; background: #0f172a; color: white; border: 1px solid #334155; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --danger: #ef4444; }
+        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
+        .hidden { display: none; }
+        .card { background: var(--card); border-radius: 15px; padding: 20px; border: 2px solid #334155; text-align: center; margin-bottom: 15px; }
+        .score-big { font-size: 5rem; font-weight: bold; color: var(--accent); margin: 10px 0; }
+        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .btn { border: none; border-radius: 10px; padding: 15px; font-weight: bold; color: white; background: #334155; cursor: pointer; }
+        .btn-red { background: var(--danger); grid-column: span 2; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-    <div id="screenHome" class="screen">
-        <h2 style="text-align: center; color: var(--accent);">CRIC-8 ELITE</h2>
-        <div class="card">
-            <button class="btn btn-blue" onclick="showScreen('screenLive')">📡 LIVE SCORE</button>
-            <button class="btn btn-outline" onclick="showScreen('screenRules')">📖 RULEBOOK</button>
-            <button class="btn btn-outline admin-only hidden" onclick="logout()">LOGOUT</button>
-            <button class="btn btn-red admin-only hidden" onclick="switchInnings()">SWITCH INNINGS</button>
-            <button class="btn btn-outline" onclick="login()">REFEREE LOGIN</button>
+    <div class="card" style="border-color: var(--accent);">
+        <div id="teamNames" style="font-size: 0.9rem; opacity: 0.8;">Loading Teams...</div>
+        <div id="mainScore" class="score-big">0</div>
+        <div id="subStats" style="font-weight: bold;">Overs: 0.0 | Wkts: 0</div>
+        <div id="crrBox" style="color: #10b981; margin-top: 5px;">CRR: 0.00</div>
+    </div>
+
+    <div id="adminControls" class="card hidden">
+        <div class="btn-grid">
+            <button class="btn" onclick="addBall(0)">0</button>
+            <button class="btn" onclick="addBall(1)">1</button>
+            <button class="btn" onclick="addBall(2)">2</button>
+            <button class="btn" onclick="addBall(3)">3</button>
+            <button class="btn" onclick="addBall(4)">4</button>
+            <button class="btn" onclick="addBall(6)">6</button>
+            <button class="btn btn-red" onclick="showWickModal()">WICKET / OUT</button>
         </div>
     </div>
 
-    <div id="screenLive" class="screen hidden">
-        <div class="card" style="text-align: center;">
-            <div id="displayMatch" style="font-weight: bold; color: var(--accent);">Loading...</div>
-            <div class="score-box" id="displayScore">0 - 0</div>
-            <div id="displayOvers">Overs: 0.0</div>
-            <div id="displayCRR" style="color: var(--success); font-weight: bold; margin-top: 5px;">CRR: 0.00</div>
-        </div>
-
-        <div class="card admin-only hidden">
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <button class="btn btn-outline" onclick="updateScore(0)">0</button>
-                <button class="btn btn-outline" onclick="updateScore(1)">1</button>
-                <button class="btn btn-outline" onclick="updateScore(4)">4</button>
-                <button class="btn btn-outline" onclick="updateScore(6)">6</button>
-                <button class="btn btn-red" onclick="document.getElementById('wicketModal').classList.remove('hidden')">OUT</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h4>Live Timeline</h4>
-            <ul id="displayLogs"></ul>
-        </div>
-        <button class="btn btn-outline" onclick="showScreen('screenHome')">BACK</button>
+    <div class="card" style="text-align: left;">
+        <h4 style="margin: 0 0 10px 0;">Live Timeline</h4>
+        <ul id="logList" style="list-style: none; padding: 0; font-size: 0.8rem; color: #94a3b8;"></ul>
     </div>
 
-    <div id="screenRules" class="screen hidden">
-        <div class="card">
-            <h3>League Rulebook</h3>
-            
+    <button class="btn" style="width: 100%; opacity: 0.5;" onclick="login()">Referee Login</button>
+
+    <div id="wickModal" class="modal hidden">
+        <div class="card" style="width: 80%;">
+            <h3>Confirm Wicket?</h3>
+            <p>This will deduct 5 runs and add 1 ball to the over.</p>
+            <button class="btn btn-red" style="width: 100%; margin-bottom: 10px;" onclick="confirmWicket()">CONFIRM (-5 RUNS)</button>
+            <button class="btn" style="width: 100%;" onclick="closeWickModal()">CANCEL</button>
+        </div>
+    </div>
+
+</body>
+</html>
