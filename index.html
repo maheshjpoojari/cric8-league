@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Elite Pro Scorer</title>
-    
+    <title>Cric-8 Elite | Pro Scorer Final</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -14,8 +13,6 @@
             apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
             authDomain: "cric8-league.firebaseapp.com",
             projectId: "cric8-league",
-            storageBucket: "cric8-league.firebasestorage.app",
-            messagingSenderId: "623659944427",
             appId: "1:623659944427:web:a4ad2da48833e6a4db31ae"
         };
 
@@ -23,141 +20,223 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
+        let matchData = null;
         let isAdmin = false;
-        let isProcessing = false; 
 
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, user => {
             isAdmin = !!user;
             document.getElementById('adminPanel').classList.toggle('hidden', !isAdmin);
         });
 
-        window.login = async () => {
-            const email = prompt("Referee Email:");
-            const pass = prompt("Password:");
-            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Login Failed"); }
-        };
-
-        onSnapshot(doc(db, "matches", "live_match_1"), (snap) => {
+        onSnapshot(doc(db, "matches", "live_match_1"), snap => {
             if (!snap.exists()) return;
-            const d = snap.data();
-            const t = d.inn === 1 ? d.tA : d.tB;
-            
-            // Player Display Logic
-            document.getElementById('bat1').innerText = d.crr_bat || "Batter 1*";
-            document.getElementById('bat2').innerText = d.non_bat || "Batter 2";
-            document.getElementById('bowler').innerText = `Bowler: ${d.crr_bowl || "TBD"}`;
-            
-            // Score Display
-            document.getElementById('mainScore').innerText = t.score;
-            document.getElementById('stats').innerText = `Overs: ${Math.floor(t.balls/6)}.${t.balls%6} | Wkts: ${t.wkts}`;
-            
-            // Over Complete Prompt
-            if(t.balls > 0 && t.balls % 6 === 0) {
-                document.getElementById('overAlert').classList.remove('hidden');
-            } else {
-                document.getElementById('overAlert').classList.add('hidden');
-            }
-
-            const logs = document.getElementById('timeline');
-            logs.innerHTML = (d.logs || []).slice(0, 5).map(l => `<li>${l}</li>`).join('');
+            matchData = snap.data();
+            updateUI();
         });
 
-        window.handleAction = async (runs, isWicket = false) => {
-            if (!isAdmin || isProcessing) return;
-            isProcessing = true; 
+        function updateUI() {
+            const d = matchData;
+            const team = d.inn === 1 ? d.tA : d.tB;
+            const opp = d.inn === 1 ? d.tB : d.tA;
 
-            try {
-                const ref = doc(db, "matches", "live_match_1");
-                const snap = await getDoc(ref);
-                const d = snap.data();
-                const teamKey = d.inn === 1 ? 'tA' : 'tB';
+            // GitHub Logic: Striker Highlight & Selection
+            const bat1 = document.getElementById('bat1');
+            const bat2 = document.getElementById('bat2');
+            
+            bat1.innerText = `${d.crr_bat || 'Select'}*`;
+            bat2.innerText = d.non_bat || 'Select';
 
-                if (isWicket) {
-                    d[teamKey].score -= 5;
-                    d[teamKey].wkts += 1;
-                    d[teamKey].balls += 1;
-                    d.logs.unshift(`WICKET! (-5)`);
-                    closeModal();
-                } else {
-                    d[teamKey].score += runs;
-                    d[teamKey].balls += 1;
-                    d.logs.unshift(`${runs} Run(s)`);
-                }
+            // High-Fidelity Stats
+            document.getElementById('bowlName').innerText = `Bowler: ${d.crr_bowl || 'TBD'}`;
+            document.getElementById('mainScore').innerText = team.score;
+            document.getElementById('stats').innerText = `Overs: ${Math.floor(team.balls/6)}.${team.balls%6} / 8.0 | Wkts: ${team.wkts}`;
 
-                await updateDoc(ref, { 
-                    [`${teamKey}.score`]: d[teamKey].score,
-                    [`${teamKey}.wkts`]: d[teamKey].wkts,
-                    [`${teamKey}.balls`]: d[teamKey].balls,
-                    logs: d.logs
-                });
-            } catch (e) { console.error(e); }
-            finally { isProcessing = false; }
-        };
+            // Death Over Alert (BRD: Last Over 7.0-8.0)
+            const isDeath = team.balls >= 42 && team.balls < 48;
+            document.getElementById('deathAlert').classList.toggle('hidden', !isDeath);
 
-        window.changePlayers = async () => {
-            const b1 = prompt("Striker Name:");
-            const b2 = prompt("Non-Striker Name:");
-            const bowl = prompt("New Bowler Name:");
+            // Target Chasing (BRD: Innings 2)
+            if(d.inn === 2) {
+                document.getElementById('targetBox').classList.remove('hidden');
+                const target = (opp.score || 0) + 1;
+                document.getElementById('targetVal').innerText = `Target: ${target}`;
+                document.getElementById('needVal').innerText = `Need ${target - team.score} from ${48 - team.balls} balls`;
+            }
+
+            // Ball Tracker (BRD: Multi-color Indicators)
+            const tracker = document.getElementById('tracker');
+            tracker.innerHTML = (d.curr_over || []).map(b => {
+                let cls = (b === 'W' || b === '3D(-5)' || b.toString().includes('N') || b.toString().includes('Wd')) ? 'bg-red' : 'bg-white';
+                return `<div class="ball ${cls}">${b}</div>`;
+            }).join('');
+        }
+
+        // BRD: Interactive Strike Rotation
+        window.manualSwap = async () => {
+            if(!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
-            await updateDoc(ref, { crr_bat: b1, non_bat: b2, crr_bowl: bowl });
+            await updateDoc(ref, { crr_bat: matchData.non_bat, non_bat: matchData.crr_bat });
         };
 
-        window.openModal = () => document.getElementById('wickModal').classList.remove('hidden');
-        window.closeModal = () => document.getElementById('wickModal').classList.add('hidden');
+        window.handleAction = async (val, type) => {
+            if (!isAdmin) return;
+            const ref = doc(db, "matches", "live_match_1");
+            const d = JSON.parse(JSON.stringify(matchData));
+            const teamKey = d.inn === 1 ? 'tA' : 'tB';
+
+            if (type === 'wicket') {
+                d[teamKey].score -= 5;
+                d[teamKey].wkts += 1;
+                d[teamKey].balls += 1;
+                d.curr_over.push('W');
+                d.crr_bat = ''; // BRD: Force new selection
+                closeModal('wickModal');
+            } else if (type === 'wide' || type === 'noball') {
+                d[teamKey].score += (val + 1);
+                d.curr_over.push(type === 'wide' ? `Wd${val>0?'+'+val:''}` : `N${val>0?'+'+val:''}`);
+                // Extras don't increment balls
+            } else {
+                d[teamKey].score += val;
+                d[teamKey].balls += 1;
+                d.curr_over.push(type === 'rb' ? `${val}RB` : val);
+                
+                // BRD Logic: Strike rotation on odd runs
+                if([1, 3, 5].includes(val)) [d.crr_bat, d.non_bat] = [d.non_bat, d.crr_bat];
+
+                // BRD Logic: 3-Dot Penalty
+                const last3 = d.curr_over.filter(x => x === 0).slice(-3);
+                if(last3.length === 3 && d.curr_over.slice(-3).every(x => x === 0)) {
+                    d[teamKey].score -= 5;
+                    d.curr_over.push("3D(-5)");
+                }
+            }
+
+            // End of Over Cleanup
+            if(d[teamKey].balls % 6 === 0 && type !== 'wide' && type !== 'noball') d.curr_over = [];
+            await updateDoc(ref, d);
+        };
+
+        window.superOverReset = async () => {
+            if(!confirm("Start Super Over? This clears the board for the tie-breaker.")) return;
+            const ref = doc(db, "matches", "live_match_1");
+            await updateDoc(ref, {
+                inn: 1, curr_over: [], crr_bat: '', non_bat: '', crr_bowl: '',
+                "tA.score": 0, "tA.balls": 0, "tA.wkts": 0,
+                "tB.score": 0, "tB.balls": 0, "tB.wkts": 0
+            });
+        };
+
+        window.openSquad = async (target) => {
+            const teamName = (target === 'bowler') ? 
+                (matchData.inn === 1 ? matchData.tB.name : matchData.tA.name) : 
+                (matchData.inn === 1 ? matchData.tA.name : matchData.tB.name);
+            const snap = await getDoc(doc(db, "teams", teamName));
+            const squad = snap.exists() ? snap.data().squad : [];
+            
+            document.getElementById('squadList').innerHTML = squad.map(p => 
+                `<button class="squad-btn" onclick="assignPlayer('${p}', '${target}')">${p}</button>`
+            ).join('');
+            document.getElementById('squadModal').classList.remove('hidden');
+        };
+
+        window.assignPlayer = async (name, target) => {
+            const ref = doc(db, "matches", "live_match_1");
+            let up = {};
+            if(target === 'bat1') up = { crr_bat: name };
+            else if(target === 'bat2') up = { non_bat: name };
+            else up = { crr_bowl: name };
+            await updateDoc(ref, up);
+            closeModal('squadModal');
+        };
+
+        window.login = async () => {
+            const email = prompt("Email:");
+            const pass = prompt("Password:");
+            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Error"); }
+        };
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
     </script>
 
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --blue: #38bdf8; --red: #ef4444; }
+        :root { --bg: #0f172a; --card: #1e293b; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; }
         body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
         .hidden { display: none !important; }
-        .player-bar { display: flex; justify-content: space-between; padding: 10px; font-size: 0.8rem; background: #0b121e; border-radius: 8px; margin-bottom: 10px; color: var(--blue); }
-        .card { background: var(--card); border-radius: 15px; padding: 20px; text-align: center; border: 1px solid #334155; margin-bottom: 10px; }
-        .score { font-size: 5.5rem; font-weight: 800; color: var(--blue); margin: 5px 0; }
-        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .btn { border: none; background: #334155; color: white; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        .btn-red { background: var(--red); grid-column: span 3; margin-top: 5px; }
-        .alert { color: #fbbf24; font-weight: bold; margin-bottom: 10px; font-size: 0.8rem; border: 1px dashed #fbbf24; padding: 5px; border-radius: 5px; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        
+        /* GitHub Interactive Player Bar */
+        .player-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .bat-card { background: #0b121e; padding: 12px; border-radius: 8px; text-align: center; border: 2px solid transparent; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+        .striker-active { border-color: var(--blue); color: var(--blue); }
+        .bowl-card { grid-column: span 2; background: #0b121e; padding: 10px; border-radius: 8px; color: var(--gold); font-weight: bold; text-align: center; cursor: pointer; }
+
+        .card { background: var(--card); border: 1px solid #334155; border-radius: 15px; padding: 15px; text-align: center; margin-bottom: 10px; position: relative; }
+        .death-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--red); color: white; padding: 2px 12px; border-radius: 20px; font-size: 0.6rem; font-weight: 800; animation: flash 1s infinite; }
+        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .main-score { font-size: 5rem; font-weight: 800; color: var(--blue); margin: 0; }
+        .ball-row { display: flex; justify-content: center; gap: 5px; margin: 15px 0; min-height: 32px; flex-wrap: wrap; }
+        .ball { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 0.6rem; background: #fff; }
+        .bg-red { background: var(--red); color: #fff; }
+
+        .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .btn { border: none; background: #334155; color: #fff; padding: 15px 0; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-red { background: var(--red); grid-column: span 4; font-size: 1rem; margin-top: 5px; }
+        .squad-btn { width: 100%; padding: 15px; margin-bottom: 8px; background: var(--blue); border: none; border-radius: 8px; font-weight: bold; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
     </style>
 </head>
 <body>
 
     <div class="player-bar">
-        <div><span id="bat1">Batter 1*</span> | <span id="bat2" style="opacity:0.6;">Batter 2</span></div>
-        <div id="bowler">Bowler: TBD</div>
+        <div id="bat1" class="bat-card striker-active" onclick="manualSwap()" ondblclick="openSquad('bat1')">Select*</div>
+        <div id="bat2" class="bat-card" onclick="manualSwap()" ondblclick="openSquad('bat2')">Select</div>
+        <div id="bowlName" class="bowl-card" onclick="openSquad('bowler')">Bowler: TBD</div>
     </div>
 
     <div class="card">
-        <div id="overAlert" class="alert hidden">OVER COMPLETE! TAP TO CHANGE BOWLER</div>
-        <div id="mainScore" class="score">0</div>
-        <div id="stats" style="font-weight: bold; opacity: 0.8;">Overs: 0.0 | Wkts: 0</div>
-    </div>
-
-    <div id="adminPanel" class="card hidden">
-        <div class="btn-grid">
-            <button class="btn" onclick="handleAction(0)">0</button>
-            <button class="btn" onclick="handleAction(1)">1</button>
-            <button class="btn" onclick="handleAction(2)">2</button>
-            <button class="btn" onclick="handleAction(3)">3</button>
-            <button class="btn" onclick="handleAction(4)">4</button>
-            <button class="btn" onclick="handleAction(6)">6</button>
-            <button class="btn btn-red" onclick="openModal()">WICKET / OUT</button>
+        <div id="deathAlert" class="death-badge hidden">DEATH OVER</div>
+        <div id="targetBox" class="hidden" style="color: var(--gold); border-bottom: 1px solid #475569; padding-bottom: 8px; margin-bottom: 8px;">
+            <div id="targetVal" style="font-weight: bold;">Target: 0</div>
+            <div id="needVal" style="font-size: 0.9rem;">Need 0 from 0 balls</div>
         </div>
-        <button class="btn" style="width: 100%; margin-top: 10px; background: #0ea5e9;" onclick="changePlayers()">CHANGE BATSMAN/BOWLER</button>
+        <div id="mainScore" class="main-score">0</div>
+        <div id="stats" style="font-weight: bold; opacity: 0.7; font-size: 0.9rem;">Overs: 0.0 / 8.0 | Wkts: 0</div>
+        <div id="tracker" class="ball-row"></div>
     </div>
 
-    <div class="card" style="text-align: left;">
-        <ul id="timeline" style="list-style: none; padding: 0; font-size: 0.8rem; color: #94a3b8;"></ul>
+    <div id="adminPanel" class="hidden">
+        <div class="admin-grid">
+            <button class="btn" onclick="handleAction(0, 'run')">0</button>
+            <button class="btn" onclick="handleAction(1, 'run')">1</button>
+            <button class="btn" onclick="handleAction(2, 'run')">2</button>
+            <button class="btn" onclick="handleAction(3, 'run')">3</button>
+            <button class="btn" onclick="handleAction(4, 'run')">4</button>
+            <button class="btn" onclick="handleAction(5, 'run')">5</button>
+            <button class="btn" onclick="handleAction(6, 'run')">6</button>
+            <button class="btn" style="background:#64748b" onclick="handleAction(1, 'rb')">1RB</button>
+
+            <button class="btn" style="background:#0ea5e9" onclick="handleAction(0, 'wide')">WD</button>
+            <button class="btn" style="background:#0ea5e9" onclick="handleAction(1, 'wide')">WD+1</button>
+            <button class="btn" style="background:#f97316" onclick="handleAction(0, 'noball')">NB</button>
+            <button class="btn" style="background:#f97316" onclick="handleAction(1, 'noball')">NB+1</button>
+
+            <button class="btn btn-red" onclick="document.getElementById('wickModal').classList.remove('hidden')">WICKET / OUT (-5)</button>
+        </div>
+        <button onclick="superOverReset()" style="width:100%; background:none; border:1px dashed #475569; color:#94a3b8; margin-top:12px; padding:10px; border-radius:10px; font-size:0.7rem;">SUPER OVER (TIE-BREAKER)</button>
     </div>
 
-    <button class="btn" style="width: 100%; background: transparent; opacity: 0.3;" onclick="login()">Referee Login</button>
+    <button onclick="login()" style="width:100%; background:transparent; border:none; color:#475569; margin-top:15px; font-size: 0.7rem;">Referee Login</button>
+
+    <div id="squadModal" class="modal hidden">
+        <h2 style="color: var(--gold);">Select Player</h2>
+        <div id="squadList" style="width: 100%; overflow-y: auto; max-height: 70vh;"></div>
+        <button class="btn" style="width:100%; margin-top:10px;" onclick="closeModal('squadModal')">CANCEL</button>
+    </div>
 
     <div id="wickModal" class="modal hidden">
-        <div class="card" style="width: 80%;">
+        <div class="card" style="width: 90%;">
             <h2 style="color: var(--red);">OUT!</h2>
-            <p>Confirming this will deduct 5 runs.</p>
-            <button class="btn btn-red" style="width: 100%;" onclick="handleAction(0, true)">CONFIRM (-5 RUNS)</button>
-            <button class="btn" style="width: 100%; margin-top: 10px;" onclick="closeModal()">CANCEL</button>
+            <button class="btn btn-red" style="width:100%;" onclick="handleAction(0, 'wicket')">CONFIRM OUT (-5 RUNS)</button>
+            <button class="btn" style="width:100%; margin-top:10px;" onclick="closeModal('wickModal')">CANCEL</button>
         </div>
     </div>
 
