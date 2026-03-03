@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Betaa</title>
+    <title>Cric-8 Elite | Pro Scorer V4</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, updateDoc, onSnapshot, collection, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -228,4 +228,42 @@
         <div id="nextOverBtn" class="next-over-btn hidden" onclick="startNextOver()">TAP HERE TO START NEXT OVER</div>
     </div>
 
-    <div id="
+    <div id="adminPanel" class="hidden">
+        <div id="mainControls" class="admin-grid">
+            <button class="btn" onclick="handleAction(0, 'run')">0</button>
+            <button class="btn" onclick="handleAction(1, 'run')">1</button>
+            <button class="btn" onclick="handleAction(2, 'run')">2</button>
+            <button class="btn" onclick="handleAction(3, 'run')">3</button>
+            <button class="btn" onclick="handleAction(4, 'run')">4</button>
+            <button class="btn" onclick="handleAction(5, 'run')">5</button>
+            <button class="btn" onclick="handleAction(6, 'run')">6</button>
+            <button class="btn" style="background:#475569" onclick="handleAction(1, 'rb')">1RB</button>
+
+            <button class="btn btn-blue" onclick="handleAction(0, 'wide')">WD</button>
+            <button class="btn btn-blue" onclick="handleAction(1, 'wide')">WD+1</button>
+            <button class="btn btn-orange" onclick="handleAction(0, 'noball')">NB</button>
+            <button class="btn btn-orange" onclick="handleAction(1, 'noball')">NB+1</button>
+
+            <button class="btn btn-red" onclick="document.getElementById('wickModal').classList.remove('hidden')">WICKET / OUT (-5)</button>
+            
+            <div class="emergency-tools">
+                <button class="btn btn-util" onclick="undoAction()">UNDO LAST</button>
+                <button class="btn btn-util" onclick="manualSwap()">SWAP STRIKE</button>
+                <button class="btn btn-util" style="color: var(--red);" onclick="abortMatch()">ABORT MATCH (RAIN)</button>
+                <button class="btn btn-util" style="color: var(--gold);" onclick="walkoverMatch()">WALKOVER</button>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="login()" style="width:100%; background:transparent; border:none; color:#334155; margin-top:30px; font-size: 0.7rem;">Referee Security Access</button>
+
+    <div id="wickModal" class="modal hidden">
+        <div class="score-card" style="width: 100%; border-color: var(--red);">
+            <h2 style="color: var(--red);">CONFIRM OUT?</h2>
+            <button class="btn btn-red" style="width:100%;" onclick="handleAction(0, 'wicket')">YES, WICKET (-5)</button>
+            <button class="btn" style="width:100%; margin-top:10px; background:#334155;" onclick="closeModal('wickModal')">CANCEL</button>
+        </div>
+    </div>
+
+</body>
+</html>
