@@ -43,7 +43,7 @@
 
     <div class="header">
         <div id="teamNameDisp">Loading...</div>
-        <div id="bowlNameDisp" onclick="window.editBowler()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
+        <div id="bowlNameDisp" onclick="window.openNextOverModal()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
     </div>
 
     <div class="player-bar">
@@ -56,7 +56,7 @@
         <div id="mainScore" class="main-score">0</div>
         <div id="stats" style="color:#94a3b8; font-weight:bold;">Overs: 0.0 / 8.0 | Wkts: 0</div>
         <div id="tracker" class="ball-row"></div>
-        <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.startNextOver()">TAP HERE TO START NEXT OVER</div>
+        <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.openNextOverModal()">TAP HERE TO START NEXT OVER</div>
     </div>
 
     <div id="adminPanel" class="hidden">
@@ -136,6 +136,19 @@
             </div>
 
             <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('setupModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- NEXT OVER BOWLER SELECTION MODAL -->
+    <div id="bowlerModal" class="modal hidden">
+        <div class="setup-card">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">SELECT NEXT BOWLER</h3>
+            <div class="input-group">
+                <label id="nextBowlerTeamLabel">Fielding Team Bowler</label>
+                <select id="nextBowlerSelect" class="input-field"></select>
+            </div>
+            <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.confirmNextOverBowler()">CONFIRM & START OVER</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('bowlerModal')">CANCEL</button>
         </div>
     </div>
 
@@ -403,6 +416,43 @@
             window.closeModal('setupModal');
         };
 
+        // --- NEW OVER & BOWLER MODAL LOGIC ---
+        window.openNextOverModal = async () => {
+            if (!isAdmin) return alert("Please login as referee first.");
+            if (Object.keys(uploadedTeams).length === 0) {
+                await loadTeamsFromDatabase();
+            }
+
+            const d = matchData;
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const fieldingTeamName = isTeamA ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
+            const bowlRoster = uploadedTeams[fieldingTeamName] || [];
+
+            const sel = document.getElementById('nextBowlerSelect');
+            sel.innerHTML = '';
+
+            if (bowlRoster.length > 0) {
+                bowlRoster.forEach(p => sel.add(new Option(p, p)));
+            } else {
+                ["Bowler 1", "Bowler 2", "Bowler 3"].forEach(p => sel.add(new Option(p, p)));
+            }
+
+            setText('nextBowlerTeamLabel', `Choose Bowler from ${fieldingTeamName}`);
+            document.getElementById('bowlerModal')?.classList.remove('hidden');
+        };
+
+        window.confirmNextOverBowler = async () => {
+            const nextBowl = document.getElementById('nextBowlerSelect').value || "TBD";
+            const d = JSON.parse(JSON.stringify(matchData));
+            d.curr_over = [];
+            d.crr_bowl = nextBowl;
+            // Swap strike on over completion
+            [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+            
+            await updateDoc(doc(db, "matches", "live_match_1"), d);
+            window.closeModal('bowlerModal');
+        };
+
         async function archiveAndReset(status, winnerName = "No Result") {
             const historyRef = collection(db, "match_history");
             const archiveData = {
@@ -424,12 +474,6 @@
             const winner = prompt("Enter Walkover Winner Team Name:");
             if (!winner) return;
             await archiveAndReset("Walkover", winner);
-        };
-
-        window.editBowler = async () => {
-            if (!isAdmin) return;
-            const name = prompt("Enter Bowler Name:", matchData?.crr_bowl || "");
-            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { crr_bowl: name });
         };
 
         window.editStriker = async () => {
@@ -460,7 +504,6 @@
 
             if (type === 'wide') {
                 d[teamKey].score += (val + 1);
-                // In overs 1-7: ball is counted. In 8th over: ball is not counted.
                 if (!isEighthOver) {
                     d[teamKey].balls += 1;
                 }
@@ -472,7 +515,6 @@
             else if (type === 'noball') {
                 d[teamKey].score += (val + 1);
                 d.crr_bat_runs += val;
-                // In overs 1-7: ball is counted. In 8th over: ball is not counted.
                 if (!isEighthOver) {
                     d[teamKey].balls += 1;
                 }
@@ -511,15 +553,6 @@
                 }
             }
             await updateDoc(ref, d);
-        };
-
-        window.startNextOver = async () => {
-            const nextBowl = prompt("Next Over Bowler Name:") || "TBD";
-            const d = JSON.parse(JSON.stringify(matchData));
-            d.curr_over = [];
-            d.crr_bowl = nextBowl;
-            [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-            await updateDoc(doc(db, "matches", "live_match_1"), d);
         };
 
         window.manualSwap = async () => {
