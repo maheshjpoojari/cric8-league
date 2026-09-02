@@ -4,9 +4,153 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cric-8 Elite Pro Scorer V4</title>
+    <style>
+        :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
+        .hidden { display: none !important; }
+        .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.85rem; }
+        .player-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px 12px 0 0; margin-top: 5px; border: 1px solid #1e293b; }
+        .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
+        .striker-active { color: var(--gold); border-bottom-color: var(--gold); }
+        .score-card { background: var(--card); border: 1px solid #1e293b; border-radius: 0 0 15px 15px; padding: 25px 10px; text-align: center; margin-bottom: 15px; }
+        .main-score { font-size: 6rem; font-weight: 900; color: var(--blue); margin: 0; line-height: 1; }
+        .ball-row { display: flex; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap; min-height: 35px; }
+        .ball { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 800; font-size: 0.7rem; }
+        .bg-white { background: #fff; } .bg-red { background: var(--red); color: #fff; } .bg-yellow { background: var(--gold); }
+        .next-over-btn { color: var(--gold); font-weight: bold; margin-top: 15px; cursor: pointer; animation: blink 1s infinite; text-decoration: underline; }
+        @keyframes blink { 50% { opacity: 0.3; } }
+        .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .btn { border: none; background: #1e293b; color: #fff; padding: 18px 0; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
+        .btn-blue { background: #0ea5e9; } .btn-orange { background: #f97316; } .btn-red { background: var(--red); grid-column: span 4; }
+        .btn-green { background: var(--green); grid-column: span 2; font-size: 0.85rem; padding: 12px; }
+        .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px; }
+        .btn-util { background: #334155; font-size: 0.7rem; padding: 12px; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .setup-card { background: var(--card); border: 1px solid #334155; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
+        .input-group { margin-bottom: 12px; text-align: left; }
+        .input-group label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold; }
+        .input-field { width: 100%; box-sizing: border-box; background: #0b1120; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; font-size: 0.9rem; }
+        .coin-wrapper { perspective: 800px; display: flex; justify-content: center; margin: 15px 0; }
+        .coin { width: 80px; height: 80px; position: relative; transform-style: preserve-3d; transition: transform 2s ease-out; }
+        .coin-face { position: absolute; width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; backface-visibility: hidden; border: 3px solid #f59e0b; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
+        .heads { background: radial-gradient(circle, #fde047, #d97706); color: #78350f; }
+        .tails { background: radial-gradient(circle, #fde047, #b45309); color: #78350f; transform: rotateY(180deg); }
+        .animate-heads { transform: rotateY(1800deg); }
+        .animate-tails { transform: rotateY(1980deg); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div id="teamNameDisp">Loading...</div>
+        <div id="bowlNameDisp" onclick="window.editBowler()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
+    </div>
+
+    <div class="player-bar">
+        <div id="bat1" class="bat-card striker-active" onclick="window.editStriker()">P1* (0) ✏️</div>
+        <div id="bat2" class="bat-card" onclick="window.editNonStriker()">P2 (0) ✏️</div>
+    </div>
+
+    <div class="score-card">
+        <div id="targetBox" class="hidden" style="color: var(--gold); font-weight: bold; margin-bottom: 10px;"></div>
+        <div id="mainScore" class="main-score">0</div>
+        <div id="stats" style="color:#94a3b8; font-weight:bold;">Overs: 0.0 / 8.0 | Wkts: 0</div>
+        <div id="tracker" class="ball-row"></div>
+        <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.startNextOver()">TAP HERE TO START NEXT OVER</div>
+    </div>
+
+    <div id="adminPanel" class="hidden">
+        <div id="mainControls" class="admin-grid">
+            <button class="btn" onclick="window.handleAction(0, 'run')">0</button>
+            <button class="btn" onclick="window.handleAction(1, 'run')">1</button>
+            <button class="btn" onclick="window.handleAction(2, 'run')">2</button>
+            <button class="btn" onclick="window.handleAction(3, 'run')">3</button>
+            <button class="btn" onclick="window.handleAction(4, 'run')">4</button>
+            <button class="btn" onclick="window.handleAction(5, 'run')">5</button>
+            <button class="btn" onclick="window.handleAction(6, 'run')">6</button>
+            <button class="btn" style="background:#475569" onclick="window.handleAction(1, 'rb')">1RB</button>
+
+            <button class="btn btn-blue" onclick="window.handleAction(0, 'wide')">WD</button>
+            <button class="btn btn-blue" onclick="window.handleAction(1, 'wide')">WD+1</button>
+            <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
+            <button class="btn btn-orange" onclick="window.handleAction(1, 'noball')">NB+1</button>
+
+            <button class="btn btn-red" onclick="document.getElementById('wickModal').classList.remove('hidden')">WICKET / OUT (-5)</button>
+            
+            <div class="emergency-tools">
+                <button class="btn btn-green" onclick="window.openSetupModal()">🪙 DIGITAL TOSS & MATCH</button>
+                <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
+                <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
+                <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
+                <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH (RAIN)</button>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="window.login()" style="width:100%; background:transparent; border:none; color:#334155; margin-top:30px; font-size: 0.7rem; cursor:pointer;">Referee Security Access</button>
+
+    <!-- DIGITAL TOSS & SETUP MODAL -->
+    <div id="setupModal" class="modal hidden">
+        <div class="setup-card">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 DIGITAL TOSS & MATCH SETUP</h3>
+            
+            <div class="input-group">
+                <label>Team 1 (Calls HEADS)</label>
+                <input type="text" id="setupTeam1" class="input-field" value="Team 1">
+            </div>
+            <div class="input-group">
+                <label>Team 2 (Calls TAILS)</label>
+                <input type="text" id="setupTeam2" class="input-field" value="Team 2">
+            </div>
+
+            <div class="coin-wrapper">
+                <div id="coin" class="coin">
+                    <div class="coin-face heads">H</div>
+                    <div class="coin-face tails">T</div>
+                </div>
+            </div>
+            <button id="flipBtn" class="btn btn-orange" style="width:100%; padding: 12px; margin-bottom: 15px;" onclick="window.flipCoin()">SPIN / FLIP COIN</button>
+
+            <div id="tossResultBox" class="hidden">
+                <div id="tossResultText" style="text-align: center; color: var(--gold); margin-bottom: 12px; font-size: 0.95rem;"></div>
+                <div class="input-group">
+                    <label><span id="tossWinnerName">Toss Winner</span> Decided To</label>
+                    <select id="setupDecision" class="input-field">
+                        <option value="bat">Bat First</option>
+                        <option value="bowl">Bowl First</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Opening Striker Name</label>
+                    <input type="text" id="setupStriker" class="input-field" placeholder="Striker">
+                </div>
+                <div class="input-group">
+                    <label>Opening Non-Striker Name</label>
+                    <input type="text" id="setupNonStriker" class="input-field" placeholder="Non-Striker">
+                </div>
+                <div class="input-group">
+                    <label>Opening Bowler Name</label>
+                    <input type="text" id="setupBowler" class="input-field" placeholder="Bowler">
+                </div>
+                <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.submitMatchSetup()">START MATCH</button>
+            </div>
+
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('setupModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- WICKET MODAL -->
+    <div id="wickModal" class="modal hidden">
+        <div class="score-card" style="width: 100%; border-color: var(--red);">
+            <h2 style="color: var(--red);">CONFIRM OUT?</h2>
+            <button class="btn btn-red" style="width:100%;" onclick="window.handleAction(0, 'wicket')">YES, WICKET (-5)</button>
+            <button class="btn" style="width:100%; margin-top:10px; background:#334155;" onclick="window.closeModal('wickModal')">CANCEL</button>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, collection, getDocs, addDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -24,9 +168,72 @@
         let isAdmin = false;
         let tossWinnerTeam = "";
 
+        // Safe DOM helper
+        function setText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = text;
+        }
+
+        function updateUI() {
+            if (!matchData) return;
+            const d = matchData;
+
+            const tA = d.tA || { name: "Team 1", score: 0, balls: 0, wkts: 0 };
+            const tB = d.tB || { name: "Team 2", score: 0, balls: 0, wkts: 0 };
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const team = isTeamA ? tA : tB;
+            const opp = isTeamA ? tB : tA;
+
+            setText('teamNameDisp', team.name || (isTeamA ? "Team 1" : "Team 2"));
+            setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'} ✏️`);
+
+            const r1 = parseInt(d.crr_bat_runs) || 0;
+            const r2 = parseInt(d.non_bat_runs) || 0;
+            setText('bat1', `${d.crr_bat_name || 'Striker'}* (${r1}) ✏️`);
+            setText('bat2', `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`);
+
+            setText('mainScore', team.score ?? 0);
+
+            const balls = team.balls || 0;
+            const overs = `${Math.floor(balls / 6)}.${balls % 6}`;
+            setText('stats', `Overs: ${overs} / 8.0 | Wkts: ${team.wkts || 0}`);
+
+            const targetBox = document.getElementById('targetBox');
+            if (targetBox) {
+                if (d.inn === 2) {
+                    targetBox.classList.remove('hidden');
+                    const target = (parseInt(opp.score) || 0) + 1;
+                    targetBox.innerHTML = `Target: ${target}<br><span style="font-size:0.8rem">Need ${target - (team.score || 0)} from ${48 - balls} balls</span>`;
+                } else {
+                    targetBox.classList.add('hidden');
+                }
+            }
+
+            const tracker = document.getElementById('tracker');
+            if (tracker) {
+                tracker.innerHTML = (d.curr_over || []).map(b => {
+                    let cls = 'bg-white';
+                    if (b === 'W' || b === '3D(-5)' || b === '1RB') cls = 'bg-red';
+                    if (b.toString().includes('N') || b.toString().includes('Wd')) cls = 'bg-yellow';
+                    return `<div class="ball ${cls}">${b}</div>`;
+                }).join('');
+            }
+
+            const isOverComplete = balls > 0 && balls % 6 === 0 && (d.curr_over || []).length > 0;
+            const nextBtn = document.getElementById('nextOverBtn');
+            if (nextBtn) nextBtn.classList.toggle('hidden', !isOverComplete);
+
+            const controls = document.getElementById('mainControls');
+            if (controls) {
+                controls.style.opacity = isOverComplete ? "0.2" : "1";
+                controls.style.pointerEvents = isOverComplete ? "none" : "auto";
+            }
+        }
+
         onAuthStateChanged(auth, user => {
             isAdmin = !!user;
-            document.getElementById('adminPanel').classList.toggle('hidden', !isAdmin);
+            const panel = document.getElementById('adminPanel');
+            if (panel) panel.classList.toggle('hidden', !isAdmin);
         });
 
         onSnapshot(doc(db, "matches", "live_match_1"), snap => {
@@ -35,55 +242,12 @@
             updateUI();
         });
 
-        function updateUI() {
-            const d = matchData;
-            if (!d) return;
-
-            const isTeamA = d.inn === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const team = isTeamA ? d.tA : d.tB;
-            const opp = isTeamA ? d.tB : d.tA;
-
-            document.getElementById('teamNameDisp').innerText = team.name || (isTeamA ? "Team 1" : "Team 2");
-            document.getElementById('bowlNameDisp').innerText = `Bowler: ${d.crr_bowl || 'TBD'} ✏️`;
-
-            const r1 = parseInt(d.crr_bat_runs) || 0;
-            const r2 = parseInt(d.non_bat_runs) || 0;
-            document.getElementById('bat1').innerText = `${d.crr_bat_name || 'Striker'}* (${r1}) ✏️`;
-            document.getElementById('bat2').innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
-
-            document.getElementById('mainScore').innerText = team.score;
-            const overs = `${Math.floor(team.balls / 6)}.${team.balls % 6}`;
-            document.getElementById('stats').innerText = `Overs: ${overs} / 8.0 | Wkts: ${team.wkts}`;
-
-            if(d.inn === 2) {
-                document.getElementById('targetBox').classList.remove('hidden');
-                const target = (parseInt(opp.score) || 0) + 1;
-                document.getElementById('targetBox').innerHTML = `Target: ${target}<br><span style="font-size:0.8rem">Need ${target - team.score} from ${48 - team.balls} balls</span>`;
-            } else {
-                document.getElementById('targetBox').classList.add('hidden');
-            }
-
-            const tracker = document.getElementById('tracker');
-            tracker.innerHTML = (d.curr_over || []).map(b => {
-                let cls = 'bg-white';
-                if(b === 'W' || b === '3D(-5)' || b === '1RB') cls = 'bg-red';
-                if(b.toString().includes('N') || b.toString().includes('Wd')) cls = 'bg-yellow';
-                return `<div class="ball ${cls}">${b}</div>`;
-            }).join('');
-
-            const isOverComplete = team.balls > 0 && team.balls % 6 === 0 && d.curr_over.length > 0;
-            document.getElementById('nextOverBtn').classList.toggle('hidden', !isOverComplete);
-            document.getElementById('mainControls').style.opacity = isOverComplete ? "0.2" : "1";
-            document.getElementById('mainControls').style.pointerEvents = isOverComplete ? "none" : "auto";
-        }
-
-        // --- DIGITAL TOSS SIMULATOR ---
-
-        window.openSetupModal = async () => {
-            if(!isAdmin) return alert("Please login as referee first.");
-            document.getElementById('setupModal').classList.remove('hidden');
-            document.getElementById('tossResultBox').classList.add('hidden');
-            document.getElementById('coin').className = 'coin';
+        window.openSetupModal = () => {
+            if (!isAdmin) return alert("Please login as referee first.");
+            document.getElementById('setupModal')?.classList.remove('hidden');
+            document.getElementById('tossResultBox')?.classList.add('hidden');
+            const coin = document.getElementById('coin');
+            if (coin) coin.className = 'coin';
         };
 
         window.flipCoin = () => {
@@ -91,33 +255,34 @@
             const t2 = document.getElementById('setupTeam2').value.trim() || "Team 2";
             const coin = document.getElementById('coin');
             const flipBtn = document.getElementById('flipBtn');
-            flipBtn.disabled = true;
+            if (flipBtn) flipBtn.disabled = true;
 
-            coin.className = 'coin';
+            if (coin) coin.className = 'coin';
             const isHeads = Math.random() < 0.5;
-            
+
             setTimeout(() => {
-                coin.classList.add(isHeads ? 'animate-heads' : 'animate-tails');
+                if (coin) coin.classList.add(isHeads ? 'animate-heads' : 'animate-tails');
             }, 50);
 
             setTimeout(() => {
                 tossWinnerTeam = isHeads ? t1 : t2;
-                document.getElementById('tossResultText').innerHTML = `🎉 <b>${tossWinnerTeam}</b> won the toss (${isHeads ? 'HEADS' : 'TAILS'})!`;
-                document.getElementById('tossWinnerName').innerText = tossWinnerTeam;
-                document.getElementById('tossResultBox').classList.remove('hidden');
-                flipBtn.disabled = false;
+                const resultText = document.getElementById('tossResultText');
+                if (resultText) resultText.innerHTML = `🎉 <b>${tossWinnerTeam}</b> won the toss (${isHeads ? 'HEADS' : 'TAILS'})!`;
+                setText('tossWinnerName', tossWinnerTeam);
+                document.getElementById('tossResultBox')?.classList.remove('hidden');
+                if (flipBtn) flipBtn.disabled = false;
             }, 2100);
         };
 
         window.submitMatchSetup = async () => {
             const t1 = document.getElementById('setupTeam1').value.trim() || "Team 1";
             const t2 = document.getElementById('setupTeam2').value.trim() || "Team 2";
-            const decision = document.getElementById('setupDecision').value; // 'bat' or 'bowl'
+            const decision = document.getElementById('setupDecision').value;
             const sName = document.getElementById('setupStriker').value.trim() || "Striker";
             const nsName = document.getElementById('setupNonStriker').value.trim() || "Non-Striker";
             const bName = document.getElementById('setupBowler').value.trim() || "TBD";
 
-            const winningTeamIsT1 = tossWinnerTeam === t1;
+            const winningTeamIsT1 = (tossWinnerTeam === t1);
             const newMatchData = {
                 inn: 1,
                 tossWinner: winningTeamIsT1 ? 'tA' : 'tB',
@@ -132,10 +297,8 @@
             };
 
             await setDoc(doc(db, "matches", "live_match_1"), newMatchData);
-            closeModal('setupModal');
+            window.closeModal('setupModal');
         };
-
-        // --- MATCH MANAGEMENT & EDITS ---
 
         async function archiveAndReset(status, winnerName = "No Result") {
             const historyRef = collection(db, "match_history");
@@ -150,13 +313,13 @@
         }
 
         window.abortMatch = async () => {
-            if(!confirm("ABORT MATCH? This will archive current progress.")) return;
+            if (!confirm("ABORT MATCH? This will archive current progress.")) return;
             await archiveAndReset("Aborted/Rain");
         };
 
         window.walkoverMatch = async () => {
             const winner = prompt("Enter Walkover Winner Team Name:");
-            if(!winner) return;
+            if (!winner) return;
             await archiveAndReset("Walkover", winner);
         };
 
@@ -178,13 +341,11 @@
             if (name) await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: name });
         };
 
-        // --- SCORING KEYS ---
-
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
             const d = JSON.parse(JSON.stringify(matchData));
-            const isTeamA = d.inn === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
             const teamKey = isTeamA ? 'tA' : 'tB';
 
             d.last_state = JSON.stringify(matchData);
@@ -193,13 +354,13 @@
 
             if (type === 'wide') {
                 d[teamKey].score += (val + 1);
-                if(val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                if (val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 d.curr_over.push(val > 0 ? `Wd+${val}` : 'Wd');
             } 
             else if (type === 'noball') {
                 d[teamKey].score += (val + 1);
                 d.crr_bat_runs += val;
-                if(val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                if (val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } 
             else if (type === 'wicket') {
@@ -210,17 +371,17 @@
                 const nextBat = prompt("New Batsman Name:") || "New Batsman";
                 d.crr_bat_name = nextBat; 
                 d.crr_bat_runs = 0;
-                closeModal('wickModal');
+                window.closeModal('wickModal');
             } 
             else {
                 d[teamKey].score += val;
                 d[teamKey].balls += 1;
-                if(type === 'run') { d.crr_bat_runs += val; d.curr_over.push(val); } 
+                if (type === 'run') { d.crr_bat_runs += val; d.curr_over.push(val); } 
                 else { d.curr_over.push(`${val}RB`); }
-                if([1, 3, 5].includes(val)) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                if ([1, 3, 5].includes(val)) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 
                 const lastThree = d.curr_over.slice(-3);
-                if(lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
+                if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
                     d[teamKey].score -= 5;
                     d.curr_over.push("3D(-5)");
                 }
@@ -244,37 +405,25 @@
         };
 
         window.undoAction = async () => {
-            if(!matchData.last_state) return alert("Nothing to undo!");
+            if (!matchData.last_state) return alert("Nothing to undo!");
             await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
         };
 
         window.login = async () => {
-            const email = prompt("Email:"); const pass = prompt("Pass:");
-            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Failed: " + e.message); }
+            const email = prompt("Email:");
+            const pass = prompt("Pass:");
+            if (!email || !pass) return;
+            try { 
+                await signInWithEmailAndPassword(auth, email, pass); 
+            } catch (e) { 
+                alert("Failed: " + e.message); 
+            }
         };
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
-    </script>
 
-    <style>
-        :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
-        .hidden { display: none !important; }
-        .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.85rem; }
-        .player-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px 12px 0 0; margin-top: 5px; border: 1px solid #1e293b; }
-        .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
-        .striker-active { color: var(--gold); border-bottom-color: var(--gold); }
-        .score-card { background: var(--card); border: 1px solid #1e293b; border-radius: 0 0 15px 15px; padding: 25px 10px; text-align: center; margin-bottom: 15px; }
-        .main-score { font-size: 6rem; font-weight: 900; color: var(--blue); margin: 0; line-height: 1; }
-        .ball-row { display: flex; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap; min-height: 35px; }
-        .ball { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 800; font-size: 0.7rem; }
-        .bg-white { background: #fff; } .bg-red { background: var(--red); color: #fff; } .bg-yellow { background: var(--gold); }
-        .next-over-btn { color: var(--gold); font-weight: bold; margin-top: 15px; cursor: pointer; animation: blink 1s infinite; text-decoration: underline; }
-        @keyframes blink { 50% { opacity: 0.3; } }
-        .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .btn { border: none; background: #1e293b; color: #fff; padding: 18px 0; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
-        .btn-blue { background: #0ea5e9; } .btn-orange { background: #f97316; } .btn-red { background: var(--red); grid-column: span 4; }
-        .btn-green { background: var(--green); grid-column: span 2; font-size: 0.85rem; padding: 12px; }
-        .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px; }
-        .btn-util { background: #334155; font-size: 0.7rem; padding: 12px; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
-        .setup-card { background: var(--card); border: 1px solid #334155; border-radius: 12px; padding: 20px; width: 100
+        window.closeModal = (id) => {
+            const m = document.getElementById(id);
+            if (m) m.classList.add('hidden');
+        };
+    </script>
+</body>
+</html>
