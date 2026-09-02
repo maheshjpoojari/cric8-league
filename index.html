@@ -6,7 +6,7 @@
     <title>Cric-8 Elite Pro Scorer V4</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, collection, addDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, getDocs, addDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -22,6 +22,7 @@
 
         let matchData = null;
         let isAdmin = false;
+        let tossWinnerTeam = "";
 
         onAuthStateChanged(auth, user => {
             isAdmin = !!user;
@@ -43,12 +44,12 @@
             const opp = isTeamA ? d.tB : d.tA;
 
             document.getElementById('teamNameDisp').innerText = team.name || (isTeamA ? "Team 1" : "Team 2");
-            document.getElementById('bowlNameDisp').innerText = `Bowler: ${d.crr_bowl || 'TBD'}`;
+            document.getElementById('bowlNameDisp').innerText = `Bowler: ${d.crr_bowl || 'TBD'} ✏️`;
 
             const r1 = parseInt(d.crr_bat_runs) || 0;
             const r2 = parseInt(d.non_bat_runs) || 0;
-            document.getElementById('bat1').innerText = `${d.crr_bat_name || 'Striker'}* (${r1})`;
-            document.getElementById('bat2').innerText = `${d.non_bat_name || 'Non-Striker'} (${r2})`;
+            document.getElementById('bat1').innerText = `${d.crr_bat_name || 'Striker'}* (${r1}) ✏️`;
+            document.getElementById('bat2').innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
 
             document.getElementById('mainScore').innerText = team.score;
             const overs = `${Math.floor(team.balls / 6)}.${team.balls % 6}`;
@@ -76,26 +77,51 @@
             document.getElementById('mainControls').style.pointerEvents = isOverComplete ? "none" : "auto";
         }
 
-        // --- PRE-MATCH SETUP & TOSS ---
+        // --- DIGITAL TOSS SIMULATOR ---
 
-        window.openSetupModal = () => {
+        window.openSetupModal = async () => {
             if(!isAdmin) return alert("Please login as referee first.");
             document.getElementById('setupModal').classList.remove('hidden');
+            document.getElementById('tossResultBox').classList.add('hidden');
+            document.getElementById('coin').className = 'coin';
+        };
+
+        window.flipCoin = () => {
+            const t1 = document.getElementById('setupTeam1').value.trim() || "Team 1";
+            const t2 = document.getElementById('setupTeam2').value.trim() || "Team 2";
+            const coin = document.getElementById('coin');
+            const flipBtn = document.getElementById('flipBtn');
+            flipBtn.disabled = true;
+
+            coin.className = 'coin';
+            const isHeads = Math.random() < 0.5;
+            
+            setTimeout(() => {
+                coin.classList.add(isHeads ? 'animate-heads' : 'animate-tails');
+            }, 50);
+
+            setTimeout(() => {
+                tossWinnerTeam = isHeads ? t1 : t2;
+                document.getElementById('tossResultText').innerHTML = `🎉 <b>${tossWinnerTeam}</b> won the toss (${isHeads ? 'HEADS' : 'TAILS'})!`;
+                document.getElementById('tossWinnerName').innerText = tossWinnerTeam;
+                document.getElementById('tossResultBox').classList.remove('hidden');
+                flipBtn.disabled = false;
+            }, 2100);
         };
 
         window.submitMatchSetup = async () => {
             const t1 = document.getElementById('setupTeam1').value.trim() || "Team 1";
             const t2 = document.getElementById('setupTeam2').value.trim() || "Team 2";
-            const tossWinner = document.getElementById('setupTossWinner').value; // 'tA' or 'tB'
-            const tossDecision = document.getElementById('setupTossDecision').value; // 'bat' or 'bowl'
+            const decision = document.getElementById('setupDecision').value; // 'bat' or 'bowl'
             const sName = document.getElementById('setupStriker').value.trim() || "Striker";
             const nsName = document.getElementById('setupNonStriker').value.trim() || "Non-Striker";
             const bName = document.getElementById('setupBowler').value.trim() || "TBD";
 
+            const winningTeamIsT1 = tossWinnerTeam === t1;
             const newMatchData = {
                 inn: 1,
-                tossWinner: tossWinner,
-                tossDecision: tossDecision,
+                tossWinner: winningTeamIsT1 ? 'tA' : 'tB',
+                tossDecision: decision,
                 crr_bat_name: sName, crr_bat_runs: 0,
                 non_bat_name: nsName, non_bat_runs: 0,
                 crr_bowl: bName,
@@ -109,12 +135,10 @@
             closeModal('setupModal');
         };
 
-        // --- MATCH MANAGEMENT (ABORT / WALKOVER) ---
+        // --- MATCH MANAGEMENT & EDITS ---
 
         async function archiveAndReset(status, winnerName = "No Result") {
             const historyRef = collection(db, "match_history");
-            const liveRef = doc(db, "matches", "live_match_1");
-            
             const archiveData = {
                 ...matchData,
                 match_status: status,
@@ -122,48 +146,39 @@
                 timestamp: new Date().toISOString()
             };
             await addDoc(historyRef, archiveData);
-
             window.openSetupModal();
         }
 
         window.abortMatch = async () => {
-            if(!confirm("ABORT MATCH? This will archive the current game.")) return;
+            if(!confirm("ABORT MATCH? This will archive current progress.")) return;
             await archiveAndReset("Aborted/Rain");
         };
 
         window.walkoverMatch = async () => {
-            const winner = prompt("Which team gets the Walkover? (Enter Team Name)");
+            const winner = prompt("Enter Walkover Winner Team Name:");
             if(!winner) return;
             await archiveAndReset("Walkover", winner);
         };
 
-        // --- EDIT PLAYERS ON THE FLY ---
-
         window.editBowler = async () => {
             if (!isAdmin) return;
-            const newBowl = prompt("Enter new Bowler name:", matchData?.crr_bowl || "");
-            if (newBowl) {
-                await updateDoc(doc(db, "matches", "live_match_1"), { crr_bowl: newBowl });
-            }
+            const name = prompt("Enter Bowler Name:", matchData?.crr_bowl || "");
+            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { crr_bowl: name });
         };
 
         window.editStriker = async () => {
             if (!isAdmin) return;
-            const newBat = prompt("Enter Striker name:", matchData?.crr_bat_name || "");
-            if (newBat) {
-                await updateDoc(doc(db, "matches", "live_match_1"), { crr_bat_name: newBat });
-            }
+            const name = prompt("Enter Striker Name:", matchData?.crr_bat_name || "");
+            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { crr_bat_name: name });
         };
 
         window.editNonStriker = async () => {
             if (!isAdmin) return;
-            const newBat = prompt("Enter Non-Striker name:", matchData?.non_bat_name || "");
-            if (newBat) {
-                await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: newBat });
-            }
+            const name = prompt("Enter Non-Striker Name:", matchData?.non_bat_name || "");
+            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: name });
         };
 
-        // --- SCORING LOGIC ---
+        // --- SCORING KEYS ---
 
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
@@ -262,113 +277,4 @@
         .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px; }
         .btn-util { background: #334155; font-size: 0.7rem; padding: 12px; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
-        .setup-card { background: var(--card); border: 1px solid #334155; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
-        .input-group { margin-bottom: 12px; text-align: left; }
-        .input-group label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold; }
-        .input-field { width: 100%; box-sizing: border-box; background: #0b1120; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; font-size: 0.9rem; }
-    </style>
-</head>
-<body>
-
-    <div class="header">
-        <div id="teamNameDisp">Loading...</div>
-        <div id="bowlNameDisp" onclick="editBowler()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
-    </div>
-
-    <div class="player-bar">
-        <div id="bat1" class="bat-card striker-active" onclick="editStriker()">P1* (0) ✏️</div>
-        <div id="bat2" class="bat-card" onclick="editNonStriker()">P2 (0) ✏️</div>
-    </div>
-
-    <div class="score-card">
-        <div id="targetBox" class="hidden" style="color: var(--gold); font-weight: bold; margin-bottom: 10px;"></div>
-        <div id="mainScore" class="main-score">0</div>
-        <div id="stats" style="color:#94a3b8; font-weight:bold;">Overs: 0.0 / 8.0 | Wkts: 0</div>
-        <div id="tracker" class="ball-row"></div>
-        <div id="nextOverBtn" class="next-over-btn hidden" onclick="startNextOver()">TAP HERE TO START NEXT OVER</div>
-    </div>
-
-    <div id="adminPanel" class="hidden">
-        <div id="mainControls" class="admin-grid">
-            <button class="btn" onclick="handleAction(0, 'run')">0</button>
-            <button class="btn" onclick="handleAction(1, 'run')">1</button>
-            <button class="btn" onclick="handleAction(2, 'run')">2</button>
-            <button class="btn" onclick="handleAction(3, 'run')">3</button>
-            <button class="btn" onclick="handleAction(4, 'run')">4</button>
-            <button class="btn" onclick="handleAction(5, 'run')">5</button>
-            <button class="btn" onclick="handleAction(6, 'run')">6</button>
-            <button class="btn" style="background:#475569" onclick="handleAction(1, 'rb')">1RB</button>
-
-            <button class="btn btn-blue" onclick="handleAction(0, 'wide')">WD</button>
-            <button class="btn btn-blue" onclick="handleAction(1, 'wide')">WD+1</button>
-            <button class="btn btn-orange" onclick="handleAction(0, 'noball')">NB</button>
-            <button class="btn btn-orange" onclick="handleAction(1, 'noball')">NB+1</button>
-
-            <button class="btn btn-red" onclick="document.getElementById('wickModal').classList.remove('hidden')">WICKET / OUT (-5)</button>
-            
-            <div class="emergency-tools">
-                <button class="btn btn-green" onclick="openSetupModal()">⚙️ NEW MATCH / TOSS</button>
-                <button class="btn btn-util" onclick="manualSwap()">SWAP STRIKE</button>
-                <button class="btn btn-util" onclick="undoAction()">UNDO LAST</button>
-                <button class="btn btn-util" style="color: var(--gold);" onclick="walkoverMatch()">WALKOVER</button>
-                <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="abortMatch()">ABORT MATCH (RAIN)</button>
-            </div>
-        </div>
-    </div>
-
-    <button onclick="login()" style="width:100%; background:transparent; border:none; color:#334155; margin-top:30px; font-size: 0.7rem;">Referee Security Access</button>
-
-    <!-- SETUP & TOSS MODAL -->
-    <div id="setupModal" class="modal hidden">
-        <div class="setup-card">
-            <h3 style="margin-top:0; color:var(--blue); text-align:center;">MATCH & TOSS SETUP</h3>
-            <div class="input-group">
-                <label>Team 1 Name</label>
-                <input type="text" id="setupTeam1" class="input-field" value="Team 1">
-            </div>
-            <div class="input-group">
-                <label>Team 2 Name</label>
-                <input type="text" id="setupTeam2" class="input-field" value="Team 2">
-            </div>
-            <div class="input-group">
-                <label>Toss Won By</label>
-                <select id="setupTossWinner" class="input-field">
-                    <option value="tA">Team 1</option>
-                    <option value="tB">Team 2</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label>Elected To</label>
-                <select id="setupTossDecision" class="input-field">
-                    <option value="bat">Bat</option>
-                    <option value="bowl">Bowl</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label>Opening Striker</label>
-                <input type="text" id="setupStriker" class="input-field" placeholder="Player 1">
-            </div>
-            <div class="input-group">
-                <label>Opening Non-Striker</label>
-                <input type="text" id="setupNonStriker" class="input-field" placeholder="Player 2">
-            </div>
-            <div class="input-group">
-                <label>Opening Bowler</label>
-                <input type="text" id="setupBowler" class="input-field" placeholder="Bowler name">
-            </div>
-            <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="submitMatchSetup()">START MATCH</button>
-            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="closeModal('setupModal')">CANCEL</button>
-        </div>
-    </div>
-
-    <!-- WICKET MODAL -->
-    <div id="wickModal" class="modal hidden">
-        <div class="score-card" style="width: 100%; border-color: var(--red);">
-            <h2 style="color: var(--red);">CONFIRM OUT?</h2>
-            <button class="btn btn-red" style="width:100%;" onclick="handleAction(0, 'wicket')">YES, WICKET (-5)</button>
-            <button class="btn" style="width:100%; margin-top:10px; background:#334155;" onclick="closeModal('wickModal')">CANCEL</button>
-        </div>
-    </div>
-
-</body>
-</html>
+        .setup-card { background: var(--card); border: 1px solid #334155; border-radius: 12px; padding: 20px; width: 100
