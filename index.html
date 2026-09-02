@@ -310,11 +310,13 @@
             try {
                 const querySnap = await getDocs(collection(db, "teams"));
                 uploadedTeams = {};
+                
                 querySnap.forEach(docSnap => {
                     const data = docSnap.data();
-                    const teamName = data.name || data.teamName || docSnap.id;
+                    // Fall back to document ID if teamName field is missing
+                    const teamName = data.teamName || data.name || docSnap.id;
+                    
                     let playerList = [];
-
                     for (const key in data) {
                         if (Array.isArray(data[key])) {
                             playerList = data[key];
@@ -329,13 +331,18 @@
                         .map(p => typeof p === 'string' ? p.trim() : (p?.name || ''))
                         .filter(Boolean);
                 });
+                
+                console.log("Teams successfully loaded:", Object.keys(uploadedTeams));
             } catch(e) {
-                console.error("Error loading teams:", e);
+                console.error("Firestore read error:", e);
+                alert("Could not load teams from Firestore: " + e.message + "\nCheck your Firestore Security Rules.");
             }
         }
 
         window.openSetupModal = async () => {
             if (!isAdmin) return alert("Please login as referee first.");
+            
+            // Fetch teams fresh before rendering modal
             await loadTeamsFromDatabase();
 
             const t1Select = document.getElementById('setupTeam1');
@@ -344,7 +351,11 @@
             t2Select.innerHTML = '';
 
             const teamNames = Object.keys(uploadedTeams);
-            if (teamNames.length === 0) teamNames.push("Team 1", "Team 2");
+            
+            if (teamNames.length === 0) {
+                alert("No teams found in Firestore 'teams' collection!");
+                teamNames.push("Team 1", "Team 2");
+            }
 
             teamNames.forEach((name, i) => {
                 t1Select.add(new Option(name, name));
