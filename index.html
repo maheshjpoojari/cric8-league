@@ -79,7 +79,7 @@
             <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
             <button class="btn btn-orange" style="grid-column: span 4;" onclick="window.handleAction(1, 'noball')">NB+1</button>
 
-            <button class="btn btn-red" onclick="document.getElementById('wickModal').classList.remove('hidden')">WICKET / OUT (-5)</button>
+            <button class="btn btn-red" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
             
             <div class="emergency-tools">
                 <button class="btn btn-green" onclick="window.openSetupModal()">🪙 DIGITAL TOSS & MATCH</button>
@@ -170,35 +170,44 @@
         </div>
     </div>
 
-    <!-- DISMISSAL SCENARIOS MODAL -->
+    <!-- DETAILED DISMISSAL & STATS MODAL -->
     <div id="wickModal" class="modal hidden">
-        <div class="score-card" style="width: 100%; border-color: var(--red); max-width: 420px;">
-            <h3 style="color: var(--red); margin-top:0;">CONFIRM OUT (-5 RUNS)</h3>
-            <p style="font-size:0.8rem; color:#94a3b8; margin-bottom: 15px;">
-                Select where the dismissal occurred:
-            </p>
+        <div class="setup-card" style="border-color: var(--red);">
+            <h3 style="color: var(--red); margin-top:0; text-align:center;">RECORD DISMISSAL (-5)</h3>
             
-            <!-- Rule 1: Out at Striker's End -->
-            <button class="btn btn-red" style="width:100%; margin-bottom: 10px; font-size:0.95rem; padding:12px;" onclick="window.handleDismissal('striker_end')">
-                1. STRIKER'S END OUT<br>
-                <span style="font-size:0.75rem; font-weight:normal;">Bowled, Caught, Stumping, Run Out (No Swap)</span>
-            </button>
-            
-            <!-- Rule 2: Out at Non-Striker's End -->
-            <button class="btn btn-orange" style="width:100%; margin-bottom: 10px; font-size:0.95rem; padding:12px;" onclick="window.handleDismissal('non_striker_end')">
-                2. NON-STRIKER'S END RUN OUT<br>
-                <span style="font-size:0.75rem; font-weight:normal;">Non-Striker out at bowling end (No Swap)</span>
-            </button>
+            <div class="input-group">
+                <label>Dismissal Type</label>
+                <select id="wickType" class="input-field" onchange="window.onWickTypeChange()">
+                    <option value="Bowled">Bowled (Bowler +1 Wkt)</option>
+                    <option value="Caught">Caught (Bowler +1 Wkt)</option>
+                    <option value="Stumped">Stumped (Bowler +1 Wkt)</option>
+                    <option value="LBW">LBW (Bowler +1 Wkt)</option>
+                    <option value="Hit Wicket">Hit Wicket (Bowler +1 Wkt)</option>
+                    <option value="Run Out">Run Out (Credit to Fielder)</option>
+                </select>
+            </div>
 
-            <!-- Rule 3: Run Out While Taking Run (Crossed Crease) -->
-            <button class="btn btn-blue" style="width:100%; margin-bottom: 12px; font-size:0.95rem; padding:12px;" onclick="window.handleDismissal('crossed_crease')">
-                3. RUN OUT WHILE CROSSING<br>
-                <span style="font-size:0.75rem; font-weight:normal;">Creases crossed: Strike Swaps</span>
-            </button>
+            <div class="input-group">
+                <label>Batter Dismissed (-5 Deducted From Player)</label>
+                <select id="wickBatter" class="input-field"></select>
+            </div>
 
-            <button class="btn" style="width:100%; background:#334155; font-size:0.8rem; padding:10px;" onclick="window.closeModal('wickModal')">
-                CANCEL
-            </button>
+            <!-- DYNAMIC FIELDER DROPDOWN (VISIBLE ON RUN OUT) -->
+            <div class="input-group hidden" id="fielderGroup">
+                <label id="fielderLabel">Fielder Who Executed Run Out (+1 Run Out)</label>
+                <select id="wickFielder" class="input-field"></select>
+            </div>
+
+            <div class="input-group" id="creaseOutcomeGroup">
+                <label>Crease / Strike Outcome</label>
+                <select id="wickCrease" class="input-field">
+                    <option value="no_swap">Stay at Ends (Dismissed batter stays at their crease)</option>
+                    <option value="swap">Crossed Running (Strike Swaps / Position Inverted)</option>
+                </select>
+            </div>
+
+            <button class="btn btn-red" style="width:100%; margin-top:10px; padding:12px 0;" onclick="window.confirmStructuredDismissal()">CONFIRM OUT (-5 RUNS)</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('wickModal')">CANCEL</button>
         </div>
     </div>
 
@@ -446,7 +455,11 @@
                 crr_bowl: bName,
                 curr_over: [],
                 used_batsmen: [sName, nsName], 
-                used_bowlers: [bName],         
+                used_bowlers: [bName],
+                bowler_wickets: {},       // Bowler wicket counts
+                fielder_runouts: {},      // Fielder run-out counts
+                dismissals: [],           // Match dismissal history log
+                batter_dismissals: {},    // Batter dismissal counts
                 tA: { name: t1, score: 0, balls: 0, wkts: 0 },
                 tB: { name: t2, score: 0, balls: 0, wkts: 0 },
                 last_state: null
@@ -554,38 +567,114 @@
             window.closeModal('bowlerModal');
         };
 
-        // --- SPECIFIC DISMISSAL LOGIC ---
-        window.handleDismissal = async (scenario) => {
+        // --- OPEN WICKET MODAL & POPULATE OPTIONS ---
+        window.openWicketModal = async () => {
+            if (!isAdmin) return alert("Please login as referee first.");
+            if (Object.keys(uploadedTeams).length === 0) await loadTeamsFromDatabase();
+
+            const d = matchData;
+            const sName = d.crr_bat_name || "Striker";
+            const nsName = d.non_bat_name || "Non-Striker";
+
+            const bSel = document.getElementById('wickBatter');
+            bSel.innerHTML = '';
+            bSel.add(new Option(`Striker: ${sName}`, 'striker'));
+            bSel.add(new Option(`Non-Striker: ${nsName}`, 'non_striker'));
+
+            // Populate fielding roster for run-outs
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const fieldingTeamName = isTeamA ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
+            const fieldingRoster = uploadedTeams[fieldingTeamName] || ["Fielder 1", "Fielder 2", "Fielder 3"];
+            
+            const fSel = document.getElementById('wickFielder');
+            fSel.innerHTML = '';
+            fieldingRoster.forEach(p => fSel.add(new Option(p, p)));
+            setText('fielderLabel', `Fielder (${fieldingTeamName}) Who Executed Run Out`);
+
+            document.getElementById('wickType').value = 'Bowled';
+            window.onWickTypeChange();
+            document.getElementById('wickModal')?.classList.remove('hidden');
+        };
+
+        window.onWickTypeChange = () => {
+            const wType = document.getElementById('wickType').value;
+            const creaseGroup = document.getElementById('creaseOutcomeGroup');
+            const fielderGroup = document.getElementById('fielderGroup');
+            const creaseSelect = document.getElementById('wickCrease');
+
+            if (wType === 'Run Out') {
+                creaseGroup.classList.remove('hidden');
+                fielderGroup.classList.remove('hidden');
+            } else {
+                creaseSelect.value = 'no_swap';
+                creaseGroup.classList.add('hidden');
+                fielderGroup.classList.add('hidden');
+            }
+        };
+
+        // --- CONFIRM DETAILED DISMISSAL WITH FIELDER STAT TRACKING ---
+        window.confirmStructuredDismissal = async () => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
             const d = JSON.parse(JSON.stringify(matchData));
             const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
             const teamKey = isTeamA ? 'tA' : 'tB';
 
+            const wType = document.getElementById('wickType').value;
+            const dismissedRole = document.getElementById('wickBatter').value;
+            const creaseOutcome = document.getElementById('wickCrease').value;
+            const runoutFielder = document.getElementById('wickFielder').value || "Fielder";
+
+            const dismissedPlayerName = dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name;
+            const currentBowler = d.crr_bowl || "TBD";
+
             d.last_state = JSON.stringify(matchData);
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
             d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
 
-            // Universal rules: -5 from team score, +1 legal ball, +1 wicket tally
+            // Universal Pairs Out penalties
             d[teamKey].score -= 5;
             d[teamKey].wkts += 1;
             d[teamKey].balls += 1;
             d.curr_over.push('W');
 
-            if (scenario === 'striker_end') {
-                // Rule 1: Striker out (bowled/caught/run out at striker end). 
-                // Dock striker -5, striker remains on strike (NO SWAP)
+            // Apply -5 directly to the specific player's individual tally
+            if (dismissedRole === 'striker') {
                 d.crr_bat_runs -= 5;
-            } 
-            else if (scenario === 'non_striker_end') {
-                // Rule 2: Non-Striker run out at non-striker's end. 
-                // Dock non-striker -5, non-striker stays at non-striker end, striker faces (NO SWAP)
+            } else {
                 d.non_bat_runs -= 5;
-            } 
-            else if (scenario === 'crossed_crease') {
-                // Rule 3: Out while taking a run after crossing creases.
-                // Dock -5 from striker, SWAP strike so pair continues from swapped positions.
-                d.crr_bat_runs -= 5;
+            }
+
+            // Stats attribution
+            if (!d.bowler_wickets) d.bowler_wickets = {};
+            if (!d.fielder_runouts) d.fielder_runouts = {};
+
+            if (wType === 'Run Out') {
+                // Award +1 run out to the selected fielder, 0 to the bowler
+                d.fielder_runouts[runoutFielder] = (d.fielder_runouts[runoutFielder] || 0) + 1;
+            } else {
+                // Bowled, Caught, Stumped, LBW, Hit Wicket count towards bowler's tally
+                d.bowler_wickets[currentBowler] = (d.bowler_wickets[currentBowler] || 0) + 1;
+            }
+
+            // Track Batter Dismissal count (for least-dismissed awards)
+            if (!d.batter_dismissals) d.batter_dismissals = {};
+            d.batter_dismissals[dismissedPlayerName] = (d.batter_dismissals[dismissedPlayerName] || 0) + 1;
+
+            // Log dismissal object for complete match records
+            if (!d.dismissals) d.dismissals = [];
+            d.dismissals.push({
+                batter: dismissedPlayerName,
+                bowler: currentBowler,
+                fielder: (wType === 'Run Out') ? runoutFielder : null,
+                type: wType,
+                over: `${Math.floor(d[teamKey].balls / 6)}.${d[teamKey].balls % 6}`,
+                creaseOutcome: creaseOutcome,
+                timestamp: new Date().toISOString()
+            });
+
+            // Strike outcome
+            if (creaseOutcome === 'swap') {
                 [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
             }
 
