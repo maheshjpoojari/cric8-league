@@ -1,33 +1,43 @@
 // --- OPEN WICKET MODAL ---
-        window.openWicketModal = () => {
-            if (!isAdmin) return alert("Please login as referee first.");
-            document.getElementById('wickType').value = 'Bowled';
-            window.onWickTypeChange();
-            document.getElementById('wickModal')?.classList.remove('hidden');
-        };
+window.openWicketModal = () => {
+    if (!isAdmin) return alert("Please login as referee first.");
+    const wickTypeElem = document.getElementById('wickType');
+    if (wickTypeElem) wickTypeElem.value = 'Bowled';
+    window.onWickTypeChange();
+    document.getElementById('wickModal')?.classList.remove('hidden');
+};
 
-        // --- DYNAMICALLY RESTRICT BATTER & CREASE OPTIONS ---
-        window.onWickTypeChange = () => {
-            const wType = document.getElementById('wickType').value;
-            const creaseGroup = document.getElementById('creaseOutcomeGroup');
-            const creaseSelect = document.getElementById('wickCrease');
-            const bSel = document.getElementById('wickBatter');
-            
-            const d = matchData;
-            const sName = d?.crr_bat_name || "Striker";
-            const nsName = d?.non_bat_name || "Non-Striker";
+// --- DYNAMICALLY RESTRICT BATTER & CREASE OPTIONS ---
+window.onWickTypeChange = () => {
+    const wType = document.getElementById('wickType')?.value || 'Bowled';
+    const creaseGroup = document.getElementById('creaseOutcomeGroup');
+    const creaseSelect = document.getElementById('wickCrease');
+    const bSel = document.getElementById('wickBatter');
+    
+    if (!bSel) return;
 
-            bSel.innerHTML = '';
+    const d = matchData;
+    const sName = d?.crr_bat_name || "Striker";
+    const nsName = d?.non_bat_name || "Non-Striker";
 
-            if (wType === 'Run Out') {
-                // Both batters can be run out; crease swap is possible
-                bSel.add(new Option(`Striker: ${sName}`, 'striker'));
-                bSel.add(new Option(`Non-Striker: ${nsName}`, 'non_striker'));
-                creaseGroup.classList.remove('hidden');
-            } else {
-                // Only the Striker can be Bowled, Caught, Stumped, LBW, or Hit Wicket
-                bSel.add(new Option(`Striker: ${sName}`, 'striker'));
-                creaseSelect.value = 'no_swap';
-                creaseGroup.classList.add('hidden');
-            }
-        };
+    bSel.innerHTML = '';
+
+    if (wType === 'Run Out') {
+        // Both batters can be run out; allow selection and enable dropdown
+        bSel.add(new Option(`Striker: ${sName}`, 'striker'));
+        bSel.add(new Option(`Non-Striker: ${nsName}`, 'non_striker'));
+        bSel.disabled = false;
+        
+        // Reveal crease options for crossing
+        if (creaseGroup) creaseGroup.classList.remove('hidden');
+    } else {
+        // Bowled, Caught, Stumped, LBW, Hit Wicket -> Only Striker can be out
+        bSel.add(new Option(`Striker: ${sName}`, 'striker'));
+        bSel.value = 'striker';
+        bSel.disabled = true; // Lock dropdown so Non-Striker cannot be chosen
+
+        // Reset and hide crease swap options
+        if (creaseSelect) creaseSelect.value = 'no_swap';
+        if (creaseGroup) creaseGroup.classList.add('hidden');
+    }
+};
