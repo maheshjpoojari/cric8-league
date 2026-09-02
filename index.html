@@ -89,7 +89,7 @@
 
     <button onclick="window.login()" style="width:100%; background:transparent; border:none; color:#334155; margin-top:30px; font-size: 0.7rem; cursor:pointer;">Referee Security Access</button>
 
-    <!-- DYNAMIC SETUP & TOSS MODAL -->
+    <!-- DIGITAL TOSS & SETUP MODAL -->
     <div id="setupModal" class="modal hidden">
         <div class="setup-card">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 DIGITAL TOSS & FIXTURE</h3>
@@ -167,7 +167,7 @@
         let matchData = null;
         let isAdmin = false;
         let tossWinnerTeam = "";
-        let uploadedTeams = {}; // Cache for all teams and rosters
+        let uploadedTeams = {};
 
         function setText(id, text) {
             const el = document.getElementById(id);
@@ -242,19 +242,34 @@
             updateUI();
         });
 
-        // Fetch teams uploaded from manager.html
         async function loadTeamsFromDatabase() {
             try {
                 const querySnap = await getDocs(collection(db, "teams"));
                 uploadedTeams = {};
-                querySnap.forEach(d => {
-                    const data = d.data();
-                    const name = data.name || data.teamName || d.id;
-                    const players = data.players || [];
-                    uploadedTeams[name] = players;
+                
+                querySnap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const teamName = data.name || data.teamName || docSnap.id;
+                    
+                    let playerList = [];
+
+                    for (const key in data) {
+                        if (Array.isArray(data[key])) {
+                            playerList = data[key];
+                            break;
+                        }
+                    }
+
+                    if (playerList.length === 0 && data.players) {
+                        playerList = Array.isArray(data.players) ? data.players : [data.players];
+                    }
+
+                    uploadedTeams[teamName] = playerList
+                        .map(p => typeof p === 'string' ? p.trim() : (p?.name || ''))
+                        .filter(Boolean);
                 });
             } catch(e) {
-                console.warn("Could not load teams:", e);
+                console.error("Error loading teams:", e);
             }
         }
 
@@ -293,7 +308,6 @@
             const t2 = document.getElementById('setupTeam2').value;
             const decision = document.getElementById('setupDecision')?.value || 'bat';
 
-            // Determine batting & bowling teams based on toss winner & choice
             let battingTeam = t1;
             let bowlingTeam = t2;
             if (tossWinnerTeam) {
@@ -306,8 +320,15 @@
                 }
             }
 
-            const batRoster = uploadedTeams[battingTeam] || ["Player 1", "Player 2", "Player 3", "Player 4"];
-            const bowlRoster = uploadedTeams[bowlingTeam] || ["Player 1", "Player 2", "Player 3", "Player 4"];
+            let batRoster = uploadedTeams[battingTeam] || [];
+            let bowlRoster = uploadedTeams[bowlingTeam] || [];
+
+            if (batRoster.length === 0) {
+                batRoster = [`${battingTeam} P1`, `${battingTeam} P2`, `${battingTeam} P3`];
+            }
+            if (bowlRoster.length === 0) {
+                bowlRoster = [`${bowlingTeam} P1`, `${bowlingTeam} P2`, `${bowlingTeam} P3`];
+            }
 
             const sSelect = document.getElementById('setupStriker');
             const nsSelect = document.getElementById('setupNonStriker');
