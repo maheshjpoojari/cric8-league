@@ -6,7 +6,7 @@
     <title>Cric-8 Elite Pro Scorer V4</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, updateDoc, onSnapshot, collection, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -36,10 +36,13 @@
 
         function updateUI() {
             const d = matchData;
-            const team = d.inn === 1 ? d.tA : d.tB;
-            const opp = d.inn === 1 ? d.tB : d.tA;
+            if (!d) return;
 
-            document.getElementById('teamNameDisp').innerText = team.name || "Team A";
+            const isTeamA = d.inn === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const team = isTeamA ? d.tA : d.tB;
+            const opp = isTeamA ? d.tB : d.tA;
+
+            document.getElementById('teamNameDisp').innerText = team.name || (isTeamA ? "Team 1" : "Team 2");
             document.getElementById('bowlNameDisp').innerText = `Bowler: ${d.crr_bowl || 'TBD'}`;
 
             const r1 = parseInt(d.crr_bat_runs) || 0;
@@ -73,13 +76,45 @@
             document.getElementById('mainControls').style.pointerEvents = isOverComplete ? "none" : "auto";
         }
 
+        // --- PRE-MATCH SETUP & TOSS ---
+
+        window.openSetupModal = () => {
+            if(!isAdmin) return alert("Please login as referee first.");
+            document.getElementById('setupModal').classList.remove('hidden');
+        };
+
+        window.submitMatchSetup = async () => {
+            const t1 = document.getElementById('setupTeam1').value.trim() || "Team 1";
+            const t2 = document.getElementById('setupTeam2').value.trim() || "Team 2";
+            const tossWinner = document.getElementById('setupTossWinner').value; // 'tA' or 'tB'
+            const tossDecision = document.getElementById('setupTossDecision').value; // 'bat' or 'bowl'
+            const sName = document.getElementById('setupStriker').value.trim() || "Striker";
+            const nsName = document.getElementById('setupNonStriker').value.trim() || "Non-Striker";
+            const bName = document.getElementById('setupBowler').value.trim() || "TBD";
+
+            const newMatchData = {
+                inn: 1,
+                tossWinner: tossWinner,
+                tossDecision: tossDecision,
+                crr_bat_name: sName, crr_bat_runs: 0,
+                non_bat_name: nsName, non_bat_runs: 0,
+                crr_bowl: bName,
+                curr_over: [],
+                tA: { name: t1, score: 0, balls: 0, wkts: 0 },
+                tB: { name: t2, score: 0, balls: 0, wkts: 0 },
+                last_state: null
+            };
+
+            await setDoc(doc(db, "matches", "live_match_1"), newMatchData);
+            closeModal('setupModal');
+        };
+
         // --- MATCH MANAGEMENT (ABORT / WALKOVER) ---
 
         async function archiveAndReset(status, winnerName = "No Result") {
             const historyRef = collection(db, "match_history");
             const liveRef = doc(db, "matches", "live_match_1");
             
-            // 1. Save current data to history
             const archiveData = {
                 ...matchData,
                 match_status: status,
@@ -88,23 +123,11 @@
             };
             await addDoc(historyRef, archiveData);
 
-            // 2. Reset Live Match for Next Game
-            const resetData = {
-                inn: 1,
-                crr_bat_name: "Striker", crr_bat_runs: 0,
-                non_bat_name: "Non-Striker", non_bat_runs: 0,
-                crr_bowl: "TBD",
-                curr_over: [],
-                tA: { name: "Team 1", score: 0, balls: 0, wkts: 0 },
-                tB: { name: "Team 2", score: 0, balls: 0, wkts: 0 },
-                last_state: null
-            };
-            await setDoc(liveRef, resetData);
-            alert(`Match ${status}. Board Reset for Next Match.`);
+            window.openSetupModal();
         }
 
         window.abortMatch = async () => {
-            if(!confirm("ABORT MATCH? This will end the current game due to rain/conditions.")) return;
+            if(!confirm("ABORT MATCH? This will archive the current game.")) return;
             await archiveAndReset("Aborted/Rain");
         };
 
@@ -114,12 +137,40 @@
             await archiveAndReset("Walkover", winner);
         };
 
+        // --- EDIT PLAYERS ON THE FLY ---
+
+        window.editBowler = async () => {
+            if (!isAdmin) return;
+            const newBowl = prompt("Enter new Bowler name:", matchData?.crr_bowl || "");
+            if (newBowl) {
+                await updateDoc(doc(db, "matches", "live_match_1"), { crr_bowl: newBowl });
+            }
+        };
+
+        window.editStriker = async () => {
+            if (!isAdmin) return;
+            const newBat = prompt("Enter Striker name:", matchData?.crr_bat_name || "");
+            if (newBat) {
+                await updateDoc(doc(db, "matches", "live_match_1"), { crr_bat_name: newBat });
+            }
+        };
+
+        window.editNonStriker = async () => {
+            if (!isAdmin) return;
+            const newBat = prompt("Enter Non-Striker name:", matchData?.non_bat_name || "");
+            if (newBat) {
+                await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: newBat });
+            }
+        };
+
         // --- SCORING LOGIC ---
+
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
             const d = JSON.parse(JSON.stringify(matchData));
-            const teamKey = d.inn === 1 ? 'tA' : 'tB';
+            const isTeamA = d.inn === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const teamKey = isTeamA ? 'tA' : 'tB';
 
             d.last_state = JSON.stringify(matchData);
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
@@ -141,7 +192,9 @@
                 d[teamKey].wkts += 1;
                 d[teamKey].balls += 1;
                 d.curr_over.push('W');
-                d.crr_bat_name = "OUT"; d.crr_bat_runs = 0;
+                const nextBat = prompt("New Batsman Name:") || "New Batsman";
+                d.crr_bat_name = nextBat; 
+                d.crr_bat_runs = 0;
                 closeModal('wickModal');
             } 
             else {
@@ -161,8 +214,10 @@
         };
 
         window.startNextOver = async () => {
+            const nextBowl = prompt("Next Over Bowler Name:") || "TBD";
             const d = JSON.parse(JSON.stringify(matchData));
             d.curr_over = [];
+            d.crr_bowl = nextBowl;
             [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
             await updateDoc(doc(db, "matches", "live_match_1"), d);
         };
@@ -180,18 +235,18 @@
 
         window.login = async () => {
             const email = prompt("Email:"); const pass = prompt("Pass:");
-            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Failed"); }
+            try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { alert("Failed: " + e.message); }
         };
         window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
     </script>
 
     <style>
-        :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; }
+        :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
         .hidden { display: none !important; }
-        .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.8rem; }
+        .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.85rem; }
         .player-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px 12px 0 0; margin-top: 5px; border: 1px solid #1e293b; }
-        .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; }
+        .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
         .striker-active { color: var(--gold); border-bottom-color: var(--gold); }
         .score-card { background: var(--card); border: 1px solid #1e293b; border-radius: 0 0 15px 15px; padding: 25px 10px; text-align: center; margin-bottom: 15px; }
         .main-score { font-size: 6rem; font-weight: 900; color: var(--blue); margin: 0; line-height: 1; }
@@ -201,23 +256,28 @@
         .next-over-btn { color: var(--gold); font-weight: bold; margin-top: 15px; cursor: pointer; animation: blink 1s infinite; text-decoration: underline; }
         @keyframes blink { 50% { opacity: 0.3; } }
         .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .btn { border: none; background: #1e293b; color: #fff; padding: 18px 0; border-radius: 10px; font-weight: bold; font-size: 1.1rem; }
+        .btn { border: none; background: #1e293b; color: #fff; padding: 18px 0; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
         .btn-blue { background: #0ea5e9; } .btn-orange { background: #f97316; } .btn-red { background: var(--red); grid-column: span 4; }
+        .btn-green { background: var(--green); grid-column: span 2; font-size: 0.85rem; padding: 12px; }
         .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px; }
         .btn-util { background: #334155; font-size: 0.7rem; padding: 12px; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .setup-card { background: var(--card); border: 1px solid #334155; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
+        .input-group { margin-bottom: 12px; text-align: left; }
+        .input-group label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold; }
+        .input-field { width: 100%; box-sizing: border-box; background: #0b1120; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div id="teamNameDisp">Loading...</div>
-        <div id="bowlNameDisp">Bowler: TBD</div>
+        <div id="bowlNameDisp" onclick="editBowler()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
     </div>
 
     <div class="player-bar">
-        <div id="bat1" class="bat-card striker-active" onclick="manualSwap()">P1* (0)</div>
-        <div id="bat2" class="bat-card" onclick="manualSwap()">P2 (0)</div>
+        <div id="bat1" class="bat-card striker-active" onclick="editStriker()">P1* (0) ✏️</div>
+        <div id="bat2" class="bat-card" onclick="editNonStriker()">P2 (0) ✏️</div>
     </div>
 
     <div class="score-card">
@@ -247,16 +307,61 @@
             <button class="btn btn-red" onclick="document.getElementById('wickModal').classList.remove('hidden')">WICKET / OUT (-5)</button>
             
             <div class="emergency-tools">
-                <button class="btn btn-util" onclick="undoAction()">UNDO LAST</button>
+                <button class="btn btn-green" onclick="openSetupModal()">⚙️ NEW MATCH / TOSS</button>
                 <button class="btn btn-util" onclick="manualSwap()">SWAP STRIKE</button>
-                <button class="btn btn-util" style="color: var(--red);" onclick="abortMatch()">ABORT MATCH (RAIN)</button>
+                <button class="btn btn-util" onclick="undoAction()">UNDO LAST</button>
                 <button class="btn btn-util" style="color: var(--gold);" onclick="walkoverMatch()">WALKOVER</button>
+                <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="abortMatch()">ABORT MATCH (RAIN)</button>
             </div>
         </div>
     </div>
 
     <button onclick="login()" style="width:100%; background:transparent; border:none; color:#334155; margin-top:30px; font-size: 0.7rem;">Referee Security Access</button>
 
+    <!-- SETUP & TOSS MODAL -->
+    <div id="setupModal" class="modal hidden">
+        <div class="setup-card">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">MATCH & TOSS SETUP</h3>
+            <div class="input-group">
+                <label>Team 1 Name</label>
+                <input type="text" id="setupTeam1" class="input-field" value="Team 1">
+            </div>
+            <div class="input-group">
+                <label>Team 2 Name</label>
+                <input type="text" id="setupTeam2" class="input-field" value="Team 2">
+            </div>
+            <div class="input-group">
+                <label>Toss Won By</label>
+                <select id="setupTossWinner" class="input-field">
+                    <option value="tA">Team 1</option>
+                    <option value="tB">Team 2</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Elected To</label>
+                <select id="setupTossDecision" class="input-field">
+                    <option value="bat">Bat</option>
+                    <option value="bowl">Bowl</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Opening Striker</label>
+                <input type="text" id="setupStriker" class="input-field" placeholder="Player 1">
+            </div>
+            <div class="input-group">
+                <label>Opening Non-Striker</label>
+                <input type="text" id="setupNonStriker" class="input-field" placeholder="Player 2">
+            </div>
+            <div class="input-group">
+                <label>Opening Bowler</label>
+                <input type="text" id="setupBowler" class="input-field" placeholder="Bowler name">
+            </div>
+            <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="submitMatchSetup()">START MATCH</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="closeModal('setupModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- WICKET MODAL -->
     <div id="wickModal" class="modal hidden">
         <div class="score-card" style="width: 100%; border-color: var(--red);">
             <h2 style="color: var(--red);">CONFIRM OUT?</h2>
