@@ -444,6 +444,7 @@
             if (name) await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: name });
         };
 
+        // --- SCORING ENGINE WITH 8TH OVER EXTRAS RULE ---
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
@@ -455,15 +456,29 @@
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
             d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
 
+            const isEighthOver = d[teamKey].balls >= 42; // Overs 1-7 = 0-41 balls. 8th over = 42-47 balls
+
             if (type === 'wide') {
                 d[teamKey].score += (val + 1);
-                if (val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                // In overs 1-7: ball is counted. In 8th over: ball is not counted.
+                if (!isEighthOver) {
+                    d[teamKey].balls += 1;
+                }
+                if (val % 2 !== 0) {
+                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                }
                 d.curr_over.push(val > 0 ? `Wd+${val}` : 'Wd');
             } 
             else if (type === 'noball') {
                 d[teamKey].score += (val + 1);
                 d.crr_bat_runs += val;
-                if (val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                // In overs 1-7: ball is counted. In 8th over: ball is not counted.
+                if (!isEighthOver) {
+                    d[teamKey].balls += 1;
+                }
+                if (val % 2 !== 0) {
+                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } 
             else if (type === 'wicket') {
@@ -479,9 +494,15 @@
             else {
                 d[teamKey].score += val;
                 d[teamKey].balls += 1;
-                if (type === 'run') { d.crr_bat_runs += val; d.curr_over.push(val); } 
-                else { d.curr_over.push(`${val}RB`); }
-                if ([1, 3, 5].includes(val)) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                if (type === 'run') { 
+                    d.crr_bat_runs += val; 
+                    d.curr_over.push(val); 
+                } else { 
+                    d.curr_over.push(`${val}RB`); 
+                }
+                if ([1, 3, 5].includes(val)) {
+                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                }
                 
                 const lastThree = d.curr_over.slice(-3);
                 if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
