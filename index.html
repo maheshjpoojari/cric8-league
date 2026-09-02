@@ -14,7 +14,7 @@
         .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
         .striker-active { color: var(--gold); border-bottom-color: var(--gold); }
         .score-card { background: var(--card); border: 1px solid #1e293b; border-radius: 0 0 15px 15px; padding: 25px 10px; text-align: center; margin-bottom: 15px; }
-        .main-score { font-size: 6rem; font-weight: 900; color: var(--blue); margin: 0; line-height: 1; }
+        .main-score { font-size: 6rem; font-weight: 900; color: var(--blue); margin: 0; line-height: 1; transition: color 0.2s ease; }
         .ball-row { display: flex; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap; min-height: 35px; }
         .ball { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 800; font-size: 0.7rem; }
         .bg-white { background: #fff; } .bg-red { background: var(--red); color: #fff; } .bg-yellow { background: var(--gold); }
@@ -248,10 +248,25 @@
 
             const r1 = parseInt(d.crr_bat_runs) || 0;
             const r2 = parseInt(d.non_bat_runs) || 0;
-            setText('bat1', `${d.crr_bat_name || 'Striker'}* (${r1}) ✏️`);
-            setText('bat2', `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`);
+            
+            const bat1El = document.getElementById('bat1');
+            const bat2El = document.getElementById('bat2');
+            
+            if (bat1El) {
+                bat1El.innerText = `${d.crr_bat_name || 'Striker'}* (${r1}) ✏️`;
+                bat1El.style.color = r1 < 0 ? 'var(--red)' : 'var(--gold)';
+            }
+            if (bat2El) {
+                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
+                bat2El.style.color = r2 < 0 ? 'var(--red)' : '#64748b';
+            }
 
-            setText('mainScore', team.score ?? 0);
+            const currentScore = team.score ?? 0;
+            const scoreEl = document.getElementById('mainScore');
+            if (scoreEl) {
+                scoreEl.innerText = currentScore;
+                scoreEl.style.color = currentScore < 0 ? 'var(--red)' : 'var(--blue)';
+            }
 
             const balls = team.balls || 0;
             const completedOvers = Math.floor(balls / 6);
@@ -267,7 +282,7 @@
                 if (d.inn === 2) {
                     targetBox.classList.remove('hidden');
                     const target = (parseInt(opp.score) || 0) + 1;
-                    targetBox.innerHTML = `Target: ${target}<br><span style="font-size:0.8rem">Need ${target - (team.score || 0)} from ${48 - balls} balls</span>`;
+                    targetBox.innerHTML = `Target: ${target}<br><span style="font-size:0.8rem">Need ${target - currentScore} from ${48 - balls} balls</span>`;
                 } else {
                     targetBox.classList.add('hidden');
                 }
@@ -277,7 +292,7 @@
             if (tracker) {
                 tracker.innerHTML = (d.curr_over || []).map(b => {
                     let cls = 'bg-white';
-                    if (b === 'W' || b === '3D(-5)' || b === '3D(-1)' || b === '1RB') cls = 'bg-red';
+                    if (b === 'W' || b === '3D(-5)' || b === '1RB') cls = 'bg-red';
                     if (b.toString().includes('N') || b.toString().includes('Wd')) cls = 'bg-yellow';
                     return `<div class="ball ${cls}">${b}</div>`;
                 }).join('');
@@ -330,8 +345,6 @@
                         .map(p => typeof p === 'string' ? p.trim() : (p?.name || ''))
                         .filter(Boolean);
                 });
-                
-                console.log("Teams loaded:", Object.keys(uploadedTeams));
             } catch(e) {
                 console.error("Firestore read error:", e);
                 alert("Could not load teams: " + e.message);
@@ -637,7 +650,6 @@
                 if (!Array.isArray(d.curr_over)) d.curr_over = [];
                 d.curr_over.push('W');
 
-                // Dock individual player
                 if (dismissedRole === 'striker') {
                     d.crr_bat_runs -= 5;
                 } else {
@@ -681,7 +693,7 @@
             }
         };
 
-        // --- SCORING ENGINE WITH 3-DOT PENALTY DOCKED TO BATSMAN ---
+        // --- SCORING ENGINE WITH IN-PLACE 3D REPLACEMENT ---
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
@@ -730,13 +742,13 @@
                     d.curr_over.push(`${val}D`);
                 }
                 
-                // 3 Consecutive Dot Balls Penalty:
-                // Deducts from team AND docks the active striker's score directly
+                // Check 3 consecutive dot balls:
+                // Replaces the 3rd dot directly in-place (no 4th circle added)
                 const lastThree = d.curr_over.slice(-3);
                 if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
                     d[teamKey].score -= 5;
-                    d.crr_bat_runs -= 5; // <--- Docks active striker's individual score
-                    d.curr_over.push("3D(-5)");
+                    d.crr_bat_runs -= 5;
+                    d.curr_over[d.curr_over.length - 1] = "3D(-5)";
                 }
             }
             await updateDoc(ref, d);
