@@ -71,10 +71,7 @@
             <button class="btn" onclick="window.handleAction(5, 'run')">5</button>
             <button class="btn" onclick="window.handleAction(6, 'run')">6</button>
             
-            <!-- 1 Run Declare (Batter credited, legal ball, no strike swap) -->
             <button class="btn" style="background:#0284c7" onclick="window.handleAction(1, 'declare')">1D</button>
-            
-            <!-- 1 Run Between Wickets (Team run only, legal ball, swaps strike) -->
             <button class="btn" style="background:#475569" onclick="window.handleAction(1, 'rb')">1RB</button>
 
             <button class="btn btn-blue" onclick="window.handleAction(0, 'wide')">WD</button>
@@ -173,13 +170,35 @@
         </div>
     </div>
 
-    <!-- WICKET MODAL -->
+    <!-- DISMISSAL SCENARIOS MODAL -->
     <div id="wickModal" class="modal hidden">
-        <div class="score-card" style="width: 100%; border-color: var(--red);">
-            <h2 style="color: var(--red); margin-top:0;">CONFIRM OUT?</h2>
-            <p style="font-size:0.85rem; color:#94a3b8;">Pairs Cricket Rule: -5 Run Penalty applied. The batsman stays at the crease and swaps strike.</p>
-            <button class="btn btn-red" style="width:100%;" onclick="window.handleAction(0, 'wicket')">YES, OUT (-5 RUNS)</button>
-            <button class="btn" style="width:100%; margin-top:10px; background:#334155;" onclick="window.closeModal('wickModal')">CANCEL</button>
+        <div class="score-card" style="width: 100%; border-color: var(--red); max-width: 420px;">
+            <h3 style="color: var(--red); margin-top:0;">CONFIRM OUT (-5 RUNS)</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; margin-bottom: 15px;">
+                Select where the dismissal occurred:
+            </p>
+            
+            <!-- Rule 1: Out at Striker's End -->
+            <button class="btn btn-red" style="width:100%; margin-bottom: 10px; font-size:0.95rem; padding:12px;" onclick="window.handleDismissal('striker_end')">
+                1. STRIKER'S END OUT<br>
+                <span style="font-size:0.75rem; font-weight:normal;">Bowled, Caught, Stumping, Run Out (No Swap)</span>
+            </button>
+            
+            <!-- Rule 2: Out at Non-Striker's End -->
+            <button class="btn btn-orange" style="width:100%; margin-bottom: 10px; font-size:0.95rem; padding:12px;" onclick="window.handleDismissal('non_striker_end')">
+                2. NON-STRIKER'S END RUN OUT<br>
+                <span style="font-size:0.75rem; font-weight:normal;">Non-Striker out at bowling end (No Swap)</span>
+            </button>
+
+            <!-- Rule 3: Run Out While Taking Run (Crossed Crease) -->
+            <button class="btn btn-blue" style="width:100%; margin-bottom: 12px; font-size:0.95rem; padding:12px;" onclick="window.handleDismissal('crossed_crease')">
+                3. RUN OUT WHILE CROSSING<br>
+                <span style="font-size:0.75rem; font-weight:normal;">Creases crossed: Strike Swaps</span>
+            </button>
+
+            <button class="btn" style="width:100%; background:#334155; font-size:0.8rem; padding:10px;" onclick="window.closeModal('wickModal')">
+                CANCEL
+            </button>
         </div>
     </div>
 
@@ -535,7 +554,46 @@
             window.closeModal('bowlerModal');
         };
 
-        // --- PAIRS SCORING ENGINE (WITH 1D AND 1RB SUPPORT) ---
+        // --- SPECIFIC DISMISSAL LOGIC ---
+        window.handleDismissal = async (scenario) => {
+            if (!isAdmin) return;
+            const ref = doc(db, "matches", "live_match_1");
+            const d = JSON.parse(JSON.stringify(matchData));
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const teamKey = isTeamA ? 'tA' : 'tB';
+
+            d.last_state = JSON.stringify(matchData);
+            d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
+            d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
+
+            // Universal rules: -5 from team score, +1 legal ball, +1 wicket tally
+            d[teamKey].score -= 5;
+            d[teamKey].wkts += 1;
+            d[teamKey].balls += 1;
+            d.curr_over.push('W');
+
+            if (scenario === 'striker_end') {
+                // Rule 1: Striker out (bowled/caught/run out at striker end). 
+                // Dock striker -5, striker remains on strike (NO SWAP)
+                d.crr_bat_runs -= 5;
+            } 
+            else if (scenario === 'non_striker_end') {
+                // Rule 2: Non-Striker run out at non-striker's end. 
+                // Dock non-striker -5, non-striker stays at non-striker end, striker faces (NO SWAP)
+                d.non_bat_runs -= 5;
+            } 
+            else if (scenario === 'crossed_crease') {
+                // Rule 3: Out while taking a run after crossing creases.
+                // Dock -5 from striker, SWAP strike so pair continues from swapped positions.
+                d.crr_bat_runs -= 5;
+                [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+            }
+
+            await updateDoc(ref, d);
+            window.closeModal('wickModal');
+        };
+
+        // --- GENERAL SCORING ENGINE ---
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
@@ -566,15 +624,6 @@
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } 
-            else if (type === 'wicket') {
-                // Pairs Rule: -5 runs, ball counted, batters stay in and swap strike
-                d[teamKey].score -= 5;
-                d[teamKey].wkts += 1;
-                d[teamKey].balls += 1;
-                d.curr_over.push('W');
-                [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-                window.closeModal('wickModal');
-            } 
             else {
                 d[teamKey].score += val;
                 d[teamKey].balls += 1;
@@ -586,16 +635,13 @@
                         [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                     }
                 } else if (type === 'rb') { 
-                    // Running bye: credited to team, not batter, strike swaps
                     d.curr_over.push(`${val}RB`); 
                     [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 } else if (type === 'declare') {
-                    // 1 Run Declare: credited to batter & team, legal ball, NO strike swap
                     d.crr_bat_runs += val;
                     d.curr_over.push(`${val}D`);
                 }
                 
-                // 3 Dot balls penalty
                 const lastThree = d.curr_over.slice(-3);
                 if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
                     d[teamKey].score -= 5;
