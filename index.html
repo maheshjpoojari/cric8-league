@@ -93,7 +93,6 @@
 
     <button onclick="window.login()" style="width:100%; background:transparent; border:none; color:#334155; margin-top:30px; font-size: 0.7rem; cursor:pointer;">Referee Security Access</button>
 
-    <!-- PRE-MATCH TOSS & INITIAL ROSTER -->
     <div id="setupModal" class="modal hidden">
         <div class="setup-card">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 DIGITAL TOSS & FIXTURE</h3>
@@ -143,7 +142,6 @@
         </div>
     </div>
 
-    <!-- NEXT OVER & PAIR REPLACEMENT -->
     <div id="bowlerModal" class="modal hidden">
         <div class="setup-card">
             <h3 id="overModalTitle" style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
@@ -170,7 +168,6 @@
         </div>
     </div>
 
-    <!-- DETAILED DISMISSAL & STATS MODAL -->
     <div id="wickModal" class="modal hidden">
         <div class="setup-card" style="border-color: var(--red);">
             <h3 style="color: var(--red); margin-top:0; text-align:center;">RECORD DISMISSAL (-5)</h3>
@@ -183,19 +180,13 @@
                     <option value="Stumped">Stumped (Bowler +1 Wkt)</option>
                     <option value="LBW">LBW (Bowler +1 Wkt)</option>
                     <option value="Hit Wicket">Hit Wicket (Bowler +1 Wkt)</option>
-                    <option value="Run Out">Run Out (Credit to Fielder)</option>
+                    <option value="Run Out">Run Out (No Bowler Wkt)</option>
                 </select>
             </div>
 
             <div class="input-group">
                 <label>Batter Dismissed (-5 Deducted From Player)</label>
                 <select id="wickBatter" class="input-field"></select>
-            </div>
-
-            <!-- DYNAMIC FIELDER DROPDOWN (VISIBLE ON RUN OUT) -->
-            <div class="input-group hidden" id="fielderGroup">
-                <label id="fielderLabel">Fielder Who Executed Run Out (+1 Run Out)</label>
-                <select id="wickFielder" class="input-field"></select>
             </div>
 
             <div class="input-group" id="creaseOutcomeGroup">
@@ -456,10 +447,9 @@
                 curr_over: [],
                 used_batsmen: [sName, nsName], 
                 used_bowlers: [bName],
-                bowler_wickets: {},       // Bowler wicket counts
-                fielder_runouts: {},      // Fielder run-out counts
-                dismissals: [],           // Match dismissal history log
-                batter_dismissals: {},    // Batter dismissal counts
+                bowler_wickets: {},       // Tracks wickets per bowler
+                dismissals: [],           // Complete history of all outs
+                batter_dismissals: {},    // Tracks how many times each batter got out
                 tA: { name: t1, score: 0, balls: 0, wkts: 0 },
                 tB: { name: t2, score: 0, balls: 0, wkts: 0 },
                 last_state: null
@@ -567,11 +557,9 @@
             window.closeModal('bowlerModal');
         };
 
-        // --- OPEN WICKET MODAL & POPULATE OPTIONS ---
-        window.openWicketModal = async () => {
+        // --- OPEN WICKET MODAL WITH POPULATED BATTERS ---
+        window.openWicketModal = () => {
             if (!isAdmin) return alert("Please login as referee first.");
-            if (Object.keys(uploadedTeams).length === 0) await loadTeamsFromDatabase();
-
             const d = matchData;
             const sName = d.crr_bat_name || "Striker";
             const nsName = d.non_bat_name || "Non-Striker";
@@ -581,16 +569,6 @@
             bSel.add(new Option(`Striker: ${sName}`, 'striker'));
             bSel.add(new Option(`Non-Striker: ${nsName}`, 'non_striker'));
 
-            // Populate fielding roster for run-outs
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const fieldingTeamName = isTeamA ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
-            const fieldingRoster = uploadedTeams[fieldingTeamName] || ["Fielder 1", "Fielder 2", "Fielder 3"];
-            
-            const fSel = document.getElementById('wickFielder');
-            fSel.innerHTML = '';
-            fieldingRoster.forEach(p => fSel.add(new Option(p, p)));
-            setText('fielderLabel', `Fielder (${fieldingTeamName}) Who Executed Run Out`);
-
             document.getElementById('wickType').value = 'Bowled';
             window.onWickTypeChange();
             document.getElementById('wickModal')?.classList.remove('hidden');
@@ -599,20 +577,18 @@
         window.onWickTypeChange = () => {
             const wType = document.getElementById('wickType').value;
             const creaseGroup = document.getElementById('creaseOutcomeGroup');
-            const fielderGroup = document.getElementById('fielderGroup');
             const creaseSelect = document.getElementById('wickCrease');
 
             if (wType === 'Run Out') {
                 creaseGroup.classList.remove('hidden');
-                fielderGroup.classList.remove('hidden');
             } else {
+                // Non-runouts (bowled, caught, LBW, stumping, hit wicket): striker stays
                 creaseSelect.value = 'no_swap';
                 creaseGroup.classList.add('hidden');
-                fielderGroup.classList.add('hidden');
             }
         };
 
-        // --- CONFIRM DETAILED DISMISSAL WITH FIELDER STAT TRACKING ---
+        // --- CONFIRM DETAILED DISMISSAL ---
         window.confirmStructuredDismissal = async () => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
@@ -621,9 +597,8 @@
             const teamKey = isTeamA ? 'tA' : 'tB';
 
             const wType = document.getElementById('wickType').value;
-            const dismissedRole = document.getElementById('wickBatter').value;
-            const creaseOutcome = document.getElementById('wickCrease').value;
-            const runoutFielder = document.getElementById('wickFielder').value || "Fielder";
+            const dismissedRole = document.getElementById('wickBatter').value; // 'striker' or 'non_striker'
+            const creaseOutcome = document.getElementById('wickCrease').value; // 'no_swap' or 'swap'
 
             const dismissedPlayerName = dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name;
             const currentBowler = d.crr_bowl || "TBD";
@@ -645,15 +620,9 @@
                 d.non_bat_runs -= 5;
             }
 
-            // Stats attribution
+            // Track Bowler Stats: Bowled, Caught, Stumped, LBW, Hit Wicket count towards bowler's tally
             if (!d.bowler_wickets) d.bowler_wickets = {};
-            if (!d.fielder_runouts) d.fielder_runouts = {};
-
-            if (wType === 'Run Out') {
-                // Award +1 run out to the selected fielder, 0 to the bowler
-                d.fielder_runouts[runoutFielder] = (d.fielder_runouts[runoutFielder] || 0) + 1;
-            } else {
-                // Bowled, Caught, Stumped, LBW, Hit Wicket count towards bowler's tally
+            if (wType !== 'Run Out') {
                 d.bowler_wickets[currentBowler] = (d.bowler_wickets[currentBowler] || 0) + 1;
             }
 
@@ -661,12 +630,11 @@
             if (!d.batter_dismissals) d.batter_dismissals = {};
             d.batter_dismissals[dismissedPlayerName] = (d.batter_dismissals[dismissedPlayerName] || 0) + 1;
 
-            // Log dismissal object for complete match records
+            // Log detailed dismissal object for tournament stats
             if (!d.dismissals) d.dismissals = [];
             d.dismissals.push({
                 batter: dismissedPlayerName,
                 bowler: currentBowler,
-                fielder: (wType === 'Run Out') ? runoutFielder : null,
                 type: wType,
                 over: `${Math.floor(d[teamKey].balls / 6)}.${d[teamKey].balls % 6}`,
                 creaseOutcome: creaseOutcome,
@@ -675,6 +643,7 @@
 
             // Strike outcome
             if (creaseOutcome === 'swap') {
+                // Crossed running: invert strike positions
                 [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
             }
 
