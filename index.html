@@ -9,6 +9,7 @@
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
         .hidden { display: none !important; }
         .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.85rem; }
+        .pair-badge { background: #1e293b; color: var(--gold); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #334155; }
         .player-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px 12px 0 0; margin-top: 5px; border: 1px solid #1e293b; }
         .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
         .striker-active { color: var(--gold); border-bottom-color: var(--gold); }
@@ -43,6 +44,7 @@
 
     <div class="header">
         <div id="teamNameDisp">Loading...</div>
+        <div id="pairDisp" class="pair-badge">Pair 1 (Overs 1-2)</div>
         <div id="bowlNameDisp" onclick="window.openNextOverModal()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
     </div>
 
@@ -121,15 +123,15 @@
                     </select>
                 </div>
                 <div class="input-group">
-                    <label id="strikerLabel">Opening Striker</label>
+                    <label id="strikerLabel">Pair 1: Striker</label>
                     <select id="setupStriker" class="input-field"></select>
                 </div>
                 <div class="input-group">
-                    <label id="nonStrikerLabel">Opening Non-Striker</label>
+                    <label id="nonStrikerLabel">Pair 1: Non-Striker</label>
                     <select id="setupNonStriker" class="input-field"></select>
                 </div>
                 <div class="input-group">
-                    <label id="bowlerLabel">Opening Bowler</label>
+                    <label id="bowlerLabel">Over 1: Opening Bowler</label>
                     <select id="setupBowler" class="input-field"></select>
                 </div>
                 <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.submitMatchSetup()">START MATCH</button>
@@ -139,15 +141,31 @@
         </div>
     </div>
 
-    <!-- NEXT OVER BOWLER SELECTION MODAL -->
+    <!-- NEXT OVER & PAIR CHANGE MODAL -->
     <div id="bowlerModal" class="modal hidden">
         <div class="setup-card">
-            <h3 style="margin-top:0; color:var(--blue); text-align:center;">SELECT NEXT BOWLER</h3>
+            <h3 id="overModalTitle" style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
+            
+            <!-- Pair Change section (appears every 2 overs: after over 2, 4, 6) -->
+            <div id="pairChangeSection" class="hidden" style="background:#0b1120; border: 1px solid var(--gold); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR FINISHED: SELECT NEXT BATTING PAIR</div>
+                <div class="input-group">
+                    <label id="nextStrikerLabel">New Striker</label>
+                    <select id="nextStrikerSelect" class="input-field"></select>
+                </div>
+                <div class="input-group">
+                    <label id="nextNonStrikerLabel">New Non-Striker</label>
+                    <select id="nextNonStrikerSelect" class="input-field"></select>
+                </div>
+            </div>
+
+            <!-- Bowler section (must not have bowled before) -->
             <div class="input-group">
-                <label id="nextBowlerTeamLabel">Fielding Team Bowler</label>
+                <label id="nextBowlerTeamLabel">Fielding Team Bowler (Unused Bowlers Only)</label>
                 <select id="nextBowlerSelect" class="input-field"></select>
             </div>
-            <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.confirmNextOverBowler()">CONFIRM & START OVER</button>
+            
+            <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.confirmNextOver()">START NEXT OVER</button>
             <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('bowlerModal')">CANCEL</button>
         </div>
     </div>
@@ -155,8 +173,9 @@
     <!-- WICKET MODAL -->
     <div id="wickModal" class="modal hidden">
         <div class="score-card" style="width: 100%; border-color: var(--red);">
-            <h2 style="color: var(--red);">CONFIRM OUT?</h2>
-            <button class="btn btn-red" style="width:100%;" onclick="window.handleAction(0, 'wicket')">YES, WICKET (-5)</button>
+            <h2 style="color: var(--red); margin-top:0;">CONFIRM OUT?</h2>
+            <p style="font-size:0.85rem; color:#94a3b8;">Pairs Cricket Rule: -5 Run Penalty applied. The batsman stays at the crease and swaps strike.</p>
+            <button class="btn btn-red" style="width:100%;" onclick="window.handleAction(0, 'wicket')">YES, OUT (-5 RUNS)</button>
             <button class="btn" style="width:100%; margin-top:10px; background:#334155;" onclick="window.closeModal('wickModal')">CANCEL</button>
         </div>
     </div>
@@ -208,8 +227,14 @@
             setText('mainScore', team.score ?? 0);
 
             const balls = team.balls || 0;
-            const overs = `${Math.floor(balls / 6)}.${balls % 6}`;
+            const completedOvers = Math.floor(balls / 6);
+            const overs = `${completedOvers}.${balls % 6}`;
             setText('stats', `Overs: ${overs} / 8.0 | Wkts: ${team.wkts || 0}`);
+
+            // Active pair badge (2 overs per pair)
+            const currentPair = Math.min(Math.floor(completedOvers / 2) + 1, 4);
+            const pairStart = (currentPair - 1) * 2 + 1;
+            setText('pairDisp', `Pair ${currentPair} (Overs ${pairStart}-${pairStart+1})`);
 
             const targetBox = document.getElementById('targetBox');
             if (targetBox) {
@@ -259,11 +284,9 @@
             try {
                 const querySnap = await getDocs(collection(db, "teams"));
                 uploadedTeams = {};
-                
                 querySnap.forEach(docSnap => {
                     const data = docSnap.data();
                     const teamName = data.name || data.teamName || docSnap.id;
-                    
                     let playerList = [];
 
                     for (const key in data) {
@@ -272,7 +295,6 @@
                             break;
                         }
                     }
-
                     if (playerList.length === 0 && data.players) {
                         playerList = Array.isArray(data.players) ? data.players : [data.players];
                     }
@@ -296,16 +318,13 @@
             t2Select.innerHTML = '';
 
             const teamNames = Object.keys(uploadedTeams);
-            if (teamNames.length === 0) {
-                teamNames.push("Team 1", "Team 2");
-            }
+            if (teamNames.length === 0) teamNames.push("Team 1", "Team 2");
 
             teamNames.forEach((name, i) => {
-                const opt1 = new Option(name, name);
-                const opt2 = new Option(name, name);
-                if (i === 1) opt2.selected = true;
-                t1Select.add(opt1);
-                t2Select.add(opt2);
+                t1Select.add(new Option(name, name));
+                const opt = new Option(name, name);
+                if (i === 1) opt.selected = true;
+                t2Select.add(opt);
             });
 
             document.getElementById('setupModal')?.classList.remove('hidden');
@@ -333,15 +352,8 @@
                 }
             }
 
-            let batRoster = uploadedTeams[battingTeam] || [];
-            let bowlRoster = uploadedTeams[bowlingTeam] || [];
-
-            if (batRoster.length === 0) {
-                batRoster = [`${battingTeam} P1`, `${battingTeam} P2`, `${battingTeam} P3`];
-            }
-            if (bowlRoster.length === 0) {
-                bowlRoster = [`${bowlingTeam} P1`, `${bowlingTeam} P2`, `${bowlingTeam} P3`];
-            }
+            const batRoster = uploadedTeams[battingTeam] || ["Player 1", "Player 2", "Player 3", "Player 4"];
+            const bowlRoster = uploadedTeams[bowlingTeam] || ["Player 1", "Player 2", "Player 3", "Player 4"];
 
             const sSelect = document.getElementById('setupStriker');
             const nsSelect = document.getElementById('setupNonStriker');
@@ -360,9 +372,9 @@
 
             bowlRoster.forEach(p => bSelect.add(new Option(p, p)));
 
-            setText('strikerLabel', `Striker (${battingTeam})`);
-            setText('nonStrikerLabel', `Non-Striker (${battingTeam})`);
-            setText('bowlerLabel', `Bowler (${bowlingTeam})`);
+            setText('strikerLabel', `Pair 1: Striker (${battingTeam})`);
+            setText('nonStrikerLabel', `Pair 1: Non-Striker (${battingTeam})`);
+            setText('bowlerLabel', `Over 1: Bowler (${bowlingTeam})`);
         };
 
         window.flipCoin = () => {
@@ -407,6 +419,8 @@
                 non_bat_name: nsName, non_bat_runs: 0,
                 crr_bowl: bName,
                 curr_over: [],
+                used_batsmen: [sName, nsName], // Track paired batters
+                used_bowlers: [bName],         // Track bowlers (no repeats)
                 tA: { name: t1, score: 0, balls: 0, wkts: 0 },
                 tB: { name: t2, score: 0, balls: 0, wkts: 0 },
                 last_state: null
@@ -416,41 +430,165 @@
             window.closeModal('setupModal');
         };
 
-        // --- NEW OVER & BOWLER MODAL LOGIC ---
+        // --- DYNAMIC NEXT OVER & PAIR REPLACEMENT MODAL ---
         window.openNextOverModal = async () => {
             if (!isAdmin) return alert("Please login as referee first.");
-            if (Object.keys(uploadedTeams).length === 0) {
-                await loadTeamsFromDatabase();
-            }
+            if (Object.keys(uploadedTeams).length === 0) await loadTeamsFromDatabase();
 
             const d = matchData;
             const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const battingTeamName = isTeamA ? (d.tA?.name || "Team 1") : (d.tB?.name || "Team 2");
             const fieldingTeamName = isTeamA ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
-            const bowlRoster = uploadedTeams[fieldingTeamName] || [];
 
-            const sel = document.getElementById('nextBowlerSelect');
-            sel.innerHTML = '';
+            const currentBalls = (isTeamA ? d.tA?.balls : d.tB?.balls) || 0;
+            const completedOvers = Math.floor(currentBalls / 6);
 
-            if (bowlRoster.length > 0) {
-                bowlRoster.forEach(p => sel.add(new Option(p, p)));
+            // Pair change happens after every 2 completed overs (over 2, 4, 6)
+            const isPairFinished = completedOvers > 0 && completedOvers % 2 === 0;
+            const pairChangeSection = document.getElementById('pairChangeSection');
+            
+            const usedBatters = d.used_batsmen || [];
+            const fullBatRoster = uploadedTeams[battingTeamName] || [];
+            const availableBatters = fullBatRoster.filter(p => !usedBatters.includes(p));
+
+            if (isPairFinished && completedOvers < 8) {
+                pairChangeSection.classList.remove('hidden');
+                const nextPairNum = (completedOvers / 2) + 1;
+                setText('pairChangeText', `PAIR ${nextPairNum - 1} RETIRED: SELECT PAIR ${nextPairNum} (${battingTeamName})`);
+
+                const sSel = document.getElementById('nextStrikerSelect');
+                const nsSel = document.getElementById('nextNonStrikerSelect');
+                sSel.innerHTML = '';
+                nsSel.innerHTML = '';
+
+                const list = availableBatters.length >= 2 ? availableBatters : [`${battingTeamName} Bat A`, `${battingTeamName} Bat B`];
+                list.forEach((p, idx) => {
+                    sSel.add(new Option(p, p));
+                    const opt = new Option(p, p);
+                    if (idx === 1) opt.selected = true;
+                    nsSel.add(opt);
+                });
             } else {
-                ["Bowler 1", "Bowler 2", "Bowler 3"].forEach(p => sel.add(new Option(p, p)));
+                pairChangeSection.classList.add('hidden');
             }
 
-            setText('nextBowlerTeamLabel', `Choose Bowler from ${fieldingTeamName}`);
+            // Bowler Selection (Filter out bowlers who already bowled)
+            const usedBowlers = d.used_bowlers || [];
+            const fullBowlRoster = uploadedTeams[fieldingTeamName] || [];
+            const availableBowlers = fullBowlRoster.filter(p => !usedBowlers.includes(p));
+
+            const bSel = document.getElementById('nextBowlerSelect');
+            bSel.innerHTML = '';
+            const bowlList = availableBowlers.length > 0 ? availableBowlers : fullBowlRoster;
+            bowlList.forEach(p => bSel.add(new Option(p, p)));
+
+            setText('nextBowlerTeamLabel', `Fielding Bowler (${fieldingTeamName}) - Over ${completedOvers + 1} of 8`);
             document.getElementById('bowlerModal')?.classList.remove('hidden');
         };
 
-        window.confirmNextOverBowler = async () => {
-            const nextBowl = document.getElementById('nextBowlerSelect').value || "TBD";
+        window.confirmNextOver = async () => {
             const d = JSON.parse(JSON.stringify(matchData));
-            d.curr_over = [];
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const currentBalls = (isTeamA ? d.tA?.balls : d.tB?.balls) || 0;
+            const completedOvers = Math.floor(currentBalls / 6);
+            const isPairFinished = completedOvers > 0 && completedOvers % 2 === 0;
+
+            const nextBowl = document.getElementById('nextBowlerSelect').value || "TBD";
             d.crr_bowl = nextBowl;
-            // Swap strike on over completion
-            [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-            
+            d.curr_over = [];
+            if (!d.used_bowlers) d.used_bowlers = [];
+            d.used_bowlers.push(nextBowl);
+
+            if (isPairFinished && completedOvers < 8) {
+                const sName = document.getElementById('nextStrikerSelect').value;
+                const nsName = document.getElementById('nextNonStrikerSelect').value;
+                d.crr_bat_name = sName;
+                d.crr_bat_runs = 0;
+                d.non_bat_name = nsName;
+                d.non_bat_runs = 0;
+                if (!d.used_batsmen) d.used_batsmen = [];
+                d.used_batsmen.push(sName, nsName);
+            } else {
+                // Strike swaps at the start of next over within the same pair
+                [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+            }
+
             await updateDoc(doc(db, "matches", "live_match_1"), d);
             window.closeModal('bowlerModal');
+        };
+
+        // --- PAIRS SCORING ENGINE ---
+        window.handleAction = async (val, type) => {
+            if (!isAdmin) return;
+            const ref = doc(db, "matches", "live_match_1");
+            const d = JSON.parse(JSON.stringify(matchData));
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const teamKey = isTeamA ? 'tA' : 'tB';
+
+            d.last_state = JSON.stringify(matchData);
+            d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
+            d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
+
+            const isEighthOver = d[teamKey].balls >= 42; // Overs 1-7 = 0-41 balls. Over 8 = 42-47 balls
+
+            if (type === 'wide') {
+                d[teamKey].score += (val + 1);
+                if (!isEighthOver) d[teamKey].balls += 1;
+                if (val % 2 !== 0) {
+                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                }
+                d.curr_over.push(val > 0 ? `Wd+${val}` : 'Wd');
+            } 
+            else if (type === 'noball') {
+                d[teamKey].score += (val + 1);
+                d.crr_bat_runs += val;
+                if (!isEighthOver) d[teamKey].balls += 1;
+                if (val % 2 !== 0) {
+                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                }
+                d.curr_over.push(val > 0 ? `N+${val}` : 'N');
+            } 
+            else if (type === 'wicket') {
+                // Pairs Cricket Rule: Batters stay in for full 2-over cycle, minus 5 runs, swap strike
+                d[teamKey].score -= 5;
+                d[teamKey].wkts += 1;
+                d[teamKey].balls += 1;
+                d.curr_over.push('W');
+                [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                window.closeModal('wickModal');
+            } 
+            else {
+                d[teamKey].score += val;
+                d[teamKey].balls += 1;
+                if (type === 'run') { 
+                    d.crr_bat_runs += val; 
+                    d.curr_over.push(val); 
+                } else { 
+                    d.curr_over.push(`${val}RB`); 
+                }
+                if ([1, 3, 5].includes(val)) {
+                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                }
+                
+                // 3 Dot balls penalty
+                const lastThree = d.curr_over.slice(-3);
+                if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
+                    d[teamKey].score -= 5;
+                    d.curr_over.push("3D(-5)");
+                }
+            }
+            await updateDoc(ref, d);
+        };
+
+        window.manualSwap = async () => {
+            const d = JSON.parse(JSON.stringify(matchData));
+            [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+            await updateDoc(doc(db, "matches", "live_match_1"), d);
+        };
+
+        window.undoAction = async () => {
+            if (!matchData.last_state) return alert("Nothing to undo!");
+            await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
         };
 
         async function archiveAndReset(status, winnerName = "No Result") {
@@ -486,84 +624,6 @@
             if (!isAdmin) return;
             const name = prompt("Enter Non-Striker Name:", matchData?.non_bat_name || "");
             if (name) await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: name });
-        };
-
-        // --- SCORING ENGINE WITH 8TH OVER EXTRAS RULE ---
-        window.handleAction = async (val, type) => {
-            if (!isAdmin) return;
-            const ref = doc(db, "matches", "live_match_1");
-            const d = JSON.parse(JSON.stringify(matchData));
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const teamKey = isTeamA ? 'tA' : 'tB';
-
-            d.last_state = JSON.stringify(matchData);
-            d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
-            d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
-
-            const isEighthOver = d[teamKey].balls >= 42; // Overs 1-7 = 0-41 balls. 8th over = 42-47 balls
-
-            if (type === 'wide') {
-                d[teamKey].score += (val + 1);
-                if (!isEighthOver) {
-                    d[teamKey].balls += 1;
-                }
-                if (val % 2 !== 0) {
-                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-                }
-                d.curr_over.push(val > 0 ? `Wd+${val}` : 'Wd');
-            } 
-            else if (type === 'noball') {
-                d[teamKey].score += (val + 1);
-                d.crr_bat_runs += val;
-                if (!isEighthOver) {
-                    d[teamKey].balls += 1;
-                }
-                if (val % 2 !== 0) {
-                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-                }
-                d.curr_over.push(val > 0 ? `N+${val}` : 'N');
-            } 
-            else if (type === 'wicket') {
-                d[teamKey].score -= 5;
-                d[teamKey].wkts += 1;
-                d[teamKey].balls += 1;
-                d.curr_over.push('W');
-                const nextBat = prompt("New Batsman Name:") || "New Batsman";
-                d.crr_bat_name = nextBat; 
-                d.crr_bat_runs = 0;
-                window.closeModal('wickModal');
-            } 
-            else {
-                d[teamKey].score += val;
-                d[teamKey].balls += 1;
-                if (type === 'run') { 
-                    d.crr_bat_runs += val; 
-                    d.curr_over.push(val); 
-                } else { 
-                    d.curr_over.push(`${val}RB`); 
-                }
-                if ([1, 3, 5].includes(val)) {
-                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-                }
-                
-                const lastThree = d.curr_over.slice(-3);
-                if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
-                    d[teamKey].score -= 5;
-                    d.curr_over.push("3D(-5)");
-                }
-            }
-            await updateDoc(ref, d);
-        };
-
-        window.manualSwap = async () => {
-            const d = JSON.parse(JSON.stringify(matchData));
-            [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-            await updateDoc(doc(db, "matches", "live_match_1"), d);
-        };
-
-        window.undoAction = async () => {
-            if (!matchData.last_state) return alert("Nothing to undo!");
-            await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
         };
 
         window.login = async () => {
