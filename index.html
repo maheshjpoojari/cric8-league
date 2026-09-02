@@ -579,9 +579,9 @@
             
             if (!bSel) return;
 
-            const d = matchData;
-            const sName = d?.crr_bat_name || "Striker";
-            const nsName = d?.non_bat_name || "Non-Striker";
+            const d = matchData || {};
+            const sName = d.crr_bat_name || "Striker";
+            const nsName = d.non_bat_name || "Non-Striker";
 
             bSel.innerHTML = '';
 
@@ -599,61 +599,82 @@
             }
         };
 
-        // --- CONFIRM DETAILED DISMISSAL ---
+        // --- HARDENED & SAFE DISMISSAL CONFIRMATION HANDLER ---
         window.confirmStructuredDismissal = async () => {
-            if (!isAdmin) return;
-            const ref = doc(db, "matches", "live_match_1");
-            const d = JSON.parse(JSON.stringify(matchData));
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const teamKey = isTeamA ? 'tA' : 'tB';
+            if (!isAdmin) return alert("Please login as referee first.");
+            
+            try {
+                const ref = doc(db, "matches", "live_match_1");
+                const d = JSON.parse(JSON.stringify(matchData || {}));
+                
+                const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+                const teamKey = isTeamA ? 'tA' : 'tB';
 
-            const wType = document.getElementById('wickType')?.value || 'Bowled';
-            const bSel = document.getElementById('wickBatter');
-            const dismissedRole = bSel ? bSel.value : 'striker';
-            const creaseOutcome = document.getElementById('wickCrease')?.value || 'no_swap';
+                if (!d[teamKey]) {
+                    d[teamKey] = { name: isTeamA ? "Team 1" : "Team 2", score: 0, balls: 0, wkts: 0 };
+                }
 
-            const dismissedPlayerName = dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name;
-            const currentBowler = d.crr_bowl || "TBD";
+                const wType = document.getElementById('wickType')?.value || 'Bowled';
+                const bSel = document.getElementById('wickBatter');
+                const dismissedRole = bSel ? bSel.value : 'striker';
+                const creaseOutcome = document.getElementById('wickCrease')?.value || 'no_swap';
 
-            d.last_state = JSON.stringify(matchData);
-            d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
-            d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
+                const dismissedPlayerName = (dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name) || "Batter";
+                const currentBowler = d.crr_bowl || "TBD";
 
-            d[teamKey].score -= 5;
-            d[teamKey].wkts += 1;
-            d[teamKey].balls += 1;
-            d.curr_over.push('W');
+                d.last_state = JSON.stringify(matchData);
 
-            if (dismissedRole === 'striker') {
-                d.crr_bat_runs -= 5;
-            } else {
-                d.non_bat_runs -= 5;
+                // Arithmetic sanitization against NaN
+                d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
+                d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
+                d[teamKey].score = (parseInt(d[teamKey].score) || 0) - 5;
+                d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
+                d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
+
+                if (!Array.isArray(d.curr_over)) d.curr_over = [];
+                d.curr_over.push('W');
+
+                if (dismissedRole === 'striker') {
+                    d.crr_bat_runs -= 5;
+                } else {
+                    d.non_bat_runs -= 5;
+                }
+
+                if (!d.bowler_wickets || typeof d.bowler_wickets !== 'object') d.bowler_wickets = {};
+                if (wType !== 'Run Out') {
+                    d.bowler_wickets[currentBowler] = (parseInt(d.bowler_wickets[currentBowler]) || 0) + 1;
+                }
+
+                if (!d.batter_dismissals || typeof d.batter_dismissals !== 'object') d.batter_dismissals = {};
+                d.batter_dismissals[dismissedPlayerName] = (parseInt(d.batter_dismissals[dismissedPlayerName]) || 0) + 1;
+
+                if (!Array.isArray(d.dismissals)) d.dismissals = [];
+                const oversDone = Math.floor(d[teamKey].balls / 6);
+                const ballsDone = d[teamKey].balls % 6;
+                d.dismissals.push({
+                    batter: String(dismissedPlayerName),
+                    bowler: String(currentBowler),
+                    type: String(wType),
+                    over: `${oversDone}.${ballsDone}`,
+                    creaseOutcome: String(creaseOutcome),
+                    timestamp: new Date().toISOString()
+                });
+
+                if (creaseOutcome === 'swap') {
+                    const tempName = d.crr_bat_name;
+                    const tempRuns = d.crr_bat_runs;
+                    d.crr_bat_name = d.non_bat_name;
+                    d.crr_bat_runs = d.non_bat_runs;
+                    d.non_bat_name = tempName;
+                    d.non_bat_runs = tempRuns;
+                }
+
+                await updateDoc(ref, d);
+                window.closeModal('wickModal');
+            } catch (err) {
+                console.error("Error confirming out:", err);
+                alert("Could not process dismissal: " + err.message);
             }
-
-            if (!d.bowler_wickets) d.bowler_wickets = {};
-            if (wType !== 'Run Out') {
-                d.bowler_wickets[currentBowler] = (d.bowler_wickets[currentBowler] || 0) + 1;
-            }
-
-            if (!d.batter_dismissals) d.batter_dismissals = {};
-            d.batter_dismissals[dismissedPlayerName] = (d.batter_dismissals[dismissedPlayerName] || 0) + 1;
-
-            if (!d.dismissals) d.dismissals = [];
-            d.dismissals.push({
-                batter: dismissedPlayerName,
-                bowler: currentBowler,
-                type: wType,
-                over: `${Math.floor(d[teamKey].balls / 6)}.${d[teamKey].balls % 6}`,
-                creaseOutcome: creaseOutcome,
-                timestamp: new Date().toISOString()
-            });
-
-            if (creaseOutcome === 'swap') {
-                [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-            }
-
-            await updateDoc(ref, d);
-            window.closeModal('wickModal');
         };
 
         // --- GENERAL SCORING ENGINE ---
