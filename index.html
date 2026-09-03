@@ -537,9 +537,12 @@
 
             const tA = d.tA || { name: "Team 1", score: 0, balls: 0, wkts: 0 };
             const tB = d.tB || { name: "Team 2", score: 0, balls: 0, wkts: 0 };
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const team = isTeamA ? tA : tB;
-            const opp = isTeamA ? tB : tA;
+            
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+
+            const team = isTeamABatting ? tA : tB;
+            const opp = isTeamABatting ? tB : tA;
 
             setText('teamNameDisp', team.name || "Batting Team");
             setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'} ✏️`);
@@ -593,36 +596,50 @@
             }
         }
 
+        // --- HARDENED NEXT OVER & PAIR HANDLER (FIXED ROSTER INVERSION) ---
         window.openNextOverModal = async () => {
             if (!isAdmin) return alert("Referee access required.");
             if (Object.keys(uploadedTeams).length === 0) await loadTeamsFromDatabase();
 
             const d = matchData;
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const battingTeamName = isTeamA ? d.tA?.name : d.tB?.name;
-            const fieldingTeamName = isTeamA ? d.tB?.name : d.tA?.name;
+            const team1Name = d.tA?.name || "Team 1";
+            const team2Name = d.tB?.name || "Team 2";
 
-            const currentBalls = (isTeamA ? d.tA?.balls : d.tB?.balls) || 0;
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+
+            const battingTeamName = isTeamABatting ? team1Name : team2Name;
+            const fieldingTeamName = isTeamABatting ? team2Name : team1Name;
+
+            const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
             const completedOvers = Math.floor(currentBalls / 6);
             const isPairFinished = completedOvers > 0 && completedOvers % 2 === 0;
-
-            const usedBatters = d.used_batsmen || [];
-            activeAvailableBatters = (uploadedTeams[battingTeamName] || []).filter(p => !usedBatters.includes(p));
 
             const pairSection = document.getElementById('pairChangeSection');
             if (isPairFinished && completedOvers < 8) {
                 pairSection.classList.remove('hidden');
                 setText('pairChangeText', `PAIR ${(completedOvers/2)+1} ROTATION (${battingTeamName})`);
+                
+                const usedBatters = d.used_batsmen || [];
+                activeAvailableBatters = (uploadedTeams[battingTeamName] || []).filter(p => !usedBatters.includes(p));
+                
                 const sSel = document.getElementById('nextStrikerSelect');
                 sSel.innerHTML = '';
-                activeAvailableBatters.forEach(p => sSel.add(new Option(p, p)));
+                (activeAvailableBatters.length ? activeAvailableBatters : [`${battingTeamName} Sub 1`, `${battingTeamName} Sub 2`]).forEach(p => sSel.add(new Option(p, p)));
                 window.filterSecondaryBatter();
             } else {
                 pairSection.classList.add('hidden');
             }
 
+            // Exclude current batters & past bowlers from the fielding team bowler list
             const usedBowlers = d.used_bowlers || [];
-            const unusedBowlers = (uploadedTeams[fieldingTeamName] || []).filter(p => !usedBowlers.includes(p));
+            const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
+            const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
+
+            const unusedBowlers = fullFieldingRoster.filter(p => 
+                !usedBowlers.includes(p) && !currentCreaseBatters.includes(p)
+            );
+
             const bSel = document.getElementById('nextBowlerSelect');
             bSel.innerHTML = '';
             (unusedBowlers.length ? unusedBowlers : [`${fieldingTeamName} Sub Bowler`]).forEach(p => bSel.add(new Option(p, p)));
@@ -640,8 +657,10 @@
 
         window.confirmNextOver = async () => {
             const d = JSON.parse(JSON.stringify(matchData));
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const currentBalls = (isTeamA ? d.tA?.balls : d.tB?.balls) || 0;
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+
+            const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
             const completedOvers = Math.floor(currentBalls / 6);
             const isPairFinished = completedOvers > 0 && completedOvers % 2 === 0;
 
@@ -670,8 +689,9 @@
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const d = JSON.parse(JSON.stringify(matchData));
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const teamKey = isTeamA ? 'tA' : 'tB';
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const teamKey = isTeamABatting ? 'tA' : 'tB';
 
             d.last_state = JSON.stringify(matchData);
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
@@ -748,8 +768,9 @@
         window.confirmStructuredDismissal = async () => {
             try {
                 const d = JSON.parse(JSON.stringify(matchData || {}));
-                const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-                const teamKey = isTeamA ? 'tA' : 'tB';
+                let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+                if (d.inn === 2) isTeamABatting = !isTeamABatting;
+                const teamKey = isTeamABatting ? 'tA' : 'tB';
 
                 const wType = document.getElementById('wickType')?.value || 'Bowled';
                 const dismissedRole = document.getElementById('wickBatter')?.value || 'striker';
@@ -855,7 +876,6 @@
 
         window.closeModal = (id) => document.getElementById(id)?.classList.add('hidden');
 
-        // Startup initialization
         updateSlotBadge();
         attachMatchListener(currentMatchId);
     </script>
