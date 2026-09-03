@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Tester Console (No Login)</title>
+    <title>Cric-8 Tester Console (Multi-Session)</title>
     <style>
         :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 12px; }
@@ -12,7 +12,7 @@
         .app-view { max-width: 480px; margin: 0 auto; }
         .view-card { background: var(--card); border: 1px solid #1e293b; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
         
-        .test-badge { background: #0284c7; color: white; text-align: center; font-size: 0.7rem; font-weight: bold; padding: 6px; border-radius: 6px; margin-bottom: 12px; max-width: 480px; margin-left: auto; margin-right: auto; }
+        .test-badge { background: #0284c7; color: white; text-align: center; font-size: 0.75rem; font-weight: bold; padding: 6px; border-radius: 6px; margin-bottom: 12px; max-width: 480px; margin-left: auto; margin-right: auto; display: flex; justify-content: space-between; align-items: center; }
         .view-title { color: var(--blue); margin-top: 0; font-size: 1.25rem; text-align: center; margin-bottom: 20px; }
         .input-group { margin-bottom: 15px; text-align: left; }
         .input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; font-weight: bold; }
@@ -50,12 +50,32 @@
 </head>
 <body>
 
-    <div class="test-badge">TESTER MODE ACTIVE (AUTHENTICATION BYPASS)</div>
+    <div class="test-badge">
+        <span>TESTER MODE ACTIVE</span>
+        <span id="activeSlotTag" style="background:#0f172a; padding:2px 8px; border-radius:4px; color:var(--gold);">PITCH 1</span>
+    </div>
 
-    <!-- STEP 1: LEAGUE/TOURNAMENT & TEAM FIXTURE -->
+    <!-- STEP 1: LEAGUE, SESSION SLOT & TEAM FIXTURE -->
     <div id="viewTournament" class="app-view">
         <div class="view-card">
             <h2 class="view-title">🏆 FIXTURE SETUP</h2>
+            
+            <div class="input-group">
+                <label>Pitch / Match Slot (Independent per tester)</label>
+                <select id="matchSlotSelect" class="input-field" onchange="window.switchMatchSlot()">
+                    <option value="pitch_1">Pitch 1 (Default)</option>
+                    <option value="pitch_2">Pitch 2</option>
+                    <option value="pitch_3">Pitch 3</option>
+                    <option value="pitch_4">Pitch 4</option>
+                    <option value="custom_slot">Custom Match ID...</option>
+                </select>
+            </div>
+
+            <div class="input-group hidden" id="customSlotGroup">
+                <label>Custom Match ID</label>
+                <input type="text" id="customSlotInput" class="input-field" placeholder="e.g., tester_rahul">
+            </div>
+
             <div class="input-group">
                 <label>Select League / Tournament</label>
                 <select id="tourneySelect" class="input-field">
@@ -64,6 +84,7 @@
                     <option value="custom">Custom / Friendly Match</option>
                 </select>
             </div>
+
             <div class="input-group">
                 <label>Team 1 (Calls HEADS)</label>
                 <select id="selectTeam1" class="input-field" onchange="window.filterTeamOptions()"></select>
@@ -72,6 +93,7 @@
                 <label>Team 2 (Calls TAILS)</label>
                 <select id="selectTeam2" class="input-field"></select>
             </div>
+
             <button class="btn btn-orange" style="width:100%; margin-top:10px;" onclick="window.goToTossScreen()">PROCEED TO TOSS 🪙</button>
         </div>
     </div>
@@ -119,7 +141,7 @@
         </div>
     </div>
 
-    <!-- STEP 3: LIVE SCORER CONSOLE (TOSS BUTTON COMPLETELY REMOVED) -->
+    <!-- STEP 3: LIVE SCORER CONSOLE -->
     <div id="viewScorer" class="app-view hidden">
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
@@ -159,7 +181,6 @@
 
             <button class="btn btn-red" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
             
-            <!-- Dedicated controls: Toss removed -->
             <div class="emergency-tools">
                 <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
                 <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
@@ -245,10 +266,72 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // Dynamic Match Session Identification
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentMatchId = urlParams.get('match') || localStorage.getItem('cric8_tester_slot') || "pitch_1";
+        let matchDocRef = doc(db, "matches", currentMatchId);
+        let unsubscribeSnapshot = null;
+
         let matchData = null;
         let tossWinnerTeam = "";
         let uploadedTeams = {};
         let activeAvailableBatters = [];
+
+        function updateSlotBadge() {
+            const badge = document.getElementById('activeSlotTag');
+            if (badge) badge.innerText = currentMatchId.toUpperCase().replace('_', ' ');
+            const select = document.getElementById('matchSlotSelect');
+            if (select) {
+                if (['pitch_1', 'pitch_2', 'pitch_3', 'pitch_4'].includes(currentMatchId)) {
+                    select.value = currentMatchId;
+                    document.getElementById('customSlotGroup')?.classList.add('hidden');
+                } else {
+                    select.value = 'custom_slot';
+                    document.getElementById('customSlotGroup')?.classList.remove('hidden');
+                    const input = document.getElementById('customSlotInput');
+                    if (input) input.value = currentMatchId;
+                }
+            }
+        }
+
+        window.switchMatchSlot = () => {
+            const val = document.getElementById('matchSlotSelect').value;
+            if (val === 'custom_slot') {
+                document.getElementById('customSlotGroup').classList.remove('hidden');
+                const customVal = document.getElementById('customSlotInput').value.trim();
+                if (customVal) attachMatchListener(customVal);
+            } else {
+                document.getElementById('customSlotGroup').classList.add('hidden');
+                attachMatchListener(val);
+            }
+        };
+
+        document.getElementById('customSlotInput')?.addEventListener('change', (e) => {
+            const val = e.target.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+            if (val) attachMatchListener(val);
+        });
+
+        function attachMatchListener(newId) {
+            currentMatchId = newId;
+            localStorage.setItem('cric8_tester_slot', currentMatchId);
+            matchDocRef = doc(db, "matches", currentMatchId);
+            updateSlotBadge();
+
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            
+            unsubscribeSnapshot = onSnapshot(matchDocRef, snap => {
+                if (!snap.exists()) {
+                    matchData = null;
+                    window.navigateView('viewTournament');
+                    return;
+                }
+                matchData = snap.data();
+                if (matchData.match_in_progress) {
+                    window.navigateView('viewScorer');
+                }
+                updateUI();
+            });
+        }
 
         window.navigateView = (viewId) => {
             ['viewTournament', 'viewToss', 'viewScorer'].forEach(id => {
@@ -263,13 +346,10 @@
         }
 
         async function initTester() {
+            updateSlotBadge();
+            attachMatchListener(currentMatchId);
             await loadTeamsFromDatabase();
             window.setupTournamentDropdowns();
-            if (matchData && matchData.match_in_progress) {
-                window.navigateView('viewScorer');
-            } else {
-                window.navigateView('viewTournament');
-            }
         }
 
         async function loadTeamsFromDatabase() {
@@ -421,7 +501,7 @@
                 last_state: null
             };
 
-            await setDoc(doc(db, "matches", "live_match_1"), newMatchData);
+            await setDoc(matchDocRef, newMatchData);
             window.navigateView('viewScorer');
         };
 
@@ -486,12 +566,6 @@
                 controls.style.pointerEvents = isOverComplete ? "none" : "auto";
             }
         }
-
-        onSnapshot(doc(db, "matches", "live_match_1"), snap => {
-            if (!snap.exists()) return;
-            matchData = snap.data();
-            updateUI();
-        });
 
         window.openNextOverModal = async () => {
             if (Object.keys(uploadedTeams).length === 0) await loadTeamsFromDatabase();
@@ -562,12 +636,11 @@
                 [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
             }
 
-            await updateDoc(doc(db, "matches", "live_match_1"), d);
+            await updateDoc(matchDocRef, d);
             window.closeModal('bowlerModal');
         };
 
         window.handleAction = async (val, type) => {
-            const ref = doc(db, "matches", "live_match_1");
             const d = JSON.parse(JSON.stringify(matchData));
             const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
             const teamKey = isTeamA ? 'tA' : 'tB';
@@ -611,7 +684,7 @@
                     d.curr_over[d.curr_over.length - 1] = "3D(-5)";
                 }
             }
-            await updateDoc(ref, d);
+            await updateDoc(matchDocRef, d);
         };
 
         window.openWicketModal = () => {
@@ -645,7 +718,6 @@
 
         window.confirmStructuredDismissal = async () => {
             try {
-                const ref = doc(db, "matches", "live_match_1");
                 const d = JSON.parse(JSON.stringify(matchData || {}));
                 const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
                 const teamKey = isTeamA ? 'tA' : 'tB';
@@ -686,7 +758,7 @@
                     [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 }
 
-                await updateDoc(ref, d);
+                await updateDoc(matchDocRef, d);
                 window.closeModal('wickModal');
             } catch (e) {
                 alert("Dismissal Error: " + e.message);
@@ -696,19 +768,19 @@
         window.manualSwap = async () => {
             const d = JSON.parse(JSON.stringify(matchData));
             [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-            await updateDoc(doc(db, "matches", "live_match_1"), d);
+            await updateDoc(matchDocRef, d);
         };
 
         window.undoAction = async () => {
             if (!matchData?.last_state) return alert("Nothing to undo!");
-            await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
+            await updateDoc(matchDocRef, JSON.parse(matchData.last_state));
         };
 
         window.abortMatch = async () => {
             if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
             try {
                 await addDoc(collection(db, "match_history"), {
-                    ...matchData, match_status: "Aborted", timestamp: new Date().toISOString()
+                    ...matchData, matchId: currentMatchId, match_status: "Aborted", timestamp: new Date().toISOString()
                 });
 
                 const resetState = {
@@ -724,7 +796,7 @@
                     last_state: null
                 };
 
-                await setDoc(doc(db, "matches", "live_match_1"), resetState);
+                await setDoc(matchDocRef, resetState);
                 window.navigateView('viewTournament');
             } catch (err) {
                 alert("Reset error: " + err.message);
@@ -735,19 +807,19 @@
             const winner = prompt("Enter Walkover Winner Team Name:");
             if (!winner) return;
             await addDoc(collection(db, "match_history"), {
-                ...matchData, match_status: "Walkover", winner: winner, timestamp: new Date().toISOString()
+                ...matchData, matchId: currentMatchId, match_status: "Walkover", winner: winner, timestamp: new Date().toISOString()
             });
             window.abortMatch();
         };
 
         window.editStriker = async () => {
             const name = prompt("Enter Striker Name:", matchData?.crr_bat_name || "");
-            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { crr_bat_name: name });
+            if (name) await updateDoc(matchDocRef, { crr_bat_name: name });
         };
 
         window.editNonStriker = async () => {
             const name = prompt("Enter Non-Striker Name:", matchData?.non_bat_name || "");
-            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: name });
+            if (name) await updateDoc(matchDocRef, { non_bat_name: name });
         };
 
         window.closeModal = (id) => document.getElementById(id)?.classList.add('hidden');
