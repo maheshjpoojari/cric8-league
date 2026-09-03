@@ -6,8 +6,31 @@
     <title>Cric-8 Tester Console (No Login)</title>
     <style>
         :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 12px; }
         .hidden { display: none !important; }
+        
+        .app-view { max-width: 480px; margin: 0 auto; }
+        .view-card { background: var(--card); border: 1px solid #1e293b; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
+        
+        .test-badge { background: #0284c7; color: white; text-align: center; font-size: 0.7rem; font-weight: bold; padding: 6px; border-radius: 6px; margin-bottom: 12px; max-width: 480px; margin-left: auto; margin-right: auto; }
+        .view-title { color: var(--blue); margin-top: 0; font-size: 1.25rem; text-align: center; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; font-weight: bold; }
+        .input-field { width: 100%; box-sizing: border-box; background: #0b1120; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; font-size: 0.95rem; }
+        select:disabled { background: #1e293b; color: #64748b; border-color: #334155; opacity: 1; -webkit-appearance: none; appearance: none; }
+
+        .btn { border: none; background: #1e293b; color: #fff; padding: 14px 0; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; text-align: center; }
+        .btn-blue { background: #0ea5e9; } .btn-orange { background: #f97316; } .btn-red { background: var(--red); }
+        .btn-green { background: var(--green); } .btn-util { background: #334155; font-size: 0.75rem; padding: 10px; }
+
+        .coin-wrapper { perspective: 800px; display: flex; justify-content: center; margin: 15px 0; }
+        .coin { width: 80px; height: 80px; position: relative; transform-style: preserve-3d; transition: transform 2s ease-out; }
+        .coin-face { position: absolute; width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; backface-visibility: hidden; border: 3px solid #f59e0b; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
+        .heads { background: radial-gradient(circle, #fde047, #d97706); color: #78350f; }
+        .tails { background: radial-gradient(circle, #fde047, #b45309); color: #78350f; transform: rotateY(180deg); }
+        .animate-heads { transform: rotateY(1800deg); }
+        .animate-tails { transform: rotateY(1980deg); }
+
         .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.85rem; }
         .pair-badge { background: #1e293b; color: var(--gold); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #334155; }
         .player-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px 12px 0 0; margin-top: 5px; border: 1px solid #1e293b; }
@@ -21,109 +44,61 @@
         .next-over-btn { color: var(--gold); font-weight: bold; margin-top: 15px; cursor: pointer; animation: blink 1s infinite; text-decoration: underline; }
         @keyframes blink { 50% { opacity: 0.3; } }
         .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .btn { border: none; background: #1e293b; color: #fff; padding: 18px 0; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
-        .btn-blue { background: #0ea5e9; } .btn-orange { background: #f97316; } .btn-red { background: var(--red); grid-column: span 4; }
-        .btn-green { background: var(--green); grid-column: span 2; font-size: 0.85rem; padding: 12px; }
         .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px; }
-        .btn-util { background: #334155; font-size: 0.7rem; padding: 12px; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
-        .setup-card { background: var(--card); border: 1px solid #334155; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
-        .input-group { margin-bottom: 12px; text-align: left; }
-        .input-group label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold; }
-        .input-field { width: 100%; box-sizing: border-box; background: #0b1120; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; font-size: 0.9rem; }
-        .coin-wrapper { perspective: 800px; display: flex; justify-content: center; margin: 15px 0; }
-        .coin { width: 80px; height: 80px; position: relative; transform-style: preserve-3d; transition: transform 2s ease-out; }
-        .coin-face { position: absolute; width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; backface-visibility: hidden; border: 3px solid #f59e0b; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
-        .heads { background: radial-gradient(circle, #fde047, #d97706); color: #78350f; }
-        .tails { background: radial-gradient(circle, #fde047, #b45309); color: #78350f; transform: rotateY(180deg); }
-        .animate-heads { transform: rotateY(1800deg); }
-        .animate-tails { transform: rotateY(1980deg); }
-        select:disabled { background: #1e293b; color: #64748b; border-color: #334155; opacity: 1; -webkit-appearance: none; appearance: none; }
-        .test-badge { background: #0284c7; color: white; text-align: center; font-size: 0.7rem; font-weight: bold; padding: 4px; border-radius: 4px; margin-bottom: 6px; }
     </style>
 </head>
 <body>
 
-    <div class="test-badge">REFEREE TEST MODE (AUTHENTICATION BYPASS ACTIVE)</div>
+    <div class="test-badge">TESTER MODE ACTIVE (AUTHENTICATION BYPASS)</div>
 
-    <div class="header">
-        <div id="teamNameDisp">Loading...</div>
-        <div id="pairDisp" class="pair-badge">Pair 1 (Overs 1-2)</div>
-        <div id="bowlNameDisp" onclick="window.openNextOverModal()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
-    </div>
-
-    <div class="player-bar">
-        <div id="bat1" class="bat-card striker-active" onclick="window.editStriker()">P1* (0) ✏️</div>
-        <div id="bat2" class="bat-card" onclick="window.editNonStriker()">P2 (0) ✏️</div>
-    </div>
-
-    <div class="score-card">
-        <div id="targetBox" class="hidden" style="color: var(--gold); font-weight: bold; margin-bottom: 10px;"></div>
-        <div id="mainScore" class="main-score">0</div>
-        <div id="stats" style="color:#94a3b8; font-weight:bold;">Overs: 0.0 / 8.0 | Wkts: 0</div>
-        <div id="tracker" class="ball-row"></div>
-        <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.openNextOverModal()">TAP HERE TO START NEXT OVER</div>
-    </div>
-
-    <div id="mainControls" class="admin-grid">
-        <button class="btn" onclick="window.handleAction(0, 'run')">0</button>
-        <button class="btn" onclick="window.handleAction(1, 'run')">1</button>
-        <button class="btn" onclick="window.handleAction(2, 'run')">2</button>
-        <button class="btn" onclick="window.handleAction(3, 'run')">3</button>
-        <button class="btn" onclick="window.handleAction(4, 'run')">4</button>
-        <button class="btn" onclick="window.handleAction(5, 'run')">5</button>
-        <button class="btn" onclick="window.handleAction(6, 'run')">6</button>
-        
-        <button class="btn" style="background:#0284c7" onclick="window.handleAction(1, 'declare')">1D</button>
-        <button class="btn" style="background:#475569" onclick="window.handleAction(1, 'rb')">1RB</button>
-
-        <button class="btn btn-blue" onclick="window.handleAction(0, 'wide')">WD</button>
-        <button class="btn btn-blue" onclick="window.handleAction(1, 'wide')">WD+1</button>
-        <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
-        <button class="btn btn-orange" style="grid-column: span 4;" onclick="window.handleAction(1, 'noball')">NB+1</button>
-
-        <button class="btn btn-red" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
-        
-        <div class="emergency-tools">
-            <button class="btn btn-green" onclick="window.openSetupModal()">🪙 TOSS & MATCH</button>
-            <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
-            <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
-            <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
-            <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH</button>
+    <!-- STEP 1: LEAGUE/TOURNAMENT & TEAM FIXTURE -->
+    <div id="viewTournament" class="app-view">
+        <div class="view-card">
+            <h2 class="view-title">🏆 FIXTURE SETUP</h2>
+            <div class="input-group">
+                <label>Select League / Tournament</label>
+                <select id="tourneySelect" class="input-field">
+                    <option value="corporate">Corporate Pairs Championship</option>
+                    <option value="premier">Dubai Premier League</option>
+                    <option value="custom">Custom / Friendly Match</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Team 1 (Calls HEADS)</label>
+                <select id="selectTeam1" class="input-field" onchange="window.filterTeamOptions()"></select>
+            </div>
+            <div class="input-group">
+                <label>Team 2 (Calls TAILS)</label>
+                <select id="selectTeam2" class="input-field"></select>
+            </div>
+            <button class="btn btn-orange" style="width:100%; margin-top:10px;" onclick="window.goToTossScreen()">PROCEED TO TOSS 🪙</button>
         </div>
     </div>
 
-    <!-- TOSS & INITIAL ROSTER -->
-    <div id="setupModal" class="modal hidden">
-        <div class="setup-card">
-            <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 TOSS & FIXTURE</h3>
-            
-            <div class="input-group">
-                <label>Select Team 1 (Calls HEADS)</label>
-                <select id="setupTeam1" class="input-field" onchange="window.updateLineupDropdowns()"></select>
-            </div>
-            <div class="input-group">
-                <label>Select Team 2 (Calls TAILS)</label>
-                <select id="setupTeam2" class="input-field" onchange="window.updateLineupDropdowns()"></select>
-            </div>
-
+    <!-- STEP 2: TOSS & STARTING LINEUP -->
+    <div id="viewToss" class="app-view hidden">
+        <div class="view-card">
+            <h2 class="view-title">🪙 MATCH TOSS & LINEUP</h2>
             <div class="coin-wrapper">
                 <div id="coin" class="coin">
                     <div class="coin-face heads">H</div>
                     <div class="coin-face tails">T</div>
                 </div>
             </div>
-            <button id="flipBtn" class="btn btn-orange" style="width:100%; padding: 12px; margin-bottom: 15px;" onclick="window.flipCoin()">SPIN / FLIP COIN</button>
+            <button id="flipBtn" class="btn btn-orange" style="width:100%; margin-bottom: 15px;" onclick="window.flipCoin()">FLIP COIN</button>
 
             <div id="tossResultBox" class="hidden">
-                <div id="tossResultText" style="text-align: center; color: var(--gold); margin-bottom: 12px; font-size: 0.95rem;"></div>
+                <div id="tossResultText" style="text-align: center; color: var(--gold); margin-bottom: 15px; font-weight: bold;"></div>
+                
                 <div class="input-group">
-                    <label><span id="tossWinnerName">Winner</span> Decided To</label>
+                    <label><span id="tossWinnerName">Winner</span> Opts To</label>
                     <select id="setupDecision" class="input-field" onchange="window.updateLineupDropdowns()">
                         <option value="bat">Bat First</option>
                         <option value="bowl">Bowl First</option>
                     </select>
                 </div>
+
                 <div class="input-group">
                     <label id="strikerLabel">Pair 1: Striker</label>
                     <select id="setupStriker" class="input-field"></select>
@@ -136,26 +111,77 @@
                     <label id="bowlerLabel">Over 1: Bowler</label>
                     <select id="setupBowler" class="input-field"></select>
                 </div>
-                <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.submitMatchSetup()">START MATCH</button>
+                
+                <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="window.startMatch()">START MATCH & OPEN SCORER</button>
             </div>
-
-            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('setupModal')">CANCEL</button>
+            
+            <button class="btn" style="width:100%; margin-top:10px; background:#334155; font-size:0.8rem;" onclick="window.navigateView('viewTournament')">BACK TO TEAMS</button>
         </div>
     </div>
 
-    <!-- NEXT OVER & PAIR REPLACEMENT -->
+    <!-- STEP 3: LIVE SCORER CONSOLE (TOSS BUTTON COMPLETELY REMOVED) -->
+    <div id="viewScorer" class="app-view hidden">
+        <div class="header">
+            <div id="teamNameDisp">Loading...</div>
+            <div id="pairDisp" class="pair-badge">Pair 1 (Overs 1-2)</div>
+            <div id="bowlNameDisp" onclick="window.openNextOverModal()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
+        </div>
+
+        <div class="player-bar">
+            <div id="bat1" class="bat-card striker-active" onclick="window.editStriker()">P1* (0) ✏️</div>
+            <div id="bat2" class="bat-card" onclick="window.editNonStriker()">P2 (0) ✏️</div>
+        </div>
+
+        <div class="score-card">
+            <div id="targetBox" class="hidden" style="color: var(--gold); font-weight: bold; margin-bottom: 10px;"></div>
+            <div id="mainScore" class="main-score">0</div>
+            <div id="stats" style="color:#94a3b8; font-weight:bold;">Overs: 0.0 / 8.0 | Wkts: 0</div>
+            <div id="tracker" class="ball-row"></div>
+            <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.openNextOverModal()">TAP HERE TO START NEXT OVER</div>
+        </div>
+
+        <div id="mainControls" class="admin-grid">
+            <button class="btn" onclick="window.handleAction(0, 'run')">0</button>
+            <button class="btn" onclick="window.handleAction(1, 'run')">1</button>
+            <button class="btn" onclick="window.handleAction(2, 'run')">2</button>
+            <button class="btn" onclick="window.handleAction(3, 'run')">3</button>
+            <button class="btn" onclick="window.handleAction(4, 'run')">4</button>
+            <button class="btn" onclick="window.handleAction(5, 'run')">5</button>
+            <button class="btn" onclick="window.handleAction(6, 'run')">6</button>
+            
+            <button class="btn" style="background:#0284c7" onclick="window.handleAction(1, 'declare')">1D</button>
+            <button class="btn" style="background:#475569" onclick="window.handleAction(1, 'rb')">1RB</button>
+
+            <button class="btn btn-blue" onclick="window.handleAction(0, 'wide')">WD</button>
+            <button class="btn btn-blue" onclick="window.handleAction(1, 'wide')">WD+1</button>
+            <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
+            <button class="btn btn-orange" style="grid-column: span 4;" onclick="window.handleAction(1, 'noball')">NB+1</button>
+
+            <button class="btn btn-red" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
+            
+            <!-- Dedicated controls: Toss removed -->
+            <div class="emergency-tools">
+                <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
+                <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
+                <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
+                <button class="btn btn-util" style="color: var(--red);" onclick="window.abortMatch()">ABORT MATCH</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEXT OVER & PAIR REPLACEMENT MODAL -->
     <div id="bowlerModal" class="modal hidden">
-        <div class="setup-card">
-            <h3 id="overModalTitle" style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
             
             <div id="pairChangeSection" class="hidden" style="background:#0b1120; border: 1px solid var(--gold); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
                 <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR FINISHED: SELECT NEXT BATTING PAIR</div>
                 <div class="input-group">
-                    <label id="nextStrikerLabel">New Striker (Unused Players Only)</label>
+                    <label>New Striker (Unused Players Only)</label>
                     <select id="nextStrikerSelect" class="input-field" onchange="window.filterSecondaryBatter()"></select>
                 </div>
                 <div class="input-group">
-                    <label id="nextNonStrikerLabel">New Non-Striker (Unused Players Only)</label>
+                    <label>New Non-Striker (Unused Players Only)</label>
                     <select id="nextNonStrikerSelect" class="input-field"></select>
                 </div>
             </div>
@@ -166,13 +192,13 @@
             </div>
             
             <button class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.confirmNextOver()">START NEXT OVER</button>
-            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('bowlerModal')">CANCEL</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('bowlerModal')">CANCEL</button>
         </div>
     </div>
 
-    <!-- DETAILED DISMISSAL & STATS MODAL -->
+    <!-- STRUCTURED DISMISSAL MODAL -->
     <div id="wickModal" class="modal hidden">
-        <div class="setup-card" style="border-color: var(--red);">
+        <div class="view-card" style="border-color: var(--red); width: 100%; max-width: 420px;">
             <h3 style="color: var(--red); margin-top:0; text-align:center;">RECORD DISMISSAL (-5)</h3>
             
             <div class="input-group">
@@ -201,7 +227,7 @@
             </div>
 
             <button class="btn btn-red" style="width:100%; margin-top:10px; padding:12px 0;" onclick="window.confirmStructuredDismissal()">CONFIRM OUT (-5 RUNS)</button>
-            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem; padding:10px 0;" onclick="window.closeModal('wickModal')">CANCEL</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('wickModal')">CANCEL</button>
         </div>
     </div>
 
@@ -224,163 +250,119 @@
         let uploadedTeams = {};
         let activeAvailableBatters = [];
 
+        window.navigateView = (viewId) => {
+            ['viewTournament', 'viewToss', 'viewScorer'].forEach(id => {
+                document.getElementById(id)?.classList.add('hidden');
+            });
+            document.getElementById(viewId)?.classList.remove('hidden');
+        };
+
         function setText(id, text) {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
         }
 
-        function updateUI() {
-            if (!matchData) return;
-            const d = matchData;
-
-            const tA = d.tA || { name: "Team 1", score: 0, balls: 0, wkts: 0 };
-            const tB = d.tB || { name: "Team 2", score: 0, balls: 0, wkts: 0 };
-            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const team = isTeamA ? tA : tB;
-            const opp = isTeamA ? tB : tA;
-
-            setText('teamNameDisp', team.name || (isTeamA ? "Team 1" : "Team 2"));
-            setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'} ✏️`);
-
-            const r1 = parseInt(d.crr_bat_runs) || 0;
-            const r2 = parseInt(d.non_bat_runs) || 0;
-            
-            const bat1El = document.getElementById('bat1');
-            const bat2El = document.getElementById('bat2');
-            
-            if (bat1El) {
-                bat1El.innerText = `${d.crr_bat_name || 'Striker'}* (${r1}) ✏️`;
-                bat1El.style.color = r1 < 0 ? 'var(--red)' : 'var(--gold)';
-            }
-            if (bat2El) {
-                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
-                bat2El.style.color = r2 < 0 ? 'var(--red)' : '#64748b';
-            }
-
-            const currentScore = team.score ?? 0;
-            const scoreEl = document.getElementById('mainScore');
-            if (scoreEl) {
-                scoreEl.innerText = currentScore;
-                scoreEl.style.color = currentScore < 0 ? 'var(--red)' : 'var(--blue)';
-            }
-
-            const balls = team.balls || 0;
-            const completedOvers = Math.floor(balls / 6);
-            const overs = `${completedOvers}.${balls % 6}`;
-            setText('stats', `Overs: ${overs} / 8.0 | Wkts: ${team.wkts || 0}`);
-
-            const currentPair = Math.min(Math.floor(completedOvers / 2) + 1, 4);
-            const pairStart = (currentPair - 1) * 2 + 1;
-            setText('pairDisp', `Pair ${currentPair} (Overs ${pairStart}-${pairStart+1})`);
-
-            const targetBox = document.getElementById('targetBox');
-            if (targetBox) {
-                if (d.inn === 2) {
-                    targetBox.classList.remove('hidden');
-                    const target = (parseInt(opp.score) || 0) + 1;
-                    targetBox.innerHTML = `Target: ${target}<br><span style="font-size:0.8rem">Need ${target - currentScore} from ${48 - balls} balls</span>`;
-                } else {
-                    targetBox.classList.add('hidden');
-                }
-            }
-
-            const tracker = document.getElementById('tracker');
-            if (tracker) {
-                tracker.innerHTML = (d.curr_over || []).map(b => {
-                    let cls = 'bg-white';
-                    if (b === 'W' || b === '3D(-5)' || b === '1RB') cls = 'bg-red';
-                    if (b.toString().includes('N') || b.toString().includes('Wd')) cls = 'bg-yellow';
-                    return `<div class="ball ${cls}">${b}</div>`;
-                }).join('');
-            }
-
-            const isOverComplete = balls > 0 && balls % 6 === 0 && (d.curr_over || []).length > 0;
-            const nextBtn = document.getElementById('nextOverBtn');
-            if (nextBtn) nextBtn.classList.toggle('hidden', !isOverComplete);
-
-            const controls = document.getElementById('mainControls');
-            if (controls) {
-                controls.style.opacity = isOverComplete ? "0.2" : "1";
-                controls.style.pointerEvents = isOverComplete ? "none" : "auto";
+        async function initTester() {
+            await loadTeamsFromDatabase();
+            window.setupTournamentDropdowns();
+            if (matchData && matchData.match_in_progress) {
+                window.navigateView('viewScorer');
+            } else {
+                window.navigateView('viewTournament');
             }
         }
-
-        onSnapshot(doc(db, "matches", "live_match_1"), snap => {
-            if (!snap.exists()) return;
-            matchData = snap.data();
-            updateUI();
-        });
 
         async function loadTeamsFromDatabase() {
             try {
                 const querySnap = await getDocs(collection(db, "teams"));
                 uploadedTeams = {};
-                
                 querySnap.forEach(docSnap => {
                     const data = docSnap.data();
                     const teamName = data.teamName || data.name || docSnap.id;
-                    
                     let playerList = [];
                     for (const key in data) {
-                        if (Array.isArray(data[key])) {
-                            playerList = data[key];
-                            break;
-                        }
+                        if (Array.isArray(data[key])) { playerList = data[key]; break; }
                     }
                     if (playerList.length === 0 && data.players) {
                         playerList = Array.isArray(data.players) ? data.players : [data.players];
                     }
-
-                    uploadedTeams[teamName] = playerList
-                        .map(p => typeof p === 'string' ? p.trim() : (p?.name || ''))
-                        .filter(Boolean);
+                    uploadedTeams[teamName] = playerList.map(p => typeof p === 'string' ? p.trim() : (p?.name || '')).filter(Boolean);
                 });
-            } catch(e) {
-                console.error("Firestore read error:", e);
+            } catch (e) {
+                console.error("Teams load error:", e);
             }
         }
 
-        window.openSetupModal = async () => {
-            await loadTeamsFromDatabase();
-
-            const t1Select = document.getElementById('setupTeam1');
-            const t2Select = document.getElementById('setupTeam2');
-            t1Select.innerHTML = '';
-            t2Select.innerHTML = '';
-
+        window.setupTournamentDropdowns = () => {
+            const t1 = document.getElementById('selectTeam1');
+            const t2 = document.getElementById('selectTeam2');
+            t1.innerHTML = '';
+            t2.innerHTML = '';
+            
             const teamNames = Object.keys(uploadedTeams);
             if (teamNames.length === 0) teamNames.push("Team 1", "Team 2");
 
             teamNames.forEach((name, i) => {
-                t1Select.add(new Option(name, name));
+                t1.add(new Option(name, name));
                 const opt = new Option(name, name);
                 if (i === 1) opt.selected = true;
-                t2Select.add(opt);
+                t2.add(opt);
             });
+        };
 
-            document.getElementById('setupModal')?.classList.remove('hidden');
-            document.getElementById('tossResultBox')?.classList.add('hidden');
+        window.filterTeamOptions = () => {
+            const t1Val = document.getElementById('selectTeam1').value;
+            const t2 = document.getElementById('selectTeam2');
+            t2.innerHTML = '';
+            Object.keys(uploadedTeams).filter(name => name !== t1Val).forEach(name => {
+                t2.add(new Option(name, name));
+            });
+        };
+
+        window.goToTossScreen = () => {
+            const t1 = document.getElementById('selectTeam1').value;
+            const t2 = document.getElementById('selectTeam2').value;
+            if (t1 === t2) return alert("Select two different teams.");
+
+            document.getElementById('coin').className = 'coin';
+            document.getElementById('tossResultBox').classList.add('hidden');
+            window.navigateView('viewToss');
+        };
+
+        window.flipCoin = () => {
+            const t1 = document.getElementById('selectTeam1').value;
+            const t2 = document.getElementById('selectTeam2').value;
             const coin = document.getElementById('coin');
-            if (coin) coin.className = 'coin';
+            const flipBtn = document.getElementById('flipBtn');
+            flipBtn.disabled = true;
 
-            window.updateLineupDropdowns();
+            coin.className = 'coin';
+            const isHeads = Math.random() < 0.5;
+
+            setTimeout(() => {
+                coin.classList.add(isHeads ? 'animate-heads' : 'animate-tails');
+            }, 50);
+
+            setTimeout(() => {
+                tossWinnerTeam = isHeads ? t1 : t2;
+                setText('tossResultText', `🎉 ${tossWinnerTeam} won the toss (${isHeads ? 'HEADS' : 'TAILS'})!`);
+                setText('tossWinnerName', tossWinnerTeam);
+                document.getElementById('tossResultBox').classList.remove('hidden');
+                flipBtn.disabled = false;
+                window.updateLineupDropdowns();
+            }, 2100);
         };
 
         window.updateLineupDropdowns = () => {
-            const t1 = document.getElementById('setupTeam1').value;
-            const t2 = document.getElementById('setupTeam2').value;
+            const t1 = document.getElementById('selectTeam1').value;
+            const t2 = document.getElementById('selectTeam2').value;
             const decision = document.getElementById('setupDecision')?.value || 'bat';
 
             let battingTeam = t1;
             let bowlingTeam = t2;
             if (tossWinnerTeam) {
-                if (tossWinnerTeam === t1) {
-                    battingTeam = (decision === 'bat') ? t1 : t2;
-                    bowlingTeam = (decision === 'bat') ? t2 : t1;
-                } else {
-                    battingTeam = (decision === 'bat') ? t2 : t1;
-                    bowlingTeam = (decision === 'bat') ? t1 : t2;
-                }
+                battingTeam = (tossWinnerTeam === t1) ? (decision === 'bat' ? t1 : t2) : (decision === 'bat' ? t2 : t1);
+                bowlingTeam = (tossWinnerTeam === t1) ? (decision === 'bat' ? t2 : t1) : (decision === 'bat' ? t1 : t2);
             }
 
             const batRoster = uploadedTeams[battingTeam] || ["Player 1", "Player 2", "Player 3", "Player 4"];
@@ -408,123 +390,151 @@
             setText('bowlerLabel', `Over 1: Bowler (${bowlingTeam})`);
         };
 
-        window.flipCoin = () => {
-            const t1 = document.getElementById('setupTeam1').value;
-            const t2 = document.getElementById('setupTeam2').value;
-            const coin = document.getElementById('coin');
-            const flipBtn = document.getElementById('flipBtn');
-            if (flipBtn) flipBtn.disabled = true;
-
-            if (coin) coin.className = 'coin';
-            const isHeads = Math.random() < 0.5;
-
-            setTimeout(() => {
-                if (coin) coin.classList.add(isHeads ? 'animate-heads' : 'animate-tails');
-            }, 50);
-
-            setTimeout(() => {
-                tossWinnerTeam = isHeads ? t1 : t2;
-                const resultText = document.getElementById('tossResultText');
-                if (resultText) resultText.innerHTML = `🎉 <b>${tossWinnerTeam}</b> won the toss (${isHeads ? 'HEADS' : 'TAILS'})!`;
-                setText('tossWinnerName', tossWinnerTeam);
-                document.getElementById('tossResultBox')?.classList.remove('hidden');
-                if (flipBtn) flipBtn.disabled = false;
-                window.updateLineupDropdowns();
-            }, 2100);
-        };
-
-        window.submitMatchSetup = async () => {
-            const t1 = document.getElementById('setupTeam1').value;
-            const t2 = document.getElementById('setupTeam2').value;
+        window.startMatch = async () => {
+            const t1 = document.getElementById('selectTeam1').value;
+            const t2 = document.getElementById('selectTeam2').value;
+            const tourney = document.getElementById('tourneySelect').value;
             const decision = document.getElementById('setupDecision').value;
-            const sName = document.getElementById('setupStriker').value || "Striker";
-            const nsName = document.getElementById('setupNonStriker').value || "Non-Striker";
-            const bName = document.getElementById('setupBowler').value || "TBD";
+            const sName = document.getElementById('setupStriker').value;
+            const nsName = document.getElementById('setupNonStriker').value;
+            const bName = document.getElementById('setupBowler').value;
 
-            if (sName === nsName) {
-                return alert("Striker and Non-Striker must be two different players.");
-            }
+            if (sName === nsName) return alert("Striker and Non-Striker must be two different players.");
 
-            const winningTeamIsT1 = (tossWinnerTeam === t1);
             const newMatchData = {
+                match_in_progress: true,
+                tournament: tourney,
                 inn: 1,
-                tossWinner: winningTeamIsT1 ? 'tA' : 'tB',
+                tossWinner: (tossWinnerTeam === t1) ? 'tA' : 'tB',
                 tossDecision: decision,
                 crr_bat_name: sName, crr_bat_runs: 0,
                 non_bat_name: nsName, non_bat_runs: 0,
                 crr_bowl: bName,
                 curr_over: [],
-                used_batsmen: [sName, nsName], 
+                used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
-                bowler_wickets: {},       
-                dismissals: [],           
-                batter_dismissals: {},    
+                bowler_wickets: {},
+                dismissals: [],
+                batter_dismissals: {},
                 tA: { name: t1, score: 0, balls: 0, wkts: 0 },
                 tB: { name: t2, score: 0, balls: 0, wkts: 0 },
                 last_state: null
             };
 
             await setDoc(doc(db, "matches", "live_match_1"), newMatchData);
-            window.closeModal('setupModal');
+            window.navigateView('viewScorer');
         };
 
-        window.filterSecondaryBatter = () => {
-            const primary = document.getElementById('nextStrikerSelect').value;
-            const nsSel = document.getElementById('nextNonStrikerSelect');
-            nsSel.innerHTML = '';
-            activeAvailableBatters
-                .filter(p => p !== primary)
-                .forEach(p => nsSel.add(new Option(p, p)));
-        };
+        function updateUI() {
+            if (!matchData) return;
+            const d = matchData;
+
+            const tA = d.tA || { name: "Team 1", score: 0, balls: 0, wkts: 0 };
+            const tB = d.tB || { name: "Team 2", score: 0, balls: 0, wkts: 0 };
+            const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+            const team = isTeamA ? tA : tB;
+            const opp = isTeamA ? tB : tA;
+
+            setText('teamNameDisp', team.name || "Batting Team");
+            setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'} ✏️`);
+
+            const r1 = parseInt(d.crr_bat_runs) || 0;
+            const r2 = parseInt(d.non_bat_runs) || 0;
+            const bat1El = document.getElementById('bat1');
+            const bat2El = document.getElementById('bat2');
+            
+            if (bat1El) {
+                bat1El.innerText = `${d.crr_bat_name || 'Striker'}* (${r1}) ✏️`;
+                bat1El.style.color = r1 < 0 ? 'var(--red)' : 'var(--gold)';
+            }
+            if (bat2El) {
+                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
+                bat2El.style.color = r2 < 0 ? 'var(--red)' : '#64748b';
+            }
+
+            const currentScore = team.score ?? 0;
+            const scoreEl = document.getElementById('mainScore');
+            if (scoreEl) {
+                scoreEl.innerText = currentScore;
+                scoreEl.style.color = currentScore < 0 ? 'var(--red)' : 'var(--blue)';
+            }
+
+            const balls = team.balls || 0;
+            const completedOvers = Math.floor(balls / 6);
+            setText('stats', `Overs: ${completedOvers}.${balls % 6} / 8.0 | Wkts: ${team.wkts || 0}`);
+
+            const currentPair = Math.min(Math.floor(completedOvers / 2) + 1, 4);
+            const pairStart = (currentPair - 1) * 2 + 1;
+            setText('pairDisp', `Pair ${currentPair} (Overs ${pairStart}-${pairStart+1})`);
+
+            const tracker = document.getElementById('tracker');
+            if (tracker) {
+                tracker.innerHTML = (d.curr_over || []).map(b => {
+                    let cls = 'bg-white';
+                    if (b === 'W' || b.toString().includes('3D') || b === '1RB') cls = 'bg-red';
+                    if (b.toString().includes('N') || b.toString().includes('Wd')) cls = 'bg-yellow';
+                    return `<div class="ball ${cls}">${b}</div>`;
+                }).join('');
+            }
+
+            const isOverComplete = balls > 0 && balls % 6 === 0 && (d.curr_over || []).length > 0;
+            document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isOverComplete);
+            
+            const controls = document.getElementById('mainControls');
+            if (controls) {
+                controls.style.opacity = isOverComplete ? "0.2" : "1";
+                controls.style.pointerEvents = isOverComplete ? "none" : "auto";
+            }
+        }
+
+        onSnapshot(doc(db, "matches", "live_match_1"), snap => {
+            if (!snap.exists()) return;
+            matchData = snap.data();
+            updateUI();
+        });
 
         window.openNextOverModal = async () => {
             if (Object.keys(uploadedTeams).length === 0) await loadTeamsFromDatabase();
 
             const d = matchData;
             const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-            const battingTeamName = isTeamA ? (d.tA?.name || "Team 1") : (d.tB?.name || "Team 2");
-            const fieldingTeamName = isTeamA ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
+            const battingTeamName = isTeamA ? d.tA?.name : d.tB?.name;
+            const fieldingTeamName = isTeamA ? d.tB?.name : d.tA?.name;
 
             const currentBalls = (isTeamA ? d.tA?.balls : d.tB?.balls) || 0;
             const completedOvers = Math.floor(currentBalls / 6);
-
             const isPairFinished = completedOvers > 0 && completedOvers % 2 === 0;
-            const pairChangeSection = document.getElementById('pairChangeSection');
-            
+
             const usedBatters = d.used_batsmen || [];
-            const fullBatRoster = uploadedTeams[battingTeamName] || [];
-            activeAvailableBatters = fullBatRoster.filter(p => !usedBatters.includes(p));
+            activeAvailableBatters = (uploadedTeams[battingTeamName] || []).filter(p => !usedBatters.includes(p));
 
+            const pairSection = document.getElementById('pairChangeSection');
             if (isPairFinished && completedOvers < 8) {
-                pairChangeSection.classList.remove('hidden');
-                const nextPairNum = (completedOvers / 2) + 1;
-                setText('pairChangeText', `PAIR ${nextPairNum - 1} COMPLETED: CHOOSE UNUSED PAIR ${nextPairNum} (${battingTeamName})`);
-
+                pairSection.classList.remove('hidden');
+                setText('pairChangeText', `PAIR ${(completedOvers/2)+1} ROTATION (${battingTeamName})`);
                 const sSel = document.getElementById('nextStrikerSelect');
                 sSel.innerHTML = '';
-                
-                if (activeAvailableBatters.length === 0) {
-                    activeAvailableBatters = [`${battingTeamName} Sub 1`, `${battingTeamName} Sub 2`];
-                }
-
                 activeAvailableBatters.forEach(p => sSel.add(new Option(p, p)));
                 window.filterSecondaryBatter();
             } else {
-                pairChangeSection.classList.add('hidden');
+                pairSection.classList.add('hidden');
             }
 
             const usedBowlers = d.used_bowlers || [];
-            const fullBowlRoster = uploadedTeams[fieldingTeamName] || [];
-            const unusedBowlers = fullBowlRoster.filter(p => !usedBowlers.includes(p));
-
+            const unusedBowlers = (uploadedTeams[fieldingTeamName] || []).filter(p => !usedBowlers.includes(p));
             const bSel = document.getElementById('nextBowlerSelect');
             bSel.innerHTML = '';
-            
-            const bowlPool = unusedBowlers.length > 0 ? unusedBowlers : [`${fieldingTeamName} Extra Bowler`];
-            bowlPool.forEach(p => bSel.add(new Option(p, p)));
+            (unusedBowlers.length ? unusedBowlers : [`${fieldingTeamName} Sub Bowler`]).forEach(p => bSel.add(new Option(p, p)));
 
             setText('nextBowlerTeamLabel', `Choose Unused Bowler (${fieldingTeamName}) - Over ${completedOvers + 1} of 8`);
             document.getElementById('bowlerModal')?.classList.remove('hidden');
+        };
+
+        window.filterSecondaryBatter = () => {
+            const primary = document.getElementById('nextStrikerSelect').value;
+            const nsSel = document.getElementById('nextNonStrikerSelect');
+            nsSel.innerHTML = '';
+            activeAvailableBatters.filter(p => p !== primary).forEach(p => nsSel.add(new Option(p, p)));
         };
 
         window.confirmNextOver = async () => {
@@ -535,8 +545,6 @@
             const isPairFinished = completedOvers > 0 && completedOvers % 2 === 0;
 
             const nextBowl = document.getElementById('nextBowlerSelect').value;
-            if (!nextBowl) return alert("Please choose a valid bowler.");
-
             d.crr_bowl = nextBowl;
             d.curr_over = [];
             if (!d.used_bowlers) d.used_bowlers = [];
@@ -545,16 +553,9 @@
             if (isPairFinished && completedOvers < 8) {
                 const sName = document.getElementById('nextStrikerSelect').value;
                 const nsName = document.getElementById('nextNonStrikerSelect').value;
-                
-                if (!sName || !nsName || sName === nsName) {
-                    return alert("Two unique batters must be selected for the new pair.");
-                }
-
-                d.crr_bat_name = sName;
-                d.crr_bat_runs = 0;
-                d.non_bat_name = nsName;
-                d.non_bat_runs = 0;
-                
+                if (!sName || !nsName || sName === nsName) return alert("Select two different batters.");
+                d.crr_bat_name = sName; d.crr_bat_runs = 0;
+                d.non_bat_name = nsName; d.non_bat_runs = 0;
                 if (!d.used_batsmen) d.used_batsmen = [];
                 d.used_batsmen.push(sName, nsName);
             } else {
@@ -563,115 +564,6 @@
 
             await updateDoc(doc(db, "matches", "live_match_1"), d);
             window.closeModal('bowlerModal');
-        };
-
-        window.openWicketModal = () => {
-            const wickTypeElem = document.getElementById('wickType');
-            if (wickTypeElem) wickTypeElem.value = 'Bowled';
-            window.onWickTypeChange();
-            document.getElementById('wickModal')?.classList.remove('hidden');
-        };
-
-        window.onWickTypeChange = () => {
-            const wType = document.getElementById('wickType')?.value || 'Bowled';
-            const creaseGroup = document.getElementById('creaseOutcomeGroup');
-            const creaseSelect = document.getElementById('wickCrease');
-            const bSel = document.getElementById('wickBatter');
-            
-            if (!bSel) return;
-
-            const d = matchData || {};
-            const sName = d.crr_bat_name || "Striker";
-            const nsName = d.non_bat_name || "Non-Striker";
-
-            bSel.innerHTML = '';
-
-            if (wType === 'Run Out') {
-                bSel.add(new Option(`Striker: ${sName}`, 'striker'));
-                bSel.add(new Option(`Non-Striker: ${nsName}`, 'non_striker'));
-                bSel.disabled = false;
-                if (creaseGroup) creaseGroup.classList.remove('hidden');
-            } else {
-                bSel.add(new Option(`Striker: ${sName}`, 'striker'));
-                bSel.value = 'striker';
-                bSel.disabled = true;
-                if (creaseSelect) creaseSelect.value = 'no_swap';
-                if (creaseGroup) creaseGroup.classList.add('hidden');
-            }
-        };
-
-        window.confirmStructuredDismissal = async () => {
-            try {
-                const ref = doc(db, "matches", "live_match_1");
-                const d = JSON.parse(JSON.stringify(matchData || {}));
-                
-                const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
-                const teamKey = isTeamA ? 'tA' : 'tB';
-
-                if (!d[teamKey]) {
-                    d[teamKey] = { name: isTeamA ? "Team 1" : "Team 2", score: 0, balls: 0, wkts: 0 };
-                }
-
-                const wType = document.getElementById('wickType')?.value || 'Bowled';
-                const bSel = document.getElementById('wickBatter');
-                const dismissedRole = bSel ? bSel.value : 'striker';
-                const creaseOutcome = document.getElementById('wickCrease')?.value || 'no_swap';
-
-                const dismissedPlayerName = (dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name) || "Batter";
-                const currentBowler = d.crr_bowl || "TBD";
-
-                d.last_state = JSON.stringify(matchData);
-
-                d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
-                d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
-                d[teamKey].score = (parseInt(d[teamKey].score) || 0) - 5;
-                d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
-                d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
-
-                if (!Array.isArray(d.curr_over)) d.curr_over = [];
-                d.curr_over.push('W');
-
-                if (dismissedRole === 'striker') {
-                    d.crr_bat_runs -= 5;
-                } else {
-                    d.non_bat_runs -= 5;
-                }
-
-                if (!d.bowler_wickets || typeof d.bowler_wickets !== 'object') d.bowler_wickets = {};
-                if (wType !== 'Run Out') {
-                    d.bowler_wickets[currentBowler] = (parseInt(d.bowler_wickets[currentBowler]) || 0) + 1;
-                }
-
-                if (!d.batter_dismissals || typeof d.batter_dismissals !== 'object') d.batter_dismissals = {};
-                d.batter_dismissals[dismissedPlayerName] = (parseInt(d.batter_dismissals[dismissedPlayerName]) || 0) + 1;
-
-                if (!Array.isArray(d.dismissals)) d.dismissals = [];
-                const oversDone = Math.floor(d[teamKey].balls / 6);
-                const ballsDone = d[teamKey].balls % 6;
-                d.dismissals.push({
-                    batter: String(dismissedPlayerName),
-                    bowler: String(currentBowler),
-                    type: String(wType),
-                    over: `${oversDone}.${ballsDone}`,
-                    creaseOutcome: String(creaseOutcome),
-                    timestamp: new Date().toISOString()
-                });
-
-                if (creaseOutcome === 'swap') {
-                    const tempName = d.crr_bat_name;
-                    const tempRuns = d.crr_bat_runs;
-                    d.crr_bat_name = d.non_bat_name;
-                    d.crr_bat_runs = d.non_bat_runs;
-                    d.non_bat_name = tempName;
-                    d.non_bat_runs = tempRuns;
-                }
-
-                await updateDoc(ref, d);
-                window.closeModal('wickModal');
-            } catch (err) {
-                console.error("Error confirming out:", err);
-                alert("Could not process dismissal: " + err.message);
-            }
         };
 
         window.handleAction = async (val, type) => {
@@ -683,44 +575,35 @@
             d.last_state = JSON.stringify(matchData);
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
             d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
-
             const isEighthOver = d[teamKey].balls >= 42;
 
             if (type === 'wide') {
                 d[teamKey].score += (val + 1);
                 if (!isEighthOver) d[teamKey].balls += 1;
-                if (val % 2 !== 0) {
-                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-                }
+                if (val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 d.curr_over.push(val > 0 ? `Wd+${val}` : 'Wd');
-            } 
-            else if (type === 'noball') {
+            } else if (type === 'noball') {
                 d[teamKey].score += (val + 1);
                 d.crr_bat_runs += val;
                 if (!isEighthOver) d[teamKey].balls += 1;
-                if (val % 2 !== 0) {
-                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-                }
+                if (val % 2 !== 0) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
-            } 
-            else {
+            } else {
                 d[teamKey].score += val;
                 d[teamKey].balls += 1;
 
-                if (type === 'run') { 
-                    d.crr_bat_runs += val; 
-                    d.curr_over.push(val); 
-                    if ([1, 3, 5].includes(val)) {
-                        [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-                    }
-                } else if (type === 'rb') { 
-                    d.curr_over.push(`${val}RB`); 
+                if (type === 'run') {
+                    d.crr_bat_runs += val;
+                    d.curr_over.push(val);
+                    if ([1, 3, 5].includes(val)) [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                } else if (type === 'rb') {
+                    d.curr_over.push(`${val}RB`);
                     [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 } else if (type === 'declare') {
                     d.crr_bat_runs += val;
                     d.curr_over.push(`${val}D`);
                 }
-                
+
                 const lastThree = d.curr_over.slice(-3);
                 if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
                     d[teamKey].score -= 5;
@@ -731,6 +614,85 @@
             await updateDoc(ref, d);
         };
 
+        window.openWicketModal = () => {
+            document.getElementById('wickType').value = 'Bowled';
+            window.onWickTypeChange();
+            document.getElementById('wickModal')?.classList.remove('hidden');
+        };
+
+        window.onWickTypeChange = () => {
+            const wType = document.getElementById('wickType')?.value || 'Bowled';
+            const creaseGroup = document.getElementById('creaseOutcomeGroup');
+            const creaseSelect = document.getElementById('wickCrease');
+            const bSel = document.getElementById('wickBatter');
+            const sName = matchData?.crr_bat_name || "Striker";
+            const nsName = matchData?.non_bat_name || "Non-Striker";
+
+            bSel.innerHTML = '';
+            if (wType === 'Run Out') {
+                bSel.add(new Option(`Striker: ${sName}`, 'striker'));
+                bSel.add(new Option(`Non-Striker: ${nsName}`, 'non_striker'));
+                bSel.disabled = false;
+                creaseGroup?.classList.remove('hidden');
+            } else {
+                bSel.add(new Option(`Striker: ${sName}`, 'striker'));
+                bSel.value = 'striker';
+                bSel.disabled = true;
+                if (creaseSelect) creaseSelect.value = 'no_swap';
+                creaseGroup?.classList.add('hidden');
+            }
+        };
+
+        window.confirmStructuredDismissal = async () => {
+            try {
+                const ref = doc(db, "matches", "live_match_1");
+                const d = JSON.parse(JSON.stringify(matchData || {}));
+                const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
+                const teamKey = isTeamA ? 'tA' : 'tB';
+
+                const wType = document.getElementById('wickType')?.value || 'Bowled';
+                const dismissedRole = document.getElementById('wickBatter')?.value || 'striker';
+                const creaseOutcome = document.getElementById('wickCrease')?.value || 'no_swap';
+                const dismissedName = (dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name) || "Batter";
+                const currentBowler = d.crr_bowl || "TBD";
+
+                d.last_state = JSON.stringify(matchData);
+                d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
+                d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
+                d[teamKey].score = (parseInt(d[teamKey].score) || 0) - 5;
+                d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
+                d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
+
+                if (!Array.isArray(d.curr_over)) d.curr_over = [];
+                d.curr_over.push('W');
+
+                if (dismissedRole === 'striker') d.crr_bat_runs -= 5;
+                else d.non_bat_runs -= 5;
+
+                if (!d.bowler_wickets) d.bowler_wickets = {};
+                if (wType !== 'Run Out') d.bowler_wickets[currentBowler] = (parseInt(d.bowler_wickets[currentBowler]) || 0) + 1;
+
+                if (!d.batter_dismissals) d.batter_dismissals = {};
+                d.batter_dismissals[dismissedName] = (parseInt(d.batter_dismissals[dismissedName]) || 0) + 1;
+
+                if (!Array.isArray(d.dismissals)) d.dismissals = [];
+                d.dismissals.push({
+                    batter: dismissedName, bowler: currentBowler, type: wType,
+                    over: `${Math.floor(d[teamKey].balls / 6)}.${d[teamKey].balls % 6}`,
+                    creaseOutcome: creaseOutcome, timestamp: new Date().toISOString()
+                });
+
+                if (creaseOutcome === 'swap') {
+                    [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
+                }
+
+                await updateDoc(ref, d);
+                window.closeModal('wickModal');
+            } catch (e) {
+                alert("Dismissal Error: " + e.message);
+            }
+        };
+
         window.manualSwap = async () => {
             const d = JSON.parse(JSON.stringify(matchData));
             [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
@@ -738,57 +700,44 @@
         };
 
         window.undoAction = async () => {
-            if (!matchData.last_state) return alert("Nothing to undo!");
+            if (!matchData?.last_state) return alert("Nothing to undo!");
             await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
         };
 
-        // --- HARD RESET FIX ---
-        async function archiveAndReset(status, winnerName = "No Result") {
+        window.abortMatch = async () => {
+            if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
             try {
-                const historyRef = collection(db, "match_history");
-                const archiveData = {
-                    ...matchData,
-                    match_status: status,
-                    winner: winnerName,
-                    timestamp: new Date().toISOString()
-                };
-                await addDoc(historyRef, archiveData);
+                await addDoc(collection(db, "match_history"), {
+                    ...matchData, match_status: "Aborted", timestamp: new Date().toISOString()
+                });
 
-                const resetData = {
+                const resetState = {
+                    match_in_progress: false,
                     inn: 1,
-                    tossWinner: 'tA',
-                    tossDecision: 'bat',
                     crr_bat_name: "Striker", crr_bat_runs: 0,
                     non_bat_name: "Non-Striker", non_bat_runs: 0,
-                    crr_bowl: "TBD",
-                    curr_over: [],
-                    used_batsmen: [],
-                    used_bowlers: [],
-                    bowler_wickets: {},
-                    dismissals: [],
-                    batter_dismissals: {},
+                    crr_bowl: "TBD", curr_over: [],
+                    used_batsmen: [], used_bowlers: [],
+                    bowler_wickets: {}, dismissals: [], batter_dismissals: {},
                     tA: { name: matchData?.tA?.name || "Team 1", score: 0, balls: 0, wkts: 0 },
                     tB: { name: matchData?.tB?.name || "Team 2", score: 0, balls: 0, wkts: 0 },
                     last_state: null
                 };
 
-                await setDoc(doc(db, "matches", "live_match_1"), resetData);
-                window.openSetupModal();
+                await setDoc(doc(db, "matches", "live_match_1"), resetState);
+                window.navigateView('viewTournament');
             } catch (err) {
-                console.error("Error resetting match:", err);
-                alert("Failed to reset match: " + err.message);
+                alert("Reset error: " + err.message);
             }
-        }
-
-        window.abortMatch = async () => {
-            if (!confirm("ABORT MATCH? This will archive current match and reset scores to 0.")) return;
-            await archiveAndReset("Aborted");
         };
 
         window.walkoverMatch = async () => {
             const winner = prompt("Enter Walkover Winner Team Name:");
             if (!winner) return;
-            await archiveAndReset("Walkover", winner);
+            await addDoc(collection(db, "match_history"), {
+                ...matchData, match_status: "Walkover", winner: winner, timestamp: new Date().toISOString()
+            });
+            window.abortMatch();
         };
 
         window.editStriker = async () => {
@@ -801,10 +750,9 @@
             if (name) await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: name });
         };
 
-        window.closeModal = (id) => {
-            const m = document.getElementById(id);
-            if (m) m.classList.add('hidden');
-        };
+        window.closeModal = (id) => document.getElementById(id)?.classList.add('hidden');
+
+        initTester();
     </script>
 </body>
 </html>
