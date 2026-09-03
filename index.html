@@ -45,14 +45,26 @@
         .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .session-tag { background: #0284c7; color: white; text-align: center; font-size: 0.75rem; font-weight: bold; padding: 6px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
 
-    <!-- STEP 1: REFEREE AUTHENTICATION -->
+    <div class="session-tag app-view">
+        <span>MATCH SESSION:</span>
+        <span id="activeSlotTag" style="background:#0f172a; padding:2px 8px; border-radius:4px; color:var(--gold);">PITCH 1</span>
+    </div>
+
+    <!-- STEP 1: REFEREE AUTHENTICATION & TEST SLOT -->
     <div id="viewLogin" class="app-view">
         <div class="view-card">
             <h2 class="view-title">🏏 REFEREE ACCESS</h2>
+            
+            <div class="input-group">
+                <label>Tester / Match Slot Name</label>
+                <input type="text" id="loginSlotInput" class="input-field" placeholder="e.g., tester_rahul, pitch_1" value="tester_rahul">
+            </div>
+
             <div class="input-group">
                 <label>Referee Email</label>
                 <input type="email" id="loginEmail" class="input-field" placeholder="referee@league.com">
@@ -61,6 +73,7 @@
                 <label>Password</label>
                 <input type="password" id="loginPass" class="input-field" placeholder="••••••••">
             </div>
+            
             <button class="btn btn-blue" style="width:100%; margin-bottom: 12px;" onclick="window.handleLogin()">LOG IN</button>
             <button class="btn" style="width:100%; background: #334155; font-size: 0.8rem;" onclick="window.enterAsGuest()">VIEW ONLY / GUEST BYPASS</button>
         </div>
@@ -70,6 +83,12 @@
     <div id="viewTournament" class="app-view hidden">
         <div class="view-card">
             <h2 class="view-title">🏆 FIXTURE SETUP</h2>
+            
+            <div class="input-group">
+                <label>Match Room Slot</label>
+                <input type="text" id="tourneySlotInput" class="input-field" placeholder="tester_name" onchange="window.onSlotInputChange(this.value)">
+            </div>
+
             <div class="input-group">
                 <label>Select League / Tournament</label>
                 <select id="tourneySelect" class="input-field" onchange="window.onTournamentChange()">
@@ -133,7 +152,7 @@
         </div>
     </div>
 
-    <!-- STEP 4: LIVE SCORER CONSOLE -->
+    <!-- STEP 4: LIVE SCORER CONSOLE (TOSS REMOVED) -->
     <div id="viewScorer" class="app-view hidden">
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
@@ -260,11 +279,53 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
+        // Dynamic Slot Identifier (supports ?match=tester_rahul)
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentMatchId = urlParams.get('match') || localStorage.getItem('cric8_slot_id') || "tester_rahul";
+        let matchDocRef = doc(db, "matches", currentMatchId);
+        let unsubscribeSnapshot = null;
+
         let matchData = null;
         let isAdmin = false;
         let tossWinnerTeam = "";
         let uploadedTeams = {};
         let activeAvailableBatters = [];
+
+        function updateSlotBadge() {
+            const badge = document.getElementById('activeSlotTag');
+            if (badge) badge.innerText = currentMatchId.toUpperCase().replace('_', ' ');
+            const tInput = document.getElementById('tourneySlotInput');
+            if (tInput) tInput.value = currentMatchId;
+            const lInput = document.getElementById('loginSlotInput');
+            if (lInput) lInput.value = currentMatchId;
+        }
+
+        window.onSlotInputChange = (newId) => {
+            const cleanId = newId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+            if (cleanId) attachMatchListener(cleanId);
+        };
+
+        function attachMatchListener(newId) {
+            currentMatchId = newId;
+            localStorage.setItem('cric8_slot_id', currentMatchId);
+            matchDocRef = doc(db, "matches", currentMatchId);
+            updateSlotBadge();
+
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            
+            unsubscribeSnapshot = onSnapshot(matchDocRef, snap => {
+                if (!snap.exists()) {
+                    matchData = null;
+                    if (isAdmin) window.navigateView('viewTournament');
+                    return;
+                }
+                matchData = snap.data();
+                if (matchData.match_in_progress && isAdmin) {
+                    window.navigateView('viewScorer');
+                }
+                updateUI();
+            });
+        }
 
         window.navigateView = (viewId) => {
             ['viewLogin', 'viewTournament', 'viewToss', 'viewScorer'].forEach(id => {
@@ -279,6 +340,9 @@
         }
 
         window.handleLogin = async () => {
+            const slot = document.getElementById('loginSlotInput').value.trim();
+            if (slot) attachMatchListener(slot.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+
             const email = document.getElementById('loginEmail').value.trim();
             const pass = document.getElementById('loginPass').value.trim();
             if (!email || !pass) return alert("Please enter credentials.");
@@ -291,6 +355,8 @@
 
         window.enterAsGuest = () => {
             isAdmin = false;
+            const slot = document.getElementById('loginSlotInput').value.trim();
+            if (slot) attachMatchListener(slot.toLowerCase().replace(/[^a-z0-9_]/g, ''));
             window.navigateView('viewScorer');
         };
 
@@ -442,6 +508,7 @@
 
             const newMatchData = {
                 match_in_progress: true,
+                matchId: currentMatchId,
                 tournament: tourney,
                 inn: 1,
                 tossWinner: (tossWinnerTeam === t1) ? 'tA' : 'tB',
@@ -460,7 +527,7 @@
                 last_state: null
             };
 
-            await setDoc(doc(db, "matches", "live_match_1"), newMatchData);
+            await setDoc(matchDocRef, newMatchData);
             window.navigateView('viewScorer');
         };
 
@@ -525,12 +592,6 @@
                 controls.style.pointerEvents = isOverComplete ? "none" : "auto";
             }
         }
-
-        onSnapshot(doc(db, "matches", "live_match_1"), snap => {
-            if (!snap.exists()) return;
-            matchData = snap.data();
-            updateUI();
-        });
 
         window.openNextOverModal = async () => {
             if (!isAdmin) return alert("Referee access required.");
@@ -602,13 +663,12 @@
                 [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
             }
 
-            await updateDoc(doc(db, "matches", "live_match_1"), d);
+            await updateDoc(matchDocRef, d);
             window.closeModal('bowlerModal');
         };
 
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
-            const ref = doc(db, "matches", "live_match_1");
             const d = JSON.parse(JSON.stringify(matchData));
             const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
             const teamKey = isTeamA ? 'tA' : 'tB';
@@ -652,7 +712,7 @@
                     d.curr_over[d.curr_over.length - 1] = "3D(-5)";
                 }
             }
-            await updateDoc(ref, d);
+            await updateDoc(matchDocRef, d);
         };
 
         window.openWicketModal = () => {
@@ -687,7 +747,6 @@
 
         window.confirmStructuredDismissal = async () => {
             try {
-                const ref = doc(db, "matches", "live_match_1");
                 const d = JSON.parse(JSON.stringify(matchData || {}));
                 const isTeamA = (d.inn || 1) === 1 ? (d.tossDecision === 'bowl' ? false : true) : (d.tossDecision === 'bowl' ? true : false);
                 const teamKey = isTeamA ? 'tA' : 'tB';
@@ -728,7 +787,7 @@
                     [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
                 }
 
-                await updateDoc(ref, d);
+                await updateDoc(matchDocRef, d);
                 window.closeModal('wickModal');
             } catch (e) {
                 alert("Dismissal Error: " + e.message);
@@ -738,19 +797,19 @@
         window.manualSwap = async () => {
             const d = JSON.parse(JSON.stringify(matchData));
             [d.crr_bat_name, d.crr_bat_runs, d.non_bat_name, d.non_bat_runs] = [d.non_bat_name, d.non_bat_runs, d.crr_bat_name, d.crr_bat_runs];
-            await updateDoc(doc(db, "matches", "live_match_1"), d);
+            await updateDoc(matchDocRef, d);
         };
 
         window.undoAction = async () => {
             if (!matchData?.last_state) return alert("Nothing to undo!");
-            await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
+            await updateDoc(matchDocRef, JSON.parse(matchData.last_state));
         };
 
         window.abortMatch = async () => {
             if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
             try {
                 await addDoc(collection(db, "match_history"), {
-                    ...matchData, match_status: "Aborted", timestamp: new Date().toISOString()
+                    ...matchData, matchId: currentMatchId, match_status: "Aborted", timestamp: new Date().toISOString()
                 });
 
                 const resetState = {
@@ -766,7 +825,7 @@
                     last_state: null
                 };
 
-                await setDoc(doc(db, "matches", "live_match_1"), resetState);
+                await setDoc(matchDocRef, resetState);
                 window.navigateView('viewTournament');
             } catch (err) {
                 alert("Reset error: " + err.message);
@@ -777,7 +836,7 @@
             const winner = prompt("Enter Walkover Winner Team Name:");
             if (!winner) return;
             await addDoc(collection(db, "match_history"), {
-                ...matchData, match_status: "Walkover", winner: winner, timestamp: new Date().toISOString()
+                ...matchData, matchId: currentMatchId, match_status: "Walkover", winner: winner, timestamp: new Date().toISOString()
             });
             window.abortMatch();
         };
@@ -785,16 +844,20 @@
         window.editStriker = async () => {
             if (!isAdmin) return;
             const name = prompt("Enter Striker Name:", matchData?.crr_bat_name || "");
-            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { crr_bat_name: name });
+            if (name) await updateDoc(matchDocRef, { crr_bat_name: name });
         };
 
         window.editNonStriker = async () => {
             if (!isAdmin) return;
             const name = prompt("Enter Non-Striker Name:", matchData?.non_bat_name || "");
-            if (name) await updateDoc(doc(db, "matches", "live_match_1"), { non_bat_name: name });
+            if (name) await updateDoc(matchDocRef, { non_bat_name: name });
         };
 
         window.closeModal = (id) => document.getElementById(id)?.classList.add('hidden');
+
+        // Startup initialization
+        updateSlotBadge();
+        attachMatchListener(currentMatchId);
     </script>
 </body>
 </html>
