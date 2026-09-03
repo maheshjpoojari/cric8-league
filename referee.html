@@ -65,7 +65,6 @@
         <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.openNextOverModal()">TAP HERE TO START NEXT OVER</div>
     </div>
 
-    <!-- Controls are permanently visible; no login check required -->
     <div id="mainControls" class="admin-grid">
         <button class="btn" onclick="window.handleAction(0, 'run')">0</button>
         <button class="btn" onclick="window.handleAction(1, 'run')">1</button>
@@ -86,18 +85,18 @@
         <button class="btn btn-red" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
         
         <div class="emergency-tools">
-            <button class="btn btn-green" onclick="window.openSetupModal()">🪙 DIGITAL TOSS & MATCH</button>
+            <button class="btn btn-green" onclick="window.openSetupModal()">🪙 TOSS & MATCH</button>
             <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
             <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
             <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
-            <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH (RAIN)</button>
+            <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH</button>
         </div>
     </div>
 
-    <!-- DIGITAL TOSS & FIXTURE -->
+    <!-- TOSS & INITIAL ROSTER -->
     <div id="setupModal" class="modal hidden">
         <div class="setup-card">
-            <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 DIGITAL TOSS & FIXTURE</h3>
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 TOSS & FIXTURE</h3>
             
             <div class="input-group">
                 <label>Select Team 1 (Calls HEADS)</label>
@@ -171,7 +170,7 @@
         </div>
     </div>
 
-    <!-- DISMISSAL MODAL -->
+    <!-- DETAILED DISMISSAL & STATS MODAL -->
     <div id="wickModal" class="modal hidden">
         <div class="setup-card" style="border-color: var(--red);">
             <h3 style="color: var(--red); margin-top:0; text-align:center;">RECORD DISMISSAL (-5)</h3>
@@ -743,21 +742,47 @@
             await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
         };
 
+        // --- HARD RESET FIX ---
         async function archiveAndReset(status, winnerName = "No Result") {
-            const historyRef = collection(db, "match_history");
-            const archiveData = {
-                ...matchData,
-                match_status: status,
-                winner: winnerName,
-                timestamp: new Date().toISOString()
-            };
-            await addDoc(historyRef, archiveData);
-            window.openSetupModal();
+            try {
+                const historyRef = collection(db, "match_history");
+                const archiveData = {
+                    ...matchData,
+                    match_status: status,
+                    winner: winnerName,
+                    timestamp: new Date().toISOString()
+                };
+                await addDoc(historyRef, archiveData);
+
+                const resetData = {
+                    inn: 1,
+                    tossWinner: 'tA',
+                    tossDecision: 'bat',
+                    crr_bat_name: "Striker", crr_bat_runs: 0,
+                    non_bat_name: "Non-Striker", non_bat_runs: 0,
+                    crr_bowl: "TBD",
+                    curr_over: [],
+                    used_batsmen: [],
+                    used_bowlers: [],
+                    bowler_wickets: {},
+                    dismissals: [],
+                    batter_dismissals: {},
+                    tA: { name: matchData?.tA?.name || "Team 1", score: 0, balls: 0, wkts: 0 },
+                    tB: { name: matchData?.tB?.name || "Team 2", score: 0, balls: 0, wkts: 0 },
+                    last_state: null
+                };
+
+                await setDoc(doc(db, "matches", "live_match_1"), resetData);
+                window.openSetupModal();
+            } catch (err) {
+                console.error("Error resetting match:", err);
+                alert("Failed to reset match: " + err.message);
+            }
         }
 
         window.abortMatch = async () => {
-            if (!confirm("ABORT MATCH? This will archive current progress.")) return;
-            await archiveAndReset("Aborted/Rain");
+            if (!confirm("ABORT MATCH? This will archive current match and reset scores to 0.")) return;
+            await archiveAndReset("Aborted");
         };
 
         window.walkoverMatch = async () => {
