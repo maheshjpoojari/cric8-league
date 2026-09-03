@@ -83,21 +83,21 @@
             <button class="btn btn-red" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
             
             <div class="emergency-tools">
-                <button class="btn btn-green" onclick="window.openSetupModal()">🪙 DIGITAL TOSS & MATCH</button>
+                <button class="btn btn-green" onclick="window.openSetupModal()">🪙 TOSS & MATCH</button>
                 <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
                 <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
                 <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
-                <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH (RAIN)</button>
+                <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH</button>
             </div>
         </div>
     </div>
 
     <button onclick="window.login()" style="width:100%; background:transparent; border:none; color:#334155; margin-top:30px; font-size: 0.7rem; cursor:pointer;">Referee Security Access</button>
 
-    <!-- PRE-MATCH TOSS & INITIAL ROSTER -->
+    <!-- TOSS & INITIAL ROSTER -->
     <div id="setupModal" class="modal hidden">
         <div class="setup-card">
-            <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 DIGITAL TOSS & FIXTURE</h3>
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">🪙 TOSS & FIXTURE</h3>
             
             <div class="input-group">
                 <label>Select Team 1 (Calls HEADS)</label>
@@ -578,7 +578,6 @@
             window.closeModal('bowlerModal');
         };
 
-        // --- OPEN WICKET MODAL ---
         window.openWicketModal = () => {
             if (!isAdmin) return alert("Please login as referee first.");
             const wickTypeElem = document.getElementById('wickType');
@@ -587,7 +586,6 @@
             document.getElementById('wickModal')?.classList.remove('hidden');
         };
 
-        // --- DYNAMICALLY RESTRICT BATTER & CREASE OPTIONS ---
         window.onWickTypeChange = () => {
             const wType = document.getElementById('wickType')?.value || 'Bowled';
             const creaseGroup = document.getElementById('creaseOutcomeGroup');
@@ -616,7 +614,6 @@
             }
         };
 
-        // --- STRUCTURED DISMISSAL HANDLER ---
         window.confirmStructuredDismissal = async () => {
             if (!isAdmin) return alert("Please login as referee first.");
             
@@ -693,7 +690,6 @@
             }
         };
 
-        // --- SCORING ENGINE WITH IN-PLACE 3D REPLACEMENT ---
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const ref = doc(db, "matches", "live_match_1");
@@ -742,8 +738,6 @@
                     d.curr_over.push(`${val}D`);
                 }
                 
-                // Check 3 consecutive dot balls:
-                // Replaces the 3rd dot directly in-place (no 4th circle added)
                 const lastThree = d.curr_over.slice(-3);
                 if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
                     d[teamKey].score -= 5;
@@ -765,21 +759,47 @@
             await updateDoc(doc(db, "matches", "live_match_1"), JSON.parse(matchData.last_state));
         };
 
+        // --- HARD RESET FIX ---
         async function archiveAndReset(status, winnerName = "No Result") {
-            const historyRef = collection(db, "match_history");
-            const archiveData = {
-                ...matchData,
-                match_status: status,
-                winner: winnerName,
-                timestamp: new Date().toISOString()
-            };
-            await addDoc(historyRef, archiveData);
-            window.openSetupModal();
+            try {
+                const historyRef = collection(db, "match_history");
+                const archiveData = {
+                    ...matchData,
+                    match_status: status,
+                    winner: winnerName,
+                    timestamp: new Date().toISOString()
+                };
+                await addDoc(historyRef, archiveData);
+
+                const resetData = {
+                    inn: 1,
+                    tossWinner: 'tA',
+                    tossDecision: 'bat',
+                    crr_bat_name: "Striker", crr_bat_runs: 0,
+                    non_bat_name: "Non-Striker", non_bat_runs: 0,
+                    crr_bowl: "TBD",
+                    curr_over: [],
+                    used_batsmen: [],
+                    used_bowlers: [],
+                    bowler_wickets: {},
+                    dismissals: [],
+                    batter_dismissals: {},
+                    tA: { name: matchData?.tA?.name || "Team 1", score: 0, balls: 0, wkts: 0 },
+                    tB: { name: matchData?.tB?.name || "Team 2", score: 0, balls: 0, wkts: 0 },
+                    last_state: null
+                };
+
+                await setDoc(doc(db, "matches", "live_match_1"), resetData);
+                window.openSetupModal();
+            } catch (err) {
+                console.error("Error resetting match:", err);
+                alert("Failed to reset match: " + err.message);
+            }
         }
 
         window.abortMatch = async () => {
-            if (!confirm("ABORT MATCH? This will archive current progress.")) return;
-            await archiveAndReset("Aborted/Rain");
+            if (!confirm("ABORT MATCH? This will archive current match and reset scores to 0.")) return;
+            await archiveAndReset("Aborted");
         };
 
         window.walkoverMatch = async () => {
