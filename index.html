@@ -848,29 +848,50 @@
             await updateDoc(matchDocRef, JSON.parse(matchData.last_state));
         };
 
-        window.abortMatch = async () => {
+window.abortMatch = async () => {
             if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
-            try {
-                await addDoc(collection(db, "match_history"), {
-                    ...matchData, matchId: currentMatchId, match_status: "Aborted", timestamp: new Date().toISOString()
-                });
 
+            try {
+                // 1. Safe JSON-clean archive object (removes undefined / circular references)
+                if (matchData) {
+                    const cleanArchive = JSON.parse(JSON.stringify(matchData));
+                    cleanArchive.matchId = currentMatchId;
+                    cleanArchive.match_status = "Aborted";
+                    cleanArchive.timestamp = new Date().toISOString();
+
+                    // Non-blocking history write
+                    addDoc(collection(db, "match_history"), cleanArchive).catch(e => {
+                        console.warn("Could not archive aborted match:", e);
+                    });
+                }
+
+                // 2. Clean reset state written to the active slot
                 const resetState = {
                     match_in_progress: false,
                     inn: 1,
+                    tournament: matchData?.tournament || "corporate",
+                    tossWinner: 'tA',
+                    tossDecision: 'bat',
                     crr_bat_name: "Striker", crr_bat_runs: 0,
                     non_bat_name: "Non-Striker", non_bat_runs: 0,
-                    crr_bowl: "TBD", curr_over: [],
-                    used_batsmen: [], used_bowlers: [],
-                    bowler_wickets: {}, dismissals: [], batter_dismissals: {},
+                    crr_bowl: "TBD",
+                    curr_over: [],
+                    used_batsmen: [],
+                    used_bowlers: [],
+                    bowler_wickets: {},
+                    dismissals: [],
+                    batter_dismissals: {},
                     tA: { name: matchData?.tA?.name || "Team 1", score: 0, balls: 0, wkts: 0 },
                     tB: { name: matchData?.tB?.name || "Team 2", score: 0, balls: 0, wkts: 0 },
                     last_state: null
                 };
 
                 await setDoc(matchDocRef, resetState);
+
+                // 3. Immediately switch the view back to fixture setup
                 window.navigateView('viewTournament');
             } catch (err) {
+                console.error("Reset error:", err);
                 alert("Reset error: " + err.message);
             }
         };
