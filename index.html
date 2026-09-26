@@ -682,6 +682,7 @@
             }
         }
 
+        // --- HARDENED OPEN NEXT OVER MODAL ---
         window.openNextOverModal = async () => {
             try {
                 if (!isAdmin) return alert("Referee access required.");
@@ -700,50 +701,76 @@
                 const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
                 const completedOvers = Math.floor(currentBalls / 6);
                 const isPairs = (d.rulesFormat !== 'classic');
-                const isPairFinished = isPairs && completedOvers > 0 && completedOvers % 2 === 0;
+                
+                // Pair finish ONLY applies in Pairs mode on even completed overs (2, 4, 6...)
+                const isPairFinished = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
 
                 const pairSection = document.getElementById('pairChangeSection');
+                
                 if (isPairFinished && completedOvers < (d.totalOvers || 8)) {
-                    pairSection.classList.remove('hidden');
-                    setText('pairChangeText', `PAIR ${(completedOvers/2)+1} ROTATION (${battingTeamName})`);
+                    if (pairSection) pairSection.classList.remove('hidden');
+                    const nextPairNum = Math.floor(completedOvers / 2) + 1;
+                    setText('pairChangeText', `PAIR ${nextPairNum} ROTATION (${battingTeamName})`);
                     
-                    const usedBatters = d.used_batsmen || [];
-                    activeAvailableBatters = (uploadedTeams[battingTeamName] || []).filter(p => !usedBatters.includes(p));
+                    const usedBatters = Array.isArray(d.used_batsmen) ? d.used_batsmen : [];
+                    const fullBatRoster = uploadedTeams[battingTeamName] || [];
+                    activeAvailableBatters = fullBatRoster.filter(p => !usedBatters.includes(p));
+
+                    if (activeAvailableBatters.length < 2) {
+                        activeAvailableBatters = fullBatRoster.filter(p => p !== d.crr_bat_name && p !== d.non_bat_name);
+                        if (activeAvailableBatters.length === 0) {
+                            activeAvailableBatters = [`${battingTeamName} Sub A`, `${battingTeamName} Sub B`];
+                        }
+                    }
                     
                     const sSel = document.getElementById('nextStrikerSelect');
-                    sSel.innerHTML = '';
-                    (activeAvailableBatters.length ? activeAvailableBatters : [`${battingTeamName} Sub 1`, `${battingTeamName} Sub 2`]).forEach(p => sSel.add(new Option(p, p)));
+                    if (sSel) {
+                        sSel.innerHTML = '';
+                        activeAvailableBatters.forEach(p => sSel.add(new Option(p, p)));
+                    }
                     window.filterSecondaryBatter();
                 } else {
-                    pairSection.classList.add('hidden');
+                    if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                const usedBowlers = d.used_bowlers || [];
+                // Bowler Selection (Fielding Team only, exclude current crease batters)
+                const usedBowlers = Array.isArray(d.used_bowlers) ? d.used_bowlers : [];
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
 
-                const unusedBowlers = fullFieldingRoster.filter(p => 
+                let unusedBowlers = fullFieldingRoster.filter(p => 
                     !usedBowlers.includes(p) && !currentCreaseBatters.includes(p)
                 );
 
+                if (unusedBowlers.length === 0) {
+                    unusedBowlers = fullFieldingRoster.filter(p => !currentCreaseBatters.includes(p));
+                    if (unusedBowlers.length === 0) unusedBowlers = [`${fieldingTeamName} Extra Bowler`];
+                }
+
                 const bSel = document.getElementById('nextBowlerSelect');
-                bSel.innerHTML = '';
-                (unusedBowlers.length ? unusedBowlers : [`${fieldingTeamName} Sub Bowler`]).forEach(p => bSel.add(new Option(p, p)));
+                if (bSel) {
+                    bSel.innerHTML = '';
+                    unusedBowlers.forEach(p => bSel.add(new Option(p, p)));
+                }
 
                 setText('nextBowlerTeamLabel', `Choose Bowler (${fieldingTeamName}) - Over ${completedOvers + 1} of ${d.totalOvers || 8}`);
                 document.getElementById('bowlerModal')?.classList.remove('hidden');
             } catch (err) {
+                console.error("openNextOverModal error:", err);
                 alert("Error setting up next over: " + err.message);
             }
         };
 
         window.filterSecondaryBatter = () => {
-            const primary = document.getElementById('nextStrikerSelect').value;
+            const sSel = document.getElementById('nextStrikerSelect');
             const nsSel = document.getElementById('nextNonStrikerSelect');
+            if (!sSel || !nsSel) return;
+            const primary = sSel.value;
             nsSel.innerHTML = '';
             activeAvailableBatters.filter(p => p !== primary).forEach(p => nsSel.add(new Option(p, p)));
         };
 
+        // --- HARDENED CONFIRM NEXT OVER HANDLER ---
         window.confirmNextOver = async () => {
             const btn = document.getElementById('confirmOverBtn');
             if (btn) btn.disabled = true;
@@ -756,7 +783,7 @@
                 const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
                 const completedOvers = Math.floor(currentBalls / 6);
                 const isPairs = (d.rulesFormat !== 'classic');
-                const isPairFinished = isPairs && completedOvers > 0 && completedOvers % 2 === 0;
+                const isPairFinished = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
 
                 const nextBowl = document.getElementById('nextBowlerSelect')?.value;
                 if (!nextBowl) throw new Error("Please select a bowler.");
@@ -766,11 +793,18 @@
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
                 d.used_bowlers.push(nextBowl);
 
+                // Handle Batter assignments
                 if (isPairFinished && completedOvers < (d.totalOvers || 8)) {
-                    const sName = document.getElementById('nextStrikerSelect')?.value;
-                    const nsName = document.getElementById('nextNonStrikerSelect')?.value;
-                    if (!sName || !nsName || sName === nsName) throw new Error("Select two different batters for the new pair.");
-                    
+                    const sSel = document.getElementById('nextStrikerSelect');
+                    const nsSel = document.getElementById('nextNonStrikerSelect');
+                    let sName = sSel?.value;
+                    let nsName = nsSel?.value;
+
+                    if (!sName || !nsName || sName === nsName) {
+                        const available = activeAvailableBatters.filter(p => p !== sName);
+                        nsName = available[0] || `${d.crr_bat_name} Sub`;
+                    }
+
                     d.crr_bat_name = sName; 
                     d.crr_bat_runs = 0;
                     d.crr_bat_balls = 0;
@@ -792,11 +826,13 @@
                 }
 
                 await updateDoc(matchDocRef, d);
+                window.closeModal('bowlerModal');
             } catch (err) {
-                alert(err.message);
+                console.error("confirmNextOver error:", err);
+                alert("Next over error: " + err.message);
+                window.closeModal('bowlerModal');
             } finally {
                 if (btn) btn.disabled = false;
-                window.closeModal('bowlerModal');
             }
         };
 
