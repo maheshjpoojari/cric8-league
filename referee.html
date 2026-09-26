@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Tester Console (Dual Format Engine)</title>
+    <title>Cric-8 Tester Console</title>
     <style>
         :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 12px; }
@@ -644,7 +644,8 @@
                 }).join('');
             }
 
-            const isOverComplete = balls > 0 && balls % 6 === 0 && (d.curr_over || []).length > 0;
+            // CRITICAL FIX: Only lock controls if balls is exactly a multiple of 6 AND this over's ball count is >= 6
+            const isOverComplete = balls > 0 && balls % 6 === 0 && (d.curr_over || []).length >= 6;
             document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isOverComplete);
             
             const controls = document.getElementById('mainControls');
@@ -654,7 +655,6 @@
             }
         }
 
-        // --- HARDENED OPEN NEXT OVER MODAL ---
         window.openNextOverModal = async () => {
             try {
                 if (Object.keys(uploadedTeams).length === 0) await loadTeamsFromDatabase();
@@ -672,7 +672,6 @@
                 const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
                 const completedOvers = Math.floor(currentBalls / 6);
                 
-                // Pair finish ONLY applies in Pairs mode
                 const isPairs = (d.rulesFormat === 'pairs');
                 const isPairFinished = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
 
@@ -704,7 +703,7 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                // Bowler Selection (Fielding Team only, exclude current crease batters)
+                // Bowler Selection
                 const usedBowlers = Array.isArray(d.used_bowlers) ? d.used_bowlers : [];
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
@@ -761,7 +760,7 @@
                 if (!nextBowl) throw new Error("Please select a bowler.");
 
                 d.crr_bowl = nextBowl;
-                d.curr_over = []; // Crucial: Resets tracker to immediately un-dim scoring buttons
+                d.curr_over = []; // IMMEDIATELY RESETS THE TRACKER TO UN-DIM CONTROLS
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
                 d.used_bowlers.push(nextBowl);
 
@@ -786,7 +785,7 @@
                     if (!Array.isArray(d.used_batsmen)) d.used_batsmen = [];
                     d.used_batsmen.push(sName, nsName);
                 } else {
-                    // Standard Classic Cricket or standard single-over pair rotation: simply swap strike ends
+                    // Standard Classic Cricket or standard single-over pair rotation: swap strike ends
                     const tempName = d.crr_bat_name;
                     const tempRuns = parseInt(d.crr_bat_runs) || 0;
                     const tempBalls = parseInt(d.crr_bat_balls) || 0;
@@ -797,6 +796,14 @@
                     d.non_bat_runs = tempRuns;
                     d.non_bat_balls = tempBalls;
                 }
+
+                // Force local un-dimming right before database sync
+                const controls = document.getElementById('mainControls');
+                if (controls) {
+                    controls.style.opacity = "1";
+                    controls.style.pointerEvents = "auto";
+                }
+                document.getElementById('nextOverBtn')?.classList.add('hidden');
 
                 await updateDoc(matchDocRef, d);
                 window.closeModal('bowlerModal');
@@ -1197,22 +1204,18 @@
             await updateDoc(matchDocRef, JSON.parse(matchData.last_state));
         };
 
+        // --- BULLETPROOF ABORT MATCH ---
         window.abortMatch = async () => {
             if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
             try {
-                if (matchData) {
-                    const cleanArchive = JSON.parse(JSON.stringify(matchData));
-                    cleanArchive.matchId = currentMatchId;
-                    cleanArchive.match_status = "Aborted";
-                    cleanArchive.timestamp = new Date().toISOString();
-                    addDoc(collection(db, "match_history"), cleanArchive).catch(console.warn);
-                }
-
+                // Instantly return UI to tournament setup view
+                window.navigateView('viewTournament');
+                
                 const resetState = {
                     match_in_progress: false,
                     match_status: "not_started",
                     inn: 1,
-                    tournament: matchData?.tournament || "corporate",
+                    tournament: "corporate",
                     rulesFormat: "classic",
                     totalOvers: 8,
                     tossWinner: 'tA',
@@ -1223,14 +1226,14 @@
                     used_batsmen: [], used_bowlers: [],
                     dismissals: [],
                     inn1_scorecard: null, inn2_scorecard: null,
-                    tA: { name: matchData?.tA?.name || "Team 1", score: 0, balls: 0, wkts: 0 },
-                    tB: { name: matchData?.tB?.name || "Team 2", score: 0, balls: 0, wkts: 0 },
+                    tA: { name: "Team 1", score: 0, balls: 0, wkts: 0 },
+                    tB: { name: "Team 2", score: 0, balls: 0, wkts: 0 },
                     last_state: null
                 };
 
                 await setDoc(matchDocRef, resetState);
-                window.navigateView('viewTournament');
             } catch (err) {
+                console.error("Abort error:", err);
                 alert("Reset error: " + err.message);
             }
         };
