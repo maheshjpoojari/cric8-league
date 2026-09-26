@@ -165,7 +165,7 @@
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
             <div id="formatBadgeDisp" class="pair-badge">Classic Format</div>
-            <div id="bowlNameDisp" onclick="window.openNextOverModal()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
+            <div id="bowlNameDisp" style="font-weight: bold;">Bowler: TBD</div>
         </div>
 
         <div class="player-bar">
@@ -547,6 +547,7 @@
                 non_bat_name: nsName, non_bat_runs: 0, non_bat_balls: 0,
                 crr_bowl: bName,
                 curr_over: [],
+                awaiting_next_over: false, // FLAG FOR CONTROLS
                 used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
                 dismissals: [],
@@ -580,7 +581,7 @@
             const opp = isTeamABatting ? tB : tA;
 
             setText('teamNameDisp', `${team.name} (Inn ${d.inn || 1})`);
-            setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'} ✏️`);
+            setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'}`);
 
             const isPairs = (d.rulesFormat === 'pairs');
             const wickBtn = document.getElementById('wicketBtnLabel');
@@ -644,14 +645,14 @@
                 }).join('');
             }
 
-            // CRITICAL FIX: Only lock controls if balls is exactly a multiple of 6 AND this over's ball count is >= 6
-            const isOverComplete = balls > 0 && balls % 6 === 0 && (d.curr_over || []).length >= 6;
-            document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isOverComplete);
+            // CONTROLS LOCK LOGIC: ONLY LOCKED IF EXPLICITLY WAITING FOR NEXT OVER
+            const isAwaitingNextOver = !!d.awaiting_next_over;
+            document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isAwaitingNextOver);
             
             const controls = document.getElementById('mainControls');
             if (controls) {
-                controls.style.opacity = isOverComplete ? "0.2" : "1";
-                controls.style.pointerEvents = isOverComplete ? "none" : "auto";
+                controls.style.opacity = isAwaitingNextOver ? "0.2" : "1";
+                controls.style.pointerEvents = isAwaitingNextOver ? "none" : "auto";
             }
         }
 
@@ -760,11 +761,13 @@
                 if (!nextBowl) throw new Error("Please select a bowler.");
 
                 d.crr_bowl = nextBowl;
-                d.curr_over = []; // IMMEDIATELY RESETS THE TRACKER TO UN-DIM CONTROLS
+                d.curr_over = [];
+                d.awaiting_next_over = false; // UNLOCK SCORER IMMEDIATELY
+
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
                 d.used_bowlers.push(nextBowl);
 
-                // Check for Pair assignment ONLY if in Pairs mode AND the pair section is actively visible
+                // Handle Batter assignments
                 if (isPairs && isPairSectionVisible && completedOvers < (d.totalOvers || 8)) {
                     const sSel = document.getElementById('nextStrikerSelect');
                     const nsSel = document.getElementById('nextNonStrikerSelect');
@@ -785,7 +788,6 @@
                     if (!Array.isArray(d.used_batsmen)) d.used_batsmen = [];
                     d.used_batsmen.push(sName, nsName);
                 } else {
-                    // Standard Classic Cricket or standard single-over pair rotation: swap strike ends
                     const tempName = d.crr_bat_name;
                     const tempRuns = parseInt(d.crr_bat_runs) || 0;
                     const tempBalls = parseInt(d.crr_bat_balls) || 0;
@@ -797,7 +799,9 @@
                     d.non_bat_balls = tempBalls;
                 }
 
-                // Force local un-dimming right before database sync
+                window.closeModal('bowlerModal');
+
+                // Instant UI unlock
                 const controls = document.getElementById('mainControls');
                 if (controls) {
                     controls.style.opacity = "1";
@@ -806,7 +810,6 @@
                 document.getElementById('nextOverBtn')?.classList.add('hidden');
 
                 await updateDoc(matchDocRef, d);
-                window.closeModal('bowlerModal');
             } catch (err) {
                 console.error("confirmNextOver error:", err);
                 alert("Next over error: " + err.message);
@@ -816,7 +819,6 @@
             }
         };
 
-        // --- FIXED HANDLE ACTION: CLASSIC MODE EXTRAS NEVER COUNT LEGAL DELIVERIES ---
         window.handleAction = async (val, type) => {
             const d = JSON.parse(JSON.stringify(matchData));
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -842,6 +844,8 @@
             const isFinalOver = d[teamKey].balls >= ((d.totalOvers || 8) - 1) * 6;
             const shouldCountExtraBall = isPairs && !isFinalOver;
 
+            let wasLegalBall = false;
+
             if (type === 'wide') {
                 d[teamKey].score += (val + 1);
                 d[scKey].bowlers[bowler].runs += (val + 1);
@@ -849,6 +853,7 @@
 
                 if (shouldCountExtraBall) {
                     d[teamKey].balls += 1;
+                    wasLegalBall = true;
                 }
 
                 if (val % 2 !== 0) {
@@ -868,6 +873,7 @@
 
                 if (shouldCountExtraBall) {
                     d[teamKey].balls += 1;
+                    wasLegalBall = true;
                 }
 
                 if (val % 2 !== 0) {
@@ -876,6 +882,7 @@
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } else {
+                wasLegalBall = true;
                 d[teamKey].score += val;
                 d[teamKey].balls += 1;
                 d.crr_bat_balls += 1;
@@ -918,6 +925,11 @@
 
             d[scKey].totalScore = d[teamKey].score;
             d[scKey].totalBalls = d[teamKey].balls;
+
+            // CHECK IF THIS LEGAL DELIVERY CONCLUDED THE OVER
+            if (wasLegalBall && d[teamKey].balls > 0 && d[teamKey].balls % 6 === 0) {
+                d.awaiting_next_over = true;
+            }
 
             await evaluateMatchFlow(d, teamKey, oppKey);
         };
@@ -994,6 +1006,10 @@
                     player: dismissedName,
                     over: overNotation
                 });
+
+                if (d[teamKey].balls > 0 && d[teamKey].balls % 6 === 0) {
+                    d.awaiting_next_over = true;
+                }
 
                 if (isPairs) {
                     d[teamKey].score = (parseInt(d[teamKey].score) || 0) - 5;
@@ -1081,6 +1097,7 @@
                     alert(`Innings 1 Complete! Target: ${currentScore + 1} runs.`);
                     d.inn = 2;
                     d.curr_over = [];
+                    d.awaiting_next_over = false;
                     d.crr_bat_runs = 0;
                     d.crr_bat_balls = 0;
                     d.non_bat_runs = 0;
@@ -1208,7 +1225,6 @@
         window.abortMatch = async () => {
             if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
             try {
-                // Instantly return UI to tournament setup view
                 window.navigateView('viewTournament');
                 
                 const resetState = {
@@ -1223,6 +1239,7 @@
                     crr_bat_name: "Striker", crr_bat_runs: 0, crr_bat_balls: 0,
                     non_bat_name: "Non-Striker", non_bat_runs: 0, non_bat_balls: 0,
                     crr_bowl: "TBD", curr_over: [],
+                    awaiting_next_over: false,
                     used_batsmen: [], used_bowlers: [],
                     dismissals: [],
                     inn1_scorecard: null, inn2_scorecard: null,
