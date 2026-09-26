@@ -61,13 +61,13 @@
         <span id="activeSlotTag" style="background:#0f172a; padding:2px 8px; border-radius:4px; color:var(--gold);">PITCH 1</span>
     </div>
 
-    <!-- STEP 1: FIXTURE SETUP WITH RULES FORMAT SELECTOR -->
+    <!-- STEP 1: FIXTURE SETUP -->
     <div id="viewTournament" class="app-view">
         <div class="view-card">
             <h2 class="view-title">🏆 FIXTURE SETUP</h2>
             
             <div class="input-group">
-                <label>Pitch / Match Slot (Independent per tester)</label>
+                <label>Pitch / Match Slot</label>
                 <select id="matchSlotSelect" class="input-field" onchange="window.switchMatchSlot()">
                     <option value="pitch_1">Pitch 1 (Default)</option>
                     <option value="pitch_2">Pitch 2</option>
@@ -85,8 +85,8 @@
             <div class="input-group" style="background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
                 <label style="color: var(--gold);">⚡ SCORING RULES FORMAT</label>
                 <select id="rulesFormatSelect" class="input-field">
-                    <option value="pairs">Custom Cric-8 (Pairs, -5 Dismissal, 3-Dot Penalty)</option>
                     <option value="classic">Classic Standard Cricket (Out on Wicket, No Penalty)</option>
+                    <option value="pairs">Custom Cric-8 (Pairs, -5 Dismissal, 3-Dot Penalty)</option>
                 </select>
             </div>
 
@@ -164,7 +164,7 @@
     <div id="viewScorer" class="app-view hidden">
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
-            <div id="formatBadgeDisp" class="pair-badge">Pairs Mode</div>
+            <div id="formatBadgeDisp" class="pair-badge">Classic Format</div>
             <div id="bowlNameDisp" onclick="window.openNextOverModal()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
         </div>
 
@@ -198,7 +198,7 @@
             <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
             <button class="btn btn-orange" style="grid-column: span 4;" onclick="window.handleAction(1, 'noball')">NB+1</button>
 
-            <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
+            <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT</button>
             
             <div class="emergency-tools">
                 <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
@@ -209,19 +209,19 @@
         </div>
     </div>
 
-    <!-- NEXT OVER & PAIR/BOWLER SETUP MODAL -->
+    <!-- NEXT OVER MODAL -->
     <div id="bowlerModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
             
             <div id="pairChangeSection" class="hidden" style="background:#0b1120; border: 1px solid var(--gold); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
-                <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR FINISHED: SELECT NEXT BATTING PAIR</div>
+                <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR ROTATION</div>
                 <div class="input-group">
-                    <label>New Striker (Unused Players Only)</label>
+                    <label>New Striker</label>
                     <select id="nextStrikerSelect" class="input-field" onchange="window.filterSecondaryBatter()"></select>
                 </div>
                 <div class="input-group">
-                    <label>New Non-Striker (Unused Players Only)</label>
+                    <label>New Non-Striker</label>
                     <select id="nextNonStrikerSelect" class="input-field"></select>
                 </div>
             </div>
@@ -284,7 +284,7 @@
         </div>
     </div>
 
-    <!-- COMPLETE POST-MATCH SCORECARD MODAL -->
+    <!-- SCORECARD MODAL -->
     <div id="scorecardModal" class="modal hidden">
         <div class="view-card" style="max-width: 480px; max-height: 90vh; overflow-y: auto;">
             <h3 style="margin-top:0; color:var(--gold); text-align:center; margin-bottom: 4px;">🏆 OFFICIAL MATCH SCORECARD</h3>
@@ -582,7 +582,7 @@
             setText('teamNameDisp', `${team.name} (Inn ${d.inn || 1})`);
             setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'} ✏️`);
 
-            const isPairs = (d.rulesFormat !== 'classic');
+            const isPairs = (d.rulesFormat === 'pairs');
             const wickBtn = document.getElementById('wicketBtnLabel');
             if (wickBtn) wickBtn.innerText = isPairs ? "WICKET / OUT (-5)" : "WICKET / OUT";
 
@@ -671,9 +671,9 @@
 
                 const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
                 const completedOvers = Math.floor(currentBalls / 6);
-                const isPairs = (d.rulesFormat !== 'classic');
                 
-                // Pair finish ONLY applies in Pairs mode on even completed overs (2, 4, 6...)
+                // Pair finish ONLY applies in Pairs mode
+                const isPairs = (d.rulesFormat === 'pairs');
                 const isPairFinished = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
 
                 const pairSection = document.getElementById('pairChangeSection');
@@ -741,7 +741,7 @@
             activeAvailableBatters.filter(p => p !== primary).forEach(p => nsSel.add(new Option(p, p)));
         };
 
-        // --- HARDENED CONFIRM NEXT OVER HANDLER ---
+        // --- BULLETPROOF CONFIRM NEXT OVER HANDLER ---
         window.confirmNextOver = async () => {
             const btn = document.getElementById('confirmOverBtn');
             if (btn) btn.disabled = true;
@@ -753,19 +753,20 @@
 
                 const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
                 const completedOvers = Math.floor(currentBalls / 6);
-                const isPairs = (d.rulesFormat !== 'classic');
-                const isPairFinished = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
+                
+                const isPairs = (d.rulesFormat === 'pairs');
+                const isPairSectionVisible = !document.getElementById('pairChangeSection')?.classList.contains('hidden');
 
                 const nextBowl = document.getElementById('nextBowlerSelect')?.value;
                 if (!nextBowl) throw new Error("Please select a bowler.");
 
                 d.crr_bowl = nextBowl;
-                d.curr_over = [];
+                d.curr_over = []; // Crucial: Resets tracker to immediately un-dim scoring buttons
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
                 d.used_bowlers.push(nextBowl);
 
-                // Handle Batter assignments
-                if (isPairFinished && completedOvers < (d.totalOvers || 8)) {
+                // Check for Pair assignment ONLY if in Pairs mode AND the pair section is actively visible
+                if (isPairs && isPairSectionVisible && completedOvers < (d.totalOvers || 8)) {
                     const sSel = document.getElementById('nextStrikerSelect');
                     const nsSel = document.getElementById('nextNonStrikerSelect');
                     let sName = sSel?.value;
@@ -785,6 +786,7 @@
                     if (!Array.isArray(d.used_batsmen)) d.used_batsmen = [];
                     d.used_batsmen.push(sName, nsName);
                 } else {
+                    // Standard Classic Cricket or standard single-over pair rotation: simply swap strike ends
                     const tempName = d.crr_bat_name;
                     const tempRuns = parseInt(d.crr_bat_runs) || 0;
                     const tempBalls = parseInt(d.crr_bat_balls) || 0;
@@ -814,7 +816,7 @@
             if (d.inn === 2) isTeamABatting = !isTeamABatting;
             const teamKey = isTeamABatting ? 'tA' : 'tB';
             const oppKey = isTeamABatting ? 'tB' : 'tA';
-            const isPairs = (d.rulesFormat !== 'classic');
+            const isPairs = (d.rulesFormat === 'pairs');
 
             d.last_state = JSON.stringify(matchData);
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
@@ -914,7 +916,7 @@
         };
 
         window.openWicketModal = () => {
-            const isPairs = (matchData?.rulesFormat !== 'classic');
+            const isPairs = (matchData?.rulesFormat === 'pairs');
             setText('wickModalTitle', isPairs ? 'RECORD DISMISSAL (-5)' : 'RECORD OUT / WICKET');
             document.getElementById('wickType').value = 'Bowled';
             window.onWickTypeChange();
@@ -951,7 +953,7 @@
                 if (d.inn === 2) isTeamABatting = !isTeamABatting;
                 const teamKey = isTeamABatting ? 'tA' : 'tB';
                 const oppKey = isTeamABatting ? 'tB' : 'tA';
-                const isPairs = (d.rulesFormat !== 'classic');
+                const isPairs = (d.rulesFormat === 'pairs');
 
                 const wType = document.getElementById('wickType')?.value || 'Bowled';
                 const dismissedRole = document.getElementById('wickBatter')?.value || 'striker';
@@ -1171,7 +1173,7 @@
                 html += `
                     <div style="color:var(--blue); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FALL OF WICKETS</div>
                     <div style="font-size:0.75rem; color:#94a3b8; margin-top: 4px;">
-                        ${sc.fow.map(f => `${f.score}/${f.wkt} (${f.player}, ${f.over} ov)`).join(' | ')}
+                        ${sc.fow.map(f => `${f.score}/${f.wkt} (${f.player},${f.over} ov)`).join(' | ')}
                     </div>
                 `;
             }
@@ -1211,7 +1213,7 @@
                     match_status: "not_started",
                     inn: 1,
                     tournament: matchData?.tournament || "corporate",
-                    rulesFormat: "pairs",
+                    rulesFormat: "classic",
                     totalOvers: 8,
                     tossWinner: 'tA',
                     tossDecision: 'bat',
