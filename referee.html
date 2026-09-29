@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cric-8 Tester Console</title>
+    <title>Cric-8 Tester Console (Dual Format Engine)</title>
     <style>
         :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 12px; }
@@ -31,7 +31,7 @@
         .animate-heads { transform: rotateY(1800deg); }
         .animate-tails { transform: rotateY(1980deg); }
 
-        .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.85rem; }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 4px; color: var(--blue); font-weight: bold; font-size: 0.82rem; }
         .pair-badge { background: #1e293b; color: var(--gold); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #334155; }
         .player-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px 12px 0 0; margin-top: 5px; border: 1px solid #1e293b; }
         .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
@@ -85,8 +85,8 @@
             <div class="input-group" style="background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
                 <label style="color: var(--gold);">⚡ SCORING RULES FORMAT</label>
                 <select id="rulesFormatSelect" class="input-field">
-                    <option value="classic">Classic Standard Cricket (Extras Count as Legal Ball)</option>
-                    <option value="pairs">Custom Cric-8 Pairs (Extras DO NOT Count as Legal Ball)</option>
+                    <option value="classic">Classic Standard Cricket (Out on Wicket, Standard Extras)</option>
+                    <option value="pairs">Custom Cric-8 Pairs (-5 Dismissal, 3-Dot Penalty)</option>
                 </select>
             </div>
 
@@ -547,6 +547,7 @@
                 non_bat_name: nsName, non_bat_runs: 0, non_bat_balls: 0,
                 crr_bowl: bName,
                 curr_over: [],
+                consecutive_dots: 0,
                 awaiting_next_over: false,
                 used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
@@ -703,7 +704,6 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                // Bowler Selection
                 const usedBowlers = Array.isArray(d.used_bowlers) ? d.used_bowlers : [];
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
@@ -740,6 +740,7 @@
             activeAvailableBatters.filter(p => p !== primary).forEach(p => nsSel.add(new Option(p, p)));
         };
 
+        // --- INSTANT-RESPONSE CONFIRM NEXT OVER HANDLER ---
         window.confirmNextOver = async () => {
             const nextBowl = document.getElementById('nextBowlerSelect')?.value;
             if (!nextBowl) {
@@ -747,8 +748,8 @@
                 return;
             }
 
+            // Instantly close modal and restore scoring pad in DOM
             window.closeModal('bowlerModal');
-
             const controls = document.getElementById('mainControls');
             if (controls) {
                 controls.style.opacity = "1";
@@ -770,6 +771,7 @@
                 d.crr_bowl = nextBowl;
                 d.curr_over = [];
                 d.awaiting_next_over = false;
+                d.consecutive_dots = 0;
 
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
                 d.used_bowlers.push(nextBowl);
@@ -812,7 +814,7 @@
             }
         };
 
-        // --- EXTRAS LOGIC: CLASSIC FORMAT COUNTS EXTRAS, PAIRS FORMAT DOES NOT ---
+        // --- HARDENED ACTION HANDLER WITH EXTRAS AND TRUE CONSECUTIVE DOT COUNT ---
         window.handleAction = async (val, type) => {
             const d = JSON.parse(JSON.stringify(matchData));
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -825,6 +827,7 @@
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
             d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
             d.crr_bat_balls = parseInt(d.crr_bat_balls) || 0;
+            if (typeof d.consecutive_dots !== 'number') d.consecutive_dots = 0;
 
             const scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
             if (!d[scKey]) d[scKey] = { batters: {}, bowlers: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [] };
@@ -835,9 +838,10 @@
             if (!d[scKey].batters[striker]) d[scKey].batters[striker] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
             if (!d[scKey].bowlers[bowler]) d[scKey].bowlers[bowler] = { balls: 0, runs: 0, maidens: 0, wkts: 0 };
 
-            // In Classic format: Extras count as legal balls
-            // In Pairs format: Extras DO NOT count as legal balls
-            const shouldCountExtraBall = !isPairs;
+            // In Classic mode: Extras NEVER count as a legal delivery
+            // In Pairs mode: Overs 1-7 count extras; over 8 re-bowls
+            const isFinalOver = d[teamKey].balls >= ((d.totalOvers || 8) - 1) * 6;
+            const countsAsLegalBall = isPairs && !isFinalOver;
 
             let wasLegalBall = false;
 
@@ -845,8 +849,9 @@
                 d[teamKey].score += (val + 1);
                 d[scKey].bowlers[bowler].runs += (val + 1);
                 d[scKey].extras += (val + 1);
+                d.consecutive_dots = 0; // Any extra resets dot ball streak
 
-                if (shouldCountExtraBall) {
+                if (countsAsLegalBall) {
                     d[teamKey].balls += 1;
                     wasLegalBall = true;
                 }
@@ -862,11 +867,12 @@
                 d[scKey].batters[striker].runs += val;
                 d[scKey].bowlers[bowler].runs += (val + 1);
                 d[scKey].extras += 1;
+                d.consecutive_dots = 0; // Any extra resets dot ball streak
 
                 d.crr_bat_balls += 1;
                 d[scKey].batters[striker].balls += 1;
 
-                if (shouldCountExtraBall) {
+                if (countsAsLegalBall) {
                     d[teamKey].balls += 1;
                     wasLegalBall = true;
                 }
@@ -890,31 +896,39 @@
                     d[scKey].batters[striker].balls += 1;
                     if (val === 4) d[scKey].batters[striker].fours += 1;
                     if (val === 6) d[scKey].batters[striker].sixes += 1;
-                    d.curr_over.push(val);
+                    
+                    if (val === 0) {
+                        d.consecutive_dots += 1;
+                        if (isPairs && d.consecutive_dots === 3) {
+                            d[teamKey].score -= 5;
+                            d.crr_bat_runs -= 5;
+                            d[scKey].batters[striker].runs -= 5;
+                            d.curr_over.push("3D(-5)");
+                            d.consecutive_dots = 0; // Streak fulfilled, reset
+                        } else {
+                            d.curr_over.push(0);
+                        }
+                    } else {
+                        d.consecutive_dots = 0;
+                        d.curr_over.push(val);
+                    }
+
                     if ([1, 3, 5].includes(val)) {
                         [d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls, d.non_bat_name, d.non_bat_runs, d.non_bat_balls] = 
                         [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                     }
                 } else if (type === 'rb') {
+                    d.consecutive_dots = 0;
                     d.curr_over.push(`${val}RB`);
                     d[scKey].batters[striker].balls += 1;
                     [d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls, d.non_bat_name, d.non_bat_runs, d.non_bat_balls] = 
                     [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                 } else if (type === 'declare') {
+                    d.consecutive_dots = 0;
                     d.crr_bat_runs += val;
                     d[scKey].batters[striker].runs += val;
                     d[scKey].batters[striker].balls += 1;
                     d.curr_over.push(`${val}D`);
-                }
-
-                if (isPairs) {
-                    const lastThree = d.curr_over.slice(-3);
-                    if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
-                        d[teamKey].score -= 5;
-                        d.crr_bat_runs -= 5;
-                        d[scKey].batters[striker].runs -= 5;
-                        d.curr_over[d.curr_over.length - 1] = "3D(-5)";
-                    }
                 }
             }
 
@@ -923,6 +937,7 @@
 
             if (wasLegalBall && d[teamKey].balls > 0 && d[teamKey].balls % 6 === 0) {
                 d.awaiting_next_over = true;
+                d.consecutive_dots = 0;
             }
 
             await evaluateMatchFlow(d, teamKey, oppKey);
@@ -977,6 +992,7 @@
                 d.last_state = JSON.stringify(matchData);
                 d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
                 d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
+                d.consecutive_dots = 0; // Wicket resets dot ball counter
 
                 if (!Array.isArray(d.curr_over)) d.curr_over = [];
                 d.curr_over.push('W');
@@ -1092,6 +1108,7 @@
                     d.inn = 2;
                     d.curr_over = [];
                     d.awaiting_next_over = false;
+                    d.consecutive_dots = 0;
                     d.crr_bat_runs = 0;
                     d.crr_bat_balls = 0;
                     d.non_bat_runs = 0;
@@ -1232,6 +1249,7 @@
                     crr_bat_name: "Striker", crr_bat_runs: 0, crr_bat_balls: 0,
                     non_bat_name: "Non-Striker", non_bat_runs: 0, non_bat_balls: 0,
                     crr_bowl: "TBD", curr_over: [],
+                    consecutive_dots: 0,
                     awaiting_next_over: false,
                     used_batsmen: [], used_bowlers: [],
                     dismissals: [],
