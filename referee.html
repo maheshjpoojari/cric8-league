@@ -85,8 +85,8 @@
             <div class="input-group" style="background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
                 <label style="color: var(--gold);">⚡ SCORING RULES FORMAT</label>
                 <select id="rulesFormatSelect" class="input-field">
-                    <option value="classic">Classic Standard Cricket (Out on Wicket, No Penalty)</option>
-                    <option value="pairs">Custom Cric-8 (Pairs, -5 Dismissal, 3-Dot Penalty)</option>
+                    <option value="classic">Classic Standard Cricket (Extras Count as Legal Ball)</option>
+                    <option value="pairs">Custom Cric-8 Pairs (Extras DO NOT Count as Legal Ball)</option>
                 </select>
             </div>
 
@@ -547,7 +547,7 @@
                 non_bat_name: nsName, non_bat_runs: 0, non_bat_balls: 0,
                 crr_bowl: bName,
                 curr_over: [],
-                awaiting_next_over: false, // FLAG FOR CONTROLS
+                awaiting_next_over: false,
                 used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
                 dismissals: [],
@@ -645,7 +645,6 @@
                 }).join('');
             }
 
-            // CONTROLS LOCK LOGIC: ONLY LOCKED IF EXPLICITLY WAITING FOR NEXT OVER
             const isAwaitingNextOver = !!d.awaiting_next_over;
             document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isAwaitingNextOver);
             
@@ -741,10 +740,21 @@
             activeAvailableBatters.filter(p => p !== primary).forEach(p => nsSel.add(new Option(p, p)));
         };
 
-        // --- BULLETPROOF CONFIRM NEXT OVER HANDLER ---
         window.confirmNextOver = async () => {
-            const btn = document.getElementById('confirmOverBtn');
-            if (btn) btn.disabled = true;
+            const nextBowl = document.getElementById('nextBowlerSelect')?.value;
+            if (!nextBowl) {
+                alert("Please select a bowler.");
+                return;
+            }
+
+            window.closeModal('bowlerModal');
+
+            const controls = document.getElementById('mainControls');
+            if (controls) {
+                controls.style.opacity = "1";
+                controls.style.pointerEvents = "auto";
+            }
+            document.getElementById('nextOverBtn')?.classList.add('hidden');
 
             try {
                 const d = JSON.parse(JSON.stringify(matchData || {}));
@@ -757,17 +767,13 @@
                 const isPairs = (d.rulesFormat === 'pairs');
                 const isPairSectionVisible = !document.getElementById('pairChangeSection')?.classList.contains('hidden');
 
-                const nextBowl = document.getElementById('nextBowlerSelect')?.value;
-                if (!nextBowl) throw new Error("Please select a bowler.");
-
                 d.crr_bowl = nextBowl;
                 d.curr_over = [];
-                d.awaiting_next_over = false; // UNLOCK SCORER IMMEDIATELY
+                d.awaiting_next_over = false;
 
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
                 d.used_bowlers.push(nextBowl);
 
-                // Handle Batter assignments
                 if (isPairs && isPairSectionVisible && completedOvers < (d.totalOvers || 8)) {
                     const sSel = document.getElementById('nextStrikerSelect');
                     const nsSel = document.getElementById('nextNonStrikerSelect');
@@ -799,26 +805,14 @@
                     d.non_bat_balls = tempBalls;
                 }
 
-                window.closeModal('bowlerModal');
-
-                // Instant UI unlock
-                const controls = document.getElementById('mainControls');
-                if (controls) {
-                    controls.style.opacity = "1";
-                    controls.style.pointerEvents = "auto";
-                }
-                document.getElementById('nextOverBtn')?.classList.add('hidden');
-
                 await updateDoc(matchDocRef, d);
             } catch (err) {
                 console.error("confirmNextOver error:", err);
                 alert("Next over error: " + err.message);
-                window.closeModal('bowlerModal');
-            } finally {
-                if (btn) btn.disabled = false;
             }
         };
 
+        // --- EXTRAS LOGIC: CLASSIC FORMAT COUNTS EXTRAS, PAIRS FORMAT DOES NOT ---
         window.handleAction = async (val, type) => {
             const d = JSON.parse(JSON.stringify(matchData));
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -841,8 +835,9 @@
             if (!d[scKey].batters[striker]) d[scKey].batters[striker] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
             if (!d[scKey].bowlers[bowler]) d[scKey].bowlers[bowler] = { balls: 0, runs: 0, maidens: 0, wkts: 0 };
 
-            const isFinalOver = d[teamKey].balls >= ((d.totalOvers || 8) - 1) * 6;
-            const shouldCountExtraBall = isPairs && !isFinalOver;
+            // In Classic format: Extras count as legal balls
+            // In Pairs format: Extras DO NOT count as legal balls
+            const shouldCountExtraBall = !isPairs;
 
             let wasLegalBall = false;
 
@@ -926,7 +921,6 @@
             d[scKey].totalScore = d[teamKey].score;
             d[scKey].totalBalls = d[teamKey].balls;
 
-            // CHECK IF THIS LEGAL DELIVERY CONCLUDED THE OVER
             if (wasLegalBall && d[teamKey].balls > 0 && d[teamKey].balls % 6 === 0) {
                 d.awaiting_next_over = true;
             }
@@ -1221,7 +1215,6 @@
             await updateDoc(matchDocRef, JSON.parse(matchData.last_state));
         };
 
-        // --- BULLETPROOF ABORT MATCH ---
         window.abortMatch = async () => {
             if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
             try {
