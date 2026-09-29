@@ -31,7 +31,7 @@
         .animate-heads { transform: rotateY(1800deg); }
         .animate-tails { transform: rotateY(1980deg); }
 
-        .header { display: flex; justify-content: space-between; padding: 5px; color: var(--blue); font-weight: bold; font-size: 0.85rem; }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 4px; color: var(--blue); font-weight: bold; font-size: 0.82rem; }
         .pair-badge { background: #1e293b; color: var(--gold); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #334155; }
         .player-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px 12px 0 0; margin-top: 5px; border: 1px solid #1e293b; }
         .bat-card { padding: 15px 5px; text-align: center; font-weight: bold; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; }
@@ -85,7 +85,7 @@
         </div>
     </div>
 
-    <!-- STEP 2: FIXTURE SETUP WITH RULES FORMAT SELECTOR -->
+    <!-- STEP 2: FIXTURE SETUP -->
     <div id="viewTournament" class="app-view hidden">
         <div class="view-card">
             <h2 class="view-title">🏆 FIXTURE SETUP</h2>
@@ -98,8 +98,8 @@
             <div class="input-group" style="background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
                 <label style="color: var(--gold);">⚡ SCORING RULES FORMAT</label>
                 <select id="rulesFormatSelect" class="input-field">
-                    <option value="pairs">Custom Cric-8 (Pairs, -5 Dismissal, 3-Dot Penalty)</option>
-                    <option value="classic">Classic Standard Cricket (Out on Wicket, No Penalty)</option>
+                    <option value="classic">Classic Standard Cricket (Out on Wicket, Standard Extras)</option>
+                    <option value="pairs">Custom Cric-8 Pairs (-5 Dismissal, 3-Dot Penalty)</option>
                 </select>
             </div>
 
@@ -177,8 +177,8 @@
     <div id="viewScorer" class="app-view hidden">
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
-            <div id="formatBadgeDisp" class="pair-badge">Pairs Mode</div>
-            <div id="bowlNameDisp" onclick="window.openNextOverModal()" style="cursor:pointer; text-decoration: underline;">Bowler: TBD ✏️</div>
+            <div id="formatBadgeDisp" class="pair-badge">Classic Format</div>
+            <div id="bowlNameDisp" style="font-weight: bold;">Bowler: TBD</div>
         </div>
 
         <div class="player-bar">
@@ -211,7 +211,7 @@
             <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
             <button class="btn btn-orange" style="grid-column: span 4;" onclick="window.handleAction(1, 'noball')">NB+1</button>
 
-            <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
+            <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT</button>
             
             <div class="emergency-tools">
                 <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
@@ -228,13 +228,13 @@
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
             
             <div id="pairChangeSection" class="hidden" style="background:#0b1120; border: 1px solid var(--gold); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
-                <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR FINISHED: SELECT NEXT BATTING PAIR</div>
+                <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR ROTATION</div>
                 <div class="input-group">
-                    <label>New Striker (Unused Players Only)</label>
+                    <label>New Striker</label>
                     <select id="nextStrikerSelect" class="input-field" onchange="window.filterSecondaryBatter()"></select>
                 </div>
                 <div class="input-group">
-                    <label>New Non-Striker (Unused Players Only)</label>
+                    <label>New Non-Striker</label>
                     <select id="nextNonStrikerSelect" class="input-field"></select>
                 </div>
             </div>
@@ -297,7 +297,7 @@
         </div>
     </div>
 
-    <!-- POST-MATCH SCORECARD MODAL -->
+    <!-- SCORECARD MODAL -->
     <div id="scorecardModal" class="modal hidden">
         <div class="view-card" style="max-width: 480px; max-height: 90vh; overflow-y: auto;">
             <h3 style="margin-top:0; color:var(--gold); text-align:center; margin-bottom: 4px;">🏆 OFFICIAL MATCH SCORECARD</h3>
@@ -464,10 +464,6 @@
             });
         };
 
-        window.onTournamentChange = () => {
-            window.setupTournamentDropdowns();
-        };
-
         window.filterTeamOptions = () => {
             const t1Val = document.getElementById('selectTeam1').value;
             const t2 = document.getElementById('selectTeam2');
@@ -543,8 +539,8 @@
 
             bowlRoster.forEach(p => bSelect.add(new Option(p, p)));
 
-            setText('strikerLabel', `Opening Striker (${battingTeam})`);
-            setText('nonStrikerLabel', `Opening Non-Striker (${battingTeam})`);
+            setText('strikerLabel', `Striker (${battingTeam})`);
+            setText('nonStrikerLabel', `Non-Striker (${battingTeam})`);
             setText('bowlerLabel', `Opening Bowler (${bowlingTeam})`);
         };
 
@@ -567,7 +563,6 @@
                 rulesFormat: rulesFormat,
                 totalOvers: totalOvers,
                 tournament: tourney,
-                matchId: currentMatchId,
                 inn: 1,
                 tossWinner: (tossWinnerTeam === t1) ? 'tA' : 'tB',
                 tossDecision: decision,
@@ -575,6 +570,8 @@
                 non_bat_name: nsName, non_bat_runs: 0, non_bat_balls: 0,
                 crr_bowl: bName,
                 curr_over: [],
+                consecutive_dots: 0,
+                awaiting_next_over: false,
                 used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
                 dismissals: [],
@@ -608,9 +605,9 @@
             const opp = isTeamABatting ? tB : tA;
 
             setText('teamNameDisp', `${team.name} (Inn ${d.inn || 1})`);
-            setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'} ✏️`);
+            setText('bowlNameDisp', `Bowler: ${d.crr_bowl || 'TBD'}`);
 
-            const isPairs = (d.rulesFormat !== 'classic');
+            const isPairs = (d.rulesFormat === 'pairs');
             const wickBtn = document.getElementById('wicketBtnLabel');
             if (wickBtn) wickBtn.innerText = isPairs ? "WICKET / OUT (-5)" : "WICKET / OUT";
 
@@ -672,17 +669,16 @@
                 }).join('');
             }
 
-            const isOverComplete = balls > 0 && balls % 6 === 0 && (d.curr_over || []).length > 0;
-            document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isOverComplete);
+            const isAwaitingNextOver = !!d.awaiting_next_over;
+            document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isAwaitingNextOver);
             
             const controls = document.getElementById('mainControls');
             if (controls) {
-                controls.style.opacity = isOverComplete ? "0.2" : "1";
-                controls.style.pointerEvents = isOverComplete ? "none" : "auto";
+                controls.style.opacity = isAwaitingNextOver ? "0.2" : "1";
+                controls.style.pointerEvents = isAwaitingNextOver ? "none" : "auto";
             }
         }
 
-        // --- HARDENED OPEN NEXT OVER MODAL ---
         window.openNextOverModal = async () => {
             try {
                 if (!isAdmin) return alert("Referee access required.");
@@ -700,9 +696,8 @@
 
                 const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
                 const completedOvers = Math.floor(currentBalls / 6);
-                const isPairs = (d.rulesFormat !== 'classic');
                 
-                // Pair finish ONLY applies in Pairs mode on even completed overs (2, 4, 6...)
+                const isPairs = (d.rulesFormat === 'pairs');
                 const isPairFinished = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
 
                 const pairSection = document.getElementById('pairChangeSection');
@@ -733,7 +728,6 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                // Bowler Selection (Fielding Team only, exclude current crease batters)
                 const usedBowlers = Array.isArray(d.used_bowlers) ? d.used_bowlers : [];
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
@@ -770,10 +764,20 @@
             activeAvailableBatters.filter(p => p !== primary).forEach(p => nsSel.add(new Option(p, p)));
         };
 
-        // --- HARDENED CONFIRM NEXT OVER HANDLER ---
         window.confirmNextOver = async () => {
-            const btn = document.getElementById('confirmOverBtn');
-            if (btn) btn.disabled = true;
+            const nextBowl = document.getElementById('nextBowlerSelect')?.value;
+            if (!nextBowl) {
+                alert("Please select a bowler.");
+                return;
+            }
+
+            window.closeModal('bowlerModal');
+            const controls = document.getElementById('mainControls');
+            if (controls) {
+                controls.style.opacity = "1";
+                controls.style.pointerEvents = "auto";
+            }
+            document.getElementById('nextOverBtn')?.classList.add('hidden');
 
             try {
                 const d = JSON.parse(JSON.stringify(matchData || {}));
@@ -782,19 +786,19 @@
 
                 const currentBalls = (isTeamABatting ? d.tA?.balls : d.tB?.balls) || 0;
                 const completedOvers = Math.floor(currentBalls / 6);
-                const isPairs = (d.rulesFormat !== 'classic');
-                const isPairFinished = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
-
-                const nextBowl = document.getElementById('nextBowlerSelect')?.value;
-                if (!nextBowl) throw new Error("Please select a bowler.");
+                
+                const isPairs = (d.rulesFormat === 'pairs');
+                const isPairSectionVisible = !document.getElementById('pairChangeSection')?.classList.contains('hidden');
 
                 d.crr_bowl = nextBowl;
                 d.curr_over = [];
+                d.awaiting_next_over = false;
+                d.consecutive_dots = 0;
+
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
                 d.used_bowlers.push(nextBowl);
 
-                // Handle Batter assignments
-                if (isPairFinished && completedOvers < (d.totalOvers || 8)) {
+                if (isPairs && isPairSectionVisible && completedOvers < (d.totalOvers || 8)) {
                     const sSel = document.getElementById('nextStrikerSelect');
                     const nsSel = document.getElementById('nextNonStrikerSelect');
                     let sName = sSel?.value;
@@ -826,17 +830,12 @@
                 }
 
                 await updateDoc(matchDocRef, d);
-                window.closeModal('bowlerModal');
             } catch (err) {
                 console.error("confirmNextOver error:", err);
                 alert("Next over error: " + err.message);
-                window.closeModal('bowlerModal');
-            } finally {
-                if (btn) btn.disabled = false;
             }
         };
 
-        // --- FIXED HANDLE ACTION: CLASSIC MODE EXTRAS NEVER COUNT LEGAL DELIVERIES ---
         window.handleAction = async (val, type) => {
             if (!isAdmin) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -844,12 +843,13 @@
             if (d.inn === 2) isTeamABatting = !isTeamABatting;
             const teamKey = isTeamABatting ? 'tA' : 'tB';
             const oppKey = isTeamABatting ? 'tB' : 'tA';
-            const isPairs = (d.rulesFormat !== 'classic');
+            const isPairs = (d.rulesFormat === 'pairs');
 
             d.last_state = JSON.stringify(matchData);
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
             d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
             d.crr_bat_balls = parseInt(d.crr_bat_balls) || 0;
+            if (typeof d.consecutive_dots !== 'number') d.consecutive_dots = 0;
 
             const scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
             if (!d[scKey]) d[scKey] = { batters: {}, bowlers: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [] };
@@ -861,15 +861,19 @@
             if (!d[scKey].bowlers[bowler]) d[scKey].bowlers[bowler] = { balls: 0, runs: 0, maidens: 0, wkts: 0 };
 
             const isFinalOver = d[teamKey].balls >= ((d.totalOvers || 8) - 1) * 6;
-            const shouldCountExtraBall = isPairs && !isFinalOver;
+            const countsAsLegalBall = isPairs && !isFinalOver;
+
+            let wasLegalBall = false;
 
             if (type === 'wide') {
                 d[teamKey].score += (val + 1);
                 d[scKey].bowlers[bowler].runs += (val + 1);
                 d[scKey].extras += (val + 1);
+                d.consecutive_dots = 0;
 
-                if (shouldCountExtraBall) {
+                if (countsAsLegalBall) {
                     d[teamKey].balls += 1;
+                    wasLegalBall = true;
                 }
 
                 if (val % 2 !== 0) {
@@ -883,12 +887,14 @@
                 d[scKey].batters[striker].runs += val;
                 d[scKey].bowlers[bowler].runs += (val + 1);
                 d[scKey].extras += 1;
+                d.consecutive_dots = 0;
 
                 d.crr_bat_balls += 1;
                 d[scKey].batters[striker].balls += 1;
 
-                if (shouldCountExtraBall) {
+                if (countsAsLegalBall) {
                     d[teamKey].balls += 1;
+                    wasLegalBall = true;
                 }
 
                 if (val % 2 !== 0) {
@@ -897,6 +903,7 @@
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } else {
+                wasLegalBall = true;
                 d[teamKey].score += val;
                 d[teamKey].balls += 1;
                 d.crr_bat_balls += 1;
@@ -909,43 +916,56 @@
                     d[scKey].batters[striker].balls += 1;
                     if (val === 4) d[scKey].batters[striker].fours += 1;
                     if (val === 6) d[scKey].batters[striker].sixes += 1;
-                    d.curr_over.push(val);
+                    
+                    if (val === 0) {
+                        d.consecutive_dots += 1;
+                        if (isPairs && d.consecutive_dots === 3) {
+                            d[teamKey].score -= 5;
+                            d.crr_bat_runs -= 5;
+                            d[scKey].batters[striker].runs -= 5;
+                            d.curr_over.push("3D(-5)");
+                            d.consecutive_dots = 0;
+                        } else {
+                            d.curr_over.push(0);
+                        }
+                    } else {
+                        d.consecutive_dots = 0;
+                        d.curr_over.push(val);
+                    }
+
                     if ([1, 3, 5].includes(val)) {
                         [d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls, d.non_bat_name, d.non_bat_runs, d.non_bat_balls] = 
                         [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                     }
                 } else if (type === 'rb') {
+                    d.consecutive_dots = 0;
                     d.curr_over.push(`${val}RB`);
                     d[scKey].batters[striker].balls += 1;
                     [d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls, d.non_bat_name, d.non_bat_runs, d.non_bat_balls] = 
                     [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                 } else if (type === 'declare') {
+                    d.consecutive_dots = 0;
                     d.crr_bat_runs += val;
                     d[scKey].batters[striker].runs += val;
                     d[scKey].batters[striker].balls += 1;
                     d.curr_over.push(`${val}D`);
-                }
-
-                if (isPairs) {
-                    const lastThree = d.curr_over.slice(-3);
-                    if (lastThree.length === 3 && lastThree.every(x => x === 0 || x === '0')) {
-                        d[teamKey].score -= 5;
-                        d.crr_bat_runs -= 5;
-                        d[scKey].batters[striker].runs -= 5;
-                        d.curr_over[d.curr_over.length - 1] = "3D(-5)";
-                    }
                 }
             }
 
             d[scKey].totalScore = d[teamKey].score;
             d[scKey].totalBalls = d[teamKey].balls;
 
+            if (wasLegalBall && d[teamKey].balls > 0 && d[teamKey].balls % 6 === 0) {
+                d.awaiting_next_over = true;
+                d.consecutive_dots = 0;
+            }
+
             await evaluateMatchFlow(d, teamKey, oppKey);
         };
 
         window.openWicketModal = () => {
             if (!isAdmin) return alert("Referee access required.");
-            const isPairs = (matchData?.rulesFormat !== 'classic');
+            const isPairs = (matchData?.rulesFormat === 'pairs');
             setText('wickModalTitle', isPairs ? 'RECORD DISMISSAL (-5)' : 'RECORD OUT / WICKET');
             document.getElementById('wickType').value = 'Bowled';
             window.onWickTypeChange();
@@ -982,7 +1002,7 @@
                 if (d.inn === 2) isTeamABatting = !isTeamABatting;
                 const teamKey = isTeamABatting ? 'tA' : 'tB';
                 const oppKey = isTeamABatting ? 'tB' : 'tA';
-                const isPairs = (d.rulesFormat !== 'classic');
+                const isPairs = (d.rulesFormat === 'pairs');
 
                 const wType = document.getElementById('wickType')?.value || 'Bowled';
                 const dismissedRole = document.getElementById('wickBatter')?.value || 'striker';
@@ -993,6 +1013,7 @@
                 d.last_state = JSON.stringify(matchData);
                 d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
                 d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
+                d.consecutive_dots = 0;
 
                 if (!Array.isArray(d.curr_over)) d.curr_over = [];
                 d.curr_over.push('W');
@@ -1016,6 +1037,10 @@
                     player: dismissedName,
                     over: overNotation
                 });
+
+                if (d[teamKey].balls > 0 && d[teamKey].balls % 6 === 0) {
+                    d.awaiting_next_over = true;
+                }
 
                 if (isPairs) {
                     d[teamKey].score = (parseInt(d[teamKey].score) || 0) - 5;
@@ -1103,6 +1128,8 @@
                     alert(`Innings 1 Complete! Target: ${currentScore + 1} runs.`);
                     d.inn = 2;
                     d.curr_over = [];
+                    d.awaiting_next_over = false;
+                    d.consecutive_dots = 0;
                     d.crr_bat_runs = 0;
                     d.crr_bat_balls = 0;
                     d.non_bat_runs = 0;
@@ -1229,37 +1256,33 @@
         window.abortMatch = async () => {
             if (!confirm("ABORT MATCH? Current match will be archived and score will reset to 0.")) return;
             try {
-                if (matchData) {
-                    const cleanArchive = JSON.parse(JSON.stringify(matchData));
-                    cleanArchive.matchId = currentMatchId;
-                    cleanArchive.match_status = "Aborted";
-                    cleanArchive.timestamp = new Date().toISOString();
-                    addDoc(collection(db, "match_history"), cleanArchive).catch(console.warn);
-                }
-
+                window.navigateView('viewTournament');
+                
                 const resetState = {
                     match_in_progress: false,
                     match_status: "not_started",
                     inn: 1,
-                    tournament: matchData?.tournament || "corporate",
-                    rulesFormat: "pairs",
+                    tournament: "corporate",
+                    rulesFormat: "classic",
                     totalOvers: 8,
                     tossWinner: 'tA',
                     tossDecision: 'bat',
                     crr_bat_name: "Striker", crr_bat_runs: 0, crr_bat_balls: 0,
                     non_bat_name: "Non-Striker", non_bat_runs: 0, non_bat_balls: 0,
                     crr_bowl: "TBD", curr_over: [],
+                    consecutive_dots: 0,
+                    awaiting_next_over: false,
                     used_batsmen: [], used_bowlers: [],
                     dismissals: [],
                     inn1_scorecard: null, inn2_scorecard: null,
-                    tA: { name: matchData?.tA?.name || "Team 1", score: 0, balls: 0, wkts: 0 },
-                    tB: { name: matchData?.tB?.name || "Team 2", score: 0, balls: 0, wkts: 0 },
+                    tA: { name: "Team 1", score: 0, balls: 0, wkts: 0 },
+                    tB: { name: "Team 2", score: 0, balls: 0, wkts: 0 },
                     last_state: null
                 };
 
                 await setDoc(matchDocRef, resetState);
-                window.navigateView('viewTournament');
             } catch (err) {
+                console.error("Abort error:", err);
                 alert("Reset error: " + err.message);
             }
         };
