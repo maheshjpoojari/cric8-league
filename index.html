@@ -361,15 +361,16 @@
         let pendingDismissedRole = null;
         let activeScorecardTab = 1;
 
-        // ACCURATE LEGAL DELIVERIES IN CURRENT OVER
+        // ACCURATE DELIVERY COUNT PER OVER
         function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return 0;
-            const isFinalOver = completedOvers >= (totalOvers - 1);
+            // Over 8 is the final over (completedOvers === 7)
+            const isFinalOver = (completedOvers >= (totalOvers - 1));
             if (isPairs && !isFinalOver) {
-                // In Pairs overs 1-7, all balls count toward 6 deliveries
+                // In Pairs overs 1 through 7, all balls count toward the 6-ball over
                 return currOverArray.length;
             }
-            // Classic mode & Pairs over 8: only legal deliveries count toward 6
+            // In Classic mode OR Over 8 (Pairs): only non-extras count toward 6
             return currOverArray.filter(b => {
                 const s = b.toString();
                 return !s.includes('Wd') && !s.includes('N');
@@ -766,11 +767,13 @@
 
         window.handleOverTransition = () => {
             const d = matchData || {};
-            const balls = (d.inn === 1 ? (d.tossWinner === 'tA' && d.tossDecision === 'bat' ? d.tA?.balls : d.tB?.balls) : (d.tossWinner === 'tA' && d.tossDecision === 'bowl' ? d.tA?.balls : d.tB?.balls)) || 0;
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const teamKey = isTeamABatting ? 'tA' : 'tB';
+            const balls = d[teamKey]?.balls || 0;
             const totalOvers = d.totalOvers || 8;
 
             if (balls >= totalOvers * 6) {
-                // Innings Break or Match Conclusion
                 evaluateMatchFlow(d, 'tA', 'tB', true);
             } else {
                 window.openNextOverModal();
@@ -940,7 +943,7 @@
             }
         };
 
-        // --- BULLETPROOF ACTION HANDLER ---
+        // --- PRECISE BALL & EXTRA HANDLER ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -972,10 +975,12 @@
 
             const currentBalls = parseInt(d[teamKey].balls) || 0;
             const completedOvers = Math.floor(currentBalls / 6);
-            const isFinalOver = completedOvers >= ((d.totalOvers || 8) - 1);
             
-            // In Pairs overs 1-7: Extras advance ball count
-            // In Classic mode OR Over 8 (Pairs): Extras do NOT advance ball count (forces re-bowl)
+            // Over 8 is the final over (completedOvers === 7)
+            const isFinalOver = (completedOvers >= ((d.totalOvers || 8) - 1));
+            
+            // In Pairs overs 1-7: Extras DO count as an incremental ball
+            // In Classic mode OR Over 8 (Pairs): Extras do NOT count as a ball (requires re-bowl)
             const extraCountsAsDelivery = isPairs && !isFinalOver;
 
             if (type === 'wide') {
@@ -1014,7 +1019,7 @@
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } else {
-                // LEGAL DELIVERY: Always increments balls and faces
+                // LEGAL DELIVERY: Always increments balls
                 d[teamKey].score += val;
                 d[teamKey].balls = currentBalls + 1;
                 d.crr_bat_balls += 1;
@@ -1234,9 +1239,14 @@
 
         async function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut = false) {
             const maxBalls = (d.totalOvers || 8) * 6;
-            const currentBalls = d[currentTeamKey].balls || 0;
-            const currentScore = d[currentTeamKey].score || 0;
-            const target = (d[oppTeamKey]?.score || 0) + 1;
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const teamKey = isTeamABatting ? 'tA' : 'tB';
+            const oppKey = isTeamABatting ? 'tB' : 'tA';
+
+            const currentBalls = d[teamKey].balls || 0;
+            const currentScore = d[teamKey].score || 0;
+            const target = (d[oppKey]?.score || 0) + 1;
 
             if (d.inn === 1) {
                 if (currentBalls >= maxBalls || forceAllOut) {
@@ -1268,13 +1278,13 @@
 
                 if (currentScore >= target) {
                     matchOver = true;
-                    winnerText = `🎉 ${d[currentTeamKey].name} WON by chasing the target!`;
+                    winnerText = `🎉 ${d[teamKey].name} WON by chasing the target!`;
                 } else if (currentBalls >= maxBalls || forceAllOut) {
                     matchOver = true;
                     if (currentScore === target - 1) {
                         winnerText = `🤝 MATCH TIED! Both teams scored ${currentScore} runs.`;
                     } else {
-                        winnerText = `🎉 ${d[oppTeamKey].name} WON by ${target - 1 - currentScore} runs!`;
+                        winnerText = `🎉 ${d[oppKey].name} WON by ${target - 1 - currentScore} runs!`;
                     }
                 }
 
