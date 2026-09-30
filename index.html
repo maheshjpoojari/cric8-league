@@ -210,7 +210,7 @@
             <div id="mainScore" class="main-score">0</div>
             <div id="stats" style="color:#94a3b8; font-weight:bold;">Overs: 0.0 / 8.0 | Wkts: 0</div>
             <div id="tracker" class="ball-row"></div>
-            <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.openNextOverModal()">TAP HERE TO START NEXT OVER</div>
+            <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.handleOverTransition()">TAP HERE TO START NEXT OVER</div>
         </div>
 
         <div id="mainControls" class="admin-grid">
@@ -361,12 +361,15 @@
         let pendingDismissedRole = null;
         let activeScorecardTab = 1;
 
-        function getLegalBallsInCurrentOver(currOverArray, isPairs, totalBalls) {
+        // ACCURATE LEGAL DELIVERIES IN CURRENT OVER
+        function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return 0;
-            const isFinalOver = totalBalls >= (8 - 1) * 6;
+            const isFinalOver = completedOvers >= (totalOvers - 1);
             if (isPairs && !isFinalOver) {
+                // In Pairs overs 1-7, all balls count toward 6 deliveries
                 return currOverArray.length;
             }
+            // Classic mode & Pairs over 8: only legal deliveries count toward 6
             return currOverArray.filter(b => {
                 const s = b.toString();
                 return !s.includes('Wd') && !s.includes('N');
@@ -600,8 +603,8 @@
 
             bowlRoster.forEach(p => bSelect.add(new Option(p, p)));
 
-            setText('strikerLabel', `Striker (${battingTeam})`);
-            setText('nonStrikerLabel', `Non-Striker (${battingTeam})`);
+            setText('strikerLabel', `Opening Striker (${battingTeam})`);
+            setText('nonStrikerLabel', `Opening Non-Striker (${battingTeam})`);
             setText('bowlerLabel', `Opening Bowler (${bowlingTeam})`);
         };
 
@@ -730,10 +733,23 @@
                 }).join('');
             }
 
-            const legalBallsInThisOver = getLegalBallsInCurrentOver(d.curr_over, isPairs, balls);
+            // ACCURATE OVER/INNINGS END CHECK
+            const legalBallsInThisOver = getLegalDeliveriesInCurrentOver(d.curr_over, isPairs, completedOvers, totalOvers);
             const isOverComplete = legalBallsInThisOver >= 6;
+            const isMatchOrInningsFinished = (balls >= totalOvers * 6);
 
-            document.getElementById('nextOverBtn')?.classList.toggle('hidden', !isOverComplete);
+            const nextBtn = document.getElementById('nextOverBtn');
+            if (nextBtn) {
+                if (isMatchOrInningsFinished) {
+                    nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED: START INNINGS 2 🔄" : "MATCH FINISHED: VIEW OFFICIAL SCORECARD 🏆";
+                    nextBtn.classList.remove('hidden');
+                } else if (isOverComplete) {
+                    nextBtn.innerText = "TAP HERE TO START NEXT OVER";
+                    nextBtn.classList.remove('hidden');
+                } else {
+                    nextBtn.classList.add('hidden');
+                }
+            }
             
             const controls = document.getElementById('mainControls');
             if (controls) {
@@ -741,11 +757,25 @@
                     controls.style.display = "none";
                 } else {
                     controls.style.display = "grid";
-                    controls.style.opacity = isOverComplete ? "0.2" : "1";
-                    controls.style.pointerEvents = isOverComplete ? "none" : "auto";
+                    const shouldLock = isOverComplete || isMatchOrInningsFinished;
+                    controls.style.opacity = shouldLock ? "0.2" : "1";
+                    controls.style.pointerEvents = shouldLock ? "none" : "auto";
                 }
             }
         }
+
+        window.handleOverTransition = () => {
+            const d = matchData || {};
+            const balls = (d.inn === 1 ? (d.tossWinner === 'tA' && d.tossDecision === 'bat' ? d.tA?.balls : d.tB?.balls) : (d.tossWinner === 'tA' && d.tossDecision === 'bowl' ? d.tA?.balls : d.tB?.balls)) || 0;
+            const totalOvers = d.totalOvers || 8;
+
+            if (balls >= totalOvers * 6) {
+                // Innings Break or Match Conclusion
+                evaluateMatchFlow(d, 'tA', 'tB', true);
+            } else {
+                window.openNextOverModal();
+            }
+        };
 
         window.openNextOverModal = async () => {
             try {
@@ -796,6 +826,7 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
+                // Bowler selection
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
 
@@ -859,7 +890,7 @@
                 const isPairSectionVisible = !document.getElementById('pairChangeSection')?.classList.contains('hidden');
 
                 d.crr_bowl = nextBowl;
-                d.curr_over = [];
+                d.curr_over = []; // Reset over deliveries cleanly
                 d.consecutive_dots = 0;
 
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
@@ -896,7 +927,6 @@
                     d.non_bat_balls = tempBalls;
                 }
 
-                // CRITICAL MEMORY FIX: Strip nested last_state
                 const cleanCopy = { ...matchData };
                 delete cleanCopy.last_state;
                 d.last_state = JSON.stringify(cleanCopy);
@@ -910,7 +940,7 @@
             }
         };
 
-        // --- ZERO-LAG ACTION HANDLER WITH RECURSION PREVENTION ---
+        // --- BULLETPROOF ACTION HANDLER ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -920,7 +950,7 @@
             const oppKey = isTeamABatting ? 'tB' : 'tA';
             const isPairs = (d.rulesFormat === 'pairs');
 
-            // CRITICAL MEMORY LEAK FIX: Prevent infinite JSON recursion
+            // Strip nested last_state to prevent memory leak
             const snapshotClean = { ...matchData };
             delete snapshotClean.last_state;
             d.last_state = JSON.stringify(snapshotClean);
@@ -940,8 +970,13 @@
             if (!d[scKey].batters[striker]) d[scKey].batters[striker] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
             if (!d[scKey].bowlers[bowler]) d[scKey].bowlers[bowler] = { balls: 0, runs: 0, maidens: 0, wkts: 0 };
 
-            const isFinalOver = d[teamKey].balls >= ((d.totalOvers || 8) - 1) * 6;
-            const countsAsLegalBall = isPairs && !isFinalOver;
+            const currentBalls = parseInt(d[teamKey].balls) || 0;
+            const completedOvers = Math.floor(currentBalls / 6);
+            const isFinalOver = completedOvers >= ((d.totalOvers || 8) - 1);
+            
+            // In Pairs overs 1-7: Extras advance ball count
+            // In Classic mode OR Over 8 (Pairs): Extras do NOT advance ball count (forces re-bowl)
+            const extraCountsAsDelivery = isPairs && !isFinalOver;
 
             if (type === 'wide') {
                 d[teamKey].score += (val + 1);
@@ -949,8 +984,8 @@
                 d[scKey].extras += (val + 1);
                 d.consecutive_dots = 0;
 
-                if (countsAsLegalBall) {
-                    d[teamKey].balls += 1;
+                if (extraCountsAsDelivery) {
+                    d[teamKey].balls = currentBalls + 1;
                 }
 
                 if (val % 2 !== 0) {
@@ -969,8 +1004,8 @@
                 d.crr_bat_balls += 1;
                 d[scKey].batters[striker].balls += 1;
 
-                if (countsAsLegalBall) {
-                    d[teamKey].balls += 1;
+                if (extraCountsAsDelivery) {
+                    d[teamKey].balls = currentBalls + 1;
                 }
 
                 if (val % 2 !== 0) {
@@ -979,8 +1014,9 @@
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } else {
+                // LEGAL DELIVERY: Always increments balls and faces
                 d[teamKey].score += val;
-                d[teamKey].balls += 1;
+                d[teamKey].balls = currentBalls + 1;
                 d.crr_bat_balls += 1;
                 d[scKey].bowlers[bowler].balls += 1;
                 d[scKey].bowlers[bowler].runs += val;
