@@ -63,7 +63,7 @@
         <span id="activeSlotTag" style="background:#0f172a; padding:2px 8px; border-radius:4px; color:var(--gold);">PITCH 1</span>
     </div>
 
-    <!-- VIEW 1: HOME HUB / MATCH TYPE SELECTION -->
+    <!-- VIEW 1: HOME HUB -->
     <div id="viewHome" class="app-view">
         <div class="view-card" style="text-align: center;">
             <h2 class="view-title" style="margin-bottom:8px;">🏏 CRIC-8 ARENA</h2>
@@ -75,12 +75,12 @@
         </div>
     </div>
 
-    <!-- VIEW 2: TOURNAMENT REFEREE LOGIN MODAL -->
+    <!-- VIEW 2: TOURNAMENT LOGIN -->
     <div id="viewLogin" class="app-view hidden">
         <div class="view-card">
             <h2 class="view-title">🏆 TOURNAMENT OFFICIAL LOGIN</h2>
             <div class="input-group">
-                <label>Tournament Referee Email</label>
+                <label>Referee Email</label>
                 <input type="email" id="loginEmail" class="input-field" placeholder="referee@league.com">
             </div>
             <div class="input-group">
@@ -92,7 +92,7 @@
         </div>
     </div>
 
-    <!-- VIEW 3: FIXTURE SETUP (HOST & TOURNAMENT) -->
+    <!-- VIEW 3: FIXTURE SETUP -->
     <div id="viewTournament" class="app-view hidden">
         <div class="view-card">
             <h2 class="view-title" id="setupTitle">⚙️ MATCH SETUP</h2>
@@ -113,7 +113,6 @@
                 <input type="text" id="customSlotInput" class="input-field" placeholder="e.g., friday_night_cup">
             </div>
 
-            <!-- RULES FORMAT SELECTOR (BRD ITEM 6) -->
             <div class="input-group" style="background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
                 <label style="color: var(--gold);">⚡ SCORING RULES FORMAT</label>
                 <select id="rulesFormatSelect" class="input-field">
@@ -354,7 +353,7 @@
         let unsubscribeSnapshot = null;
 
         let matchData = null;
-        let isScoringAuthorized = true; // Default true for Host / Quick match
+        let isScoringAuthorized = true;
         let isTournamentMode = false;
         let tossWinnerTeam = "";
         let uploadedTeams = {};
@@ -441,7 +440,6 @@
             if (el) el.innerText = text;
         }
 
-        // --- HOST FLOW (BRD ITEM 4): DIRECT SCORING ACCESS WITHOUT LOGIN ---
         window.startHostFlow = async () => {
             isScoringAuthorized = true;
             isTournamentMode = false;
@@ -452,7 +450,6 @@
             window.navigateView('viewTournament');
         };
 
-        // --- TOURNAMENT FLOW (BRD ITEM 5): OFFICIAL LOGIN GATE ---
         window.openTournamentLogin = () => {
             isTournamentMode = true;
             window.navigateView('viewLogin');
@@ -603,8 +600,8 @@
 
             bowlRoster.forEach(p => bSelect.add(new Option(p, p)));
 
-            setText('strikerLabel', `Opening Striker (${battingTeam})`);
-            setText('nonStrikerLabel', `Opening Non-Striker (${battingTeam})`);
+            setText('strikerLabel', `Striker (${battingTeam})`);
+            setText('nonStrikerLabel', `Non-Striker (${battingTeam})`);
             setText('bowlerLabel', `Opening Bowler (${bowlingTeam})`);
         };
 
@@ -733,7 +730,6 @@
                 }).join('');
             }
 
-            // Accurate check for over completion: ONLY when tracker has 6 legal balls
             const legalBallsInThisOver = getLegalBallsInCurrentOver(d.curr_over, isPairs, balls);
             const isOverComplete = legalBallsInThisOver >= 6;
 
@@ -800,7 +796,6 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                // Bowler Selection
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
 
@@ -864,7 +859,7 @@
                 const isPairSectionVisible = !document.getElementById('pairChangeSection')?.classList.contains('hidden');
 
                 d.crr_bowl = nextBowl;
-                d.curr_over = []; // Reset tracker cleanly
+                d.curr_over = [];
                 d.consecutive_dots = 0;
 
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
@@ -901,6 +896,13 @@
                     d.non_bat_balls = tempBalls;
                 }
 
+                // CRITICAL MEMORY FIX: Strip nested last_state
+                const cleanCopy = { ...matchData };
+                delete cleanCopy.last_state;
+                d.last_state = JSON.stringify(cleanCopy);
+
+                matchData = d;
+                updateUI();
                 await updateDoc(matchDocRef, d);
             } catch (err) {
                 console.error("confirmNextOver error:", err);
@@ -908,6 +910,7 @@
             }
         };
 
+        // --- ZERO-LAG ACTION HANDLER WITH RECURSION PREVENTION ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -917,7 +920,11 @@
             const oppKey = isTeamABatting ? 'tB' : 'tA';
             const isPairs = (d.rulesFormat === 'pairs');
 
-            d.last_state = JSON.stringify(matchData);
+            // CRITICAL MEMORY LEAK FIX: Prevent infinite JSON recursion
+            const snapshotClean = { ...matchData };
+            delete snapshotClean.last_state;
+            d.last_state = JSON.stringify(snapshotClean);
+
             d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
             d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
             d.crr_bat_balls = parseInt(d.crr_bat_balls) || 0;
@@ -1023,6 +1030,10 @@
             d[scKey].totalScore = d[teamKey].score;
             d[scKey].totalBalls = d[teamKey].balls;
 
+            // Optimistic instant UI update
+            matchData = d;
+            updateUI();
+
             await evaluateMatchFlow(d, teamKey, oppKey);
         };
 
@@ -1067,13 +1078,16 @@
                 const oppKey = isTeamABatting ? 'tB' : 'tA';
                 const isPairs = (d.rulesFormat === 'pairs');
 
+                const snapshotClean = { ...matchData };
+                delete snapshotClean.last_state;
+                d.last_state = JSON.stringify(snapshotClean);
+
                 const wType = document.getElementById('wickType')?.value || 'Bowled';
                 const dismissedRole = document.getElementById('wickBatter')?.value || 'striker';
                 const creaseOutcome = document.getElementById('wickCrease')?.value || 'no_swap';
                 const dismissedName = (dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name) || "Batter";
                 const currentBowler = d.crr_bowl || "TBD";
 
-                d.last_state = JSON.stringify(matchData);
                 d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
                 d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
                 d.consecutive_dots = 0;
@@ -1116,6 +1130,8 @@
                     d[scKey].totalWkts = d[teamKey].wkts;
 
                     window.closeModal('wickModal');
+                    matchData = d;
+                    updateUI();
                     await evaluateMatchFlow(d, teamKey, oppKey);
                 } else {
                     d[scKey].totalScore = d[teamKey].score;
@@ -1124,6 +1140,8 @@
 
                     window.closeModal('wickModal');
                     pendingDismissedRole = dismissedRole;
+                    matchData = d;
+                    updateUI();
                     await updateDoc(matchDocRef, d);
                     window.openNewBatterModal(dismissedRole);
                 }
@@ -1173,6 +1191,8 @@
             }
 
             window.closeModal('newBatterModal');
+            matchData = d;
+            updateUI();
             await updateDoc(matchDocRef, d);
         };
 
@@ -1232,6 +1252,8 @@
                 }
             }
 
+            matchData = d;
+            updateUI();
             await updateDoc(matchDocRef, d);
         }
 
@@ -1303,12 +1325,18 @@
         window.manualSwap = async () => {
             const d = JSON.parse(JSON.stringify(matchData));
             [d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls, d.non_bat_name, d.non_bat_runs, d.non_bat_balls] = [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
+            matchData = d;
+            updateUI();
             await updateDoc(matchDocRef, d);
         };
 
         window.undoAction = async () => {
             if (!matchData?.last_state) return alert("Nothing to undo!");
-            await updateDoc(matchDocRef, JSON.parse(matchData.last_state));
+            const restored = JSON.parse(matchData.last_state);
+            restored.last_state = null;
+            matchData = restored;
+            updateUI();
+            await updateDoc(matchDocRef, restored);
         };
 
         window.abortMatch = async () => {
@@ -1356,13 +1384,21 @@
         window.editStriker = async () => {
             if (!isScoringAuthorized) return;
             const name = prompt("Enter Striker Name:", matchData?.crr_bat_name || "");
-            if (name) await updateDoc(matchDocRef, { crr_bat_name: name });
+            if (name) {
+                matchData.crr_bat_name = name;
+                updateUI();
+                await updateDoc(matchDocRef, { crr_bat_name: name });
+            }
         };
 
         window.editNonStriker = async () => {
             if (!isScoringAuthorized) return;
             const name = prompt("Enter Non-Striker Name:", matchData?.non_bat_name || "");
-            if (name) await updateDoc(matchDocRef, { non_bat_name: name });
+            if (name) {
+                matchData.non_bat_name = name;
+                updateUI();
+                await updateDoc(matchDocRef, { non_bat_name: name });
+            }
         };
 
         window.closeModal = (id) => document.getElementById(id)?.classList.add('hidden');
