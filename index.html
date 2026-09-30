@@ -737,11 +737,11 @@
             // ACCURATE OVER/INNINGS END CHECK
             const legalBallsInThisOver = getLegalDeliveriesInCurrentOver(d.curr_over, isPairs, completedOvers, totalOvers);
             const isOverComplete = legalBallsInThisOver >= 6;
-            const isMatchOrInningsFinished = (balls >= totalOvers * 6);
+            const isCurrentInningsComplete = (balls >= totalOvers * 6);
 
             const nextBtn = document.getElementById('nextOverBtn');
             if (nextBtn) {
-                if (isMatchOrInningsFinished) {
+                if (isCurrentInningsComplete) {
                     nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED: START INNINGS 2 🔄" : "MATCH FINISHED: VIEW OFFICIAL SCORECARD 🏆";
                     nextBtn.classList.remove('hidden');
                 } else if (isOverComplete) {
@@ -758,23 +758,26 @@
                     controls.style.display = "none";
                 } else {
                     controls.style.display = "grid";
-                    const shouldLock = isOverComplete || isMatchOrInningsFinished;
+                    const shouldLock = isOverComplete || isCurrentInningsComplete;
                     controls.style.opacity = shouldLock ? "0.2" : "1";
                     controls.style.pointerEvents = shouldLock ? "none" : "auto";
                 }
             }
         }
 
+        // --- FIXED OVER / INNINGS TRANSITION HANDLER ---
         window.handleOverTransition = () => {
             const d = matchData || {};
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
             if (d.inn === 2) isTeamABatting = !isTeamABatting;
-            const teamKey = isTeamABatting ? 'tA' : 'tB';
-            const balls = d[teamKey]?.balls || 0;
+            const currentBattingTeam = isTeamABatting ? d.tA : d.tB;
+
+            const currentBalls = currentBattingTeam?.balls || 0;
             const totalOvers = d.totalOvers || 8;
 
-            if (balls >= totalOvers * 6) {
-                evaluateMatchFlow(d, 'tA', 'tB', true);
+            // Transition Innings or Match ONLY if current innings balls reached total match balls
+            if (currentBalls >= totalOvers * 6) {
+                evaluateMatchFlow(d, null, null, false);
             } else {
                 window.openNextOverModal();
             }
@@ -893,7 +896,7 @@
                 const isPairSectionVisible = !document.getElementById('pairChangeSection')?.classList.contains('hidden');
 
                 d.crr_bowl = nextBowl;
-                d.curr_over = []; // Reset over deliveries cleanly
+                d.curr_over = [];
                 d.consecutive_dots = 0;
 
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
@@ -953,7 +956,6 @@
             const oppKey = isTeamABatting ? 'tB' : 'tA';
             const isPairs = (d.rulesFormat === 'pairs');
 
-            // Strip nested last_state to prevent memory leak
             const snapshotClean = { ...matchData };
             delete snapshotClean.last_state;
             d.last_state = JSON.stringify(snapshotClean);
@@ -1019,7 +1021,6 @@
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } else {
-                // LEGAL DELIVERY: Always increments balls
                 d[teamKey].score += val;
                 d[teamKey].balls = currentBalls + 1;
                 d.crr_bat_balls += 1;
@@ -1071,7 +1072,6 @@
             d[scKey].totalScore = d[teamKey].score;
             d[scKey].totalBalls = d[teamKey].balls;
 
-            // Optimistic instant UI update
             matchData = d;
             updateUI();
 
@@ -1203,7 +1203,7 @@
 
             if (unusedBatters.length === 0) {
                 alert(`${battingTeamName} is ALL OUT!`);
-                evaluateMatchFlow(d, isTeamABatting ? 'tA' : 'tB', isTeamABatting ? 'tB' : 'tA', true);
+                evaluateMatchFlow(d, null, null, true);
                 return;
             }
 
@@ -1237,16 +1237,19 @@
             await updateDoc(matchDocRef, d);
         };
 
+        // --- BULLETPROOF INNINGS & MATCH FLOW EVALUATOR ---
         async function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut = false) {
             const maxBalls = (d.totalOvers || 8) * 6;
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
             if (d.inn === 2) isTeamABatting = !isTeamABatting;
-            const teamKey = isTeamABatting ? 'tA' : 'tB';
-            const oppKey = isTeamABatting ? 'tB' : 'tA';
+            
+            const batKey = isTeamABatting ? 'tA' : 'tB';
+            const bowlKey = isTeamABatting ? 'tB' : 'tA';
 
-            const currentBalls = d[teamKey].balls || 0;
-            const currentScore = d[teamKey].score || 0;
-            const target = (d[oppKey]?.score || 0) + 1;
+            const currentBalls = d[batKey]?.balls || 0;
+            const currentScore = d[batKey]?.score || 0;
+            const oppScore = d[bowlKey]?.score || 0;
+            const target = oppScore + 1;
 
             if (d.inn === 1) {
                 if (currentBalls >= maxBalls || forceAllOut) {
@@ -1259,6 +1262,7 @@
                     d.non_bat_runs = 0;
                     d.non_bat_balls = 0;
 
+                    // Swap Batting and Bowling sides for Innings 2
                     let isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
                     const nextBatTeam = isNextTeamABatting ? d.tA?.name : d.tB?.name;
                     const nextBowlTeam = isNextTeamABatting ? d.tB?.name : d.tA?.name;
@@ -1278,13 +1282,15 @@
 
                 if (currentScore >= target) {
                     matchOver = true;
-                    winnerText = `🎉 ${d[teamKey].name} WON by chasing the target!`;
+                    winnerText = `🎉 ${d[batKey].name} WON by chasing the target!`;
                 } else if (currentBalls >= maxBalls || forceAllOut) {
                     matchOver = true;
-                    if (currentScore === target - 1) {
+                    if (currentScore === oppScore) {
                         winnerText = `🤝 MATCH TIED! Both teams scored ${currentScore} runs.`;
+                    } else if (currentScore > oppScore) {
+                        winnerText = `🎉 ${d[batKey].name} WON!`;
                     } else {
-                        winnerText = `🎉 ${d[oppKey].name} WON by ${target - 1 - currentScore} runs!`;
+                        winnerText = `🎉 ${d[bowlKey].name} WON by ${oppScore - currentScore} runs!`;
                     }
                 }
 
