@@ -116,8 +116,8 @@
             <div class="input-group" style="background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
                 <label style="color: var(--gold);">⚡ SCORING RULES FORMAT</label>
                 <select id="rulesFormatSelect" class="input-field">
-                    <option value="classic">Classic Standard Cricket (Out on Wicket, Standard Extras)</option>
-                    <option value="pairs">Custom Cric-8 Pairs (-5 Dismissal, 3-Dot Penalty)</option>
+                    <option value="pairs">Custom Cric-8 Pairs (All 8 Overs Played, -5 Penalty)</option>
+                    <option value="classic">Classic Standard Cricket (Chased = Match Ends, Standard Dismissal)</option>
                 </select>
             </div>
 
@@ -196,7 +196,7 @@
     <div id="viewScorer" class="app-view hidden">
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
-            <div id="formatBadgeDisp" class="pair-badge">Classic Format</div>
+            <div id="formatBadgeDisp" class="pair-badge">Pairs Mode</div>
             <div id="bowlNameDisp" style="font-weight: bold;">Bowler: TBD</div>
         </div>
 
@@ -230,7 +230,7 @@
             <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
             <button class="btn btn-orange" style="grid-column: span 4;" onclick="window.handleAction(1, 'noball')">NB+1</button>
 
-            <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT</button>
+            <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
             
             <div class="emergency-tools">
                 <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
@@ -361,16 +361,12 @@
         let pendingDismissedRole = null;
         let activeScorecardTab = 1;
 
-        // ACCURATE DELIVERY COUNT PER OVER
         function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return 0;
-            // Over 8 is the final over (completedOvers === 7)
             const isFinalOver = (completedOvers >= (totalOvers - 1));
             if (isPairs && !isFinalOver) {
-                // In Pairs overs 1 through 7, all balls count toward the 6-ball over
                 return currOverArray.length;
             }
-            // In Classic mode OR Over 8 (Pairs): only non-extras count toward 6
             return currOverArray.filter(b => {
                 const s = b.toString();
                 return !s.includes('Wd') && !s.includes('N');
@@ -718,7 +714,18 @@
                 if (d.inn === 2) {
                     targetBox.classList.remove('hidden');
                     const target = (parseInt(opp.score) || 0) + 1;
-                    targetBox.innerHTML = `Target: ${target} | Need ${target - currentScore} from ${(totalOvers * 6) - balls} balls`;
+                    const diff = target - currentScore;
+                    const ballsLeft = (totalOvers * 6) - balls;
+
+                    if (isPairs) {
+                        if (diff <= 0) {
+                            targetBox.innerHTML = `<span style="color:var(--green)">Target Crossed! Lead: +${Math.abs(diff) + 1} runs</span> | ${ballsLeft} balls remaining`;
+                        } else {
+                            targetBox.innerHTML = `Target: ${target} | Need ${diff} runs from ${ballsLeft} balls`;
+                        }
+                    } else {
+                        targetBox.innerHTML = `Target: ${target} | Need ${diff} from ${ballsLeft} balls`;
+                    }
                 } else {
                     targetBox.classList.add('hidden');
                 }
@@ -765,7 +772,6 @@
             }
         }
 
-        // --- FIXED OVER / INNINGS TRANSITION HANDLER ---
         window.handleOverTransition = () => {
             const d = matchData || {};
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -775,7 +781,6 @@
             const currentBalls = currentBattingTeam?.balls || 0;
             const totalOvers = d.totalOvers || 8;
 
-            // Transition Innings or Match ONLY if current innings balls reached total match balls
             if (currentBalls >= totalOvers * 6) {
                 evaluateMatchFlow(d, null, null, false);
             } else {
@@ -946,7 +951,7 @@
             }
         };
 
-        // --- PRECISE BALL & EXTRA HANDLER ---
+        // --- BULLETPROOF ACTION HANDLER ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -1237,7 +1242,7 @@
             await updateDoc(matchDocRef, d);
         };
 
-        // --- BULLETPROOF INNINGS & MATCH FLOW EVALUATOR ---
+        // --- PAIRS CRIC-8: ALL 8 OVERS MUST BE PLAYED BEFORE WINNER IS DECIDED ---
         async function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut = false) {
             const maxBalls = (d.totalOvers || 8) * 6;
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -1245,6 +1250,7 @@
             
             const batKey = isTeamABatting ? 'tA' : 'tB';
             const bowlKey = isTeamABatting ? 'tB' : 'tA';
+            const isPairs = (d.rulesFormat === 'pairs');
 
             const currentBalls = d[batKey]?.balls || 0;
             const currentScore = d[batKey]?.score || 0;
@@ -1262,7 +1268,6 @@
                     d.non_bat_runs = 0;
                     d.non_bat_balls = 0;
 
-                    // Swap Batting and Bowling sides for Innings 2
                     let isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
                     const nextBatTeam = isNextTeamABatting ? d.tA?.name : d.tB?.name;
                     const nextBowlTeam = isNextTeamABatting ? d.tB?.name : d.tA?.name;
@@ -1280,17 +1285,21 @@
                 let matchOver = false;
                 let winnerText = "";
 
-                if (currentScore >= target) {
+                if (!isPairs && currentScore >= target) {
+                    // Classic cricket only: match ends as soon as target is reached
                     matchOver = true;
                     winnerText = `🎉 ${d[batKey].name} WON by chasing the target!`;
                 } else if (currentBalls >= maxBalls || forceAllOut) {
+                    // Pairs cricket (or 48 balls reached in Classic): decided only after 8 full overs
                     matchOver = true;
                     if (currentScore === oppScore) {
                         winnerText = `🤝 MATCH TIED! Both teams scored ${currentScore} runs.`;
                     } else if (currentScore > oppScore) {
-                        winnerText = `🎉 ${d[batKey].name} WON!`;
+                        const margin = currentScore - oppScore;
+                        winnerText = `🎉 ${d[batKey].name} WON by ${margin} runs!`;
                     } else {
-                        winnerText = `🎉 ${d[bowlKey].name} WON by ${oppScore - currentScore} runs!`;
+                        const margin = oppScore - currentScore;
+                        winnerText = `🎉 ${d[bowlKey].name} WON by ${margin} runs!`;
                     }
                 }
 
@@ -1401,7 +1410,7 @@
                     match_status: "not_started",
                     inn: 1,
                     tournament: "friendly",
-                    rulesFormat: "classic",
+                    rulesFormat: "pairs",
                     totalOvers: 8,
                     tossWinner: 'tA',
                     tossDecision: 'bat',
