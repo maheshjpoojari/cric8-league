@@ -121,9 +121,15 @@
                 </select>
             </div>
 
-            <div class="input-group">
-                <label>Match Total Overs</label>
-                <input type="number" id="matchOversInput" class="input-field" value="8" min="2" max="50">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="input-group">
+                    <label>Match Total Overs</label>
+                    <input type="number" id="matchOversInput" class="input-field" value="8" min="2" max="50">
+                </div>
+                <div class="input-group">
+                    <label style="color: var(--gold);">Players Per Team</label>
+                    <input type="number" id="playersPerTeamInput" class="input-field" value="8" min="2" max="11" onchange="window.onPlayerCountChange()">
+                </div>
             </div>
 
             <div class="input-group">
@@ -246,15 +252,17 @@
         </div>
     </div>
 
-    <!-- MODAL: SQUAD ROSTER BUILDER -->
+    <!-- MODAL: SQUAD ROSTER BUILDER WITH STRICT COUNT ENFORCEMENT -->
     <div id="squadBuilderModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 440px;">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;" id="squadBuilderTitle">SQUAD ROSTER BUILDER</h3>
-            <p style="font-size:0.8rem; color:#94a3b8; text-align:center; margin-bottom: 12px;">Add players separated by commas or new lines:</p>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center; margin-bottom: 8px;" id="squadCountInstruction">
+                Requirement: Enter exactly 8 players separated by commas or lines.
+            </p>
             
             <div class="input-group">
-                <label>Player Names List</label>
-                <textarea id="squadPlayersTextarea" class="input-field" rows="6" placeholder="Mahesh Poojari, Vinayak, Sumit, Rahul, Imran, Fahad, Arjun, Zeeshan"></textarea>
+                <label>Player Names List (<span id="squadLiveCount" style="color:var(--gold);">0</span> Entered)</label>
+                <textarea id="squadPlayersTextarea" class="input-field" rows="6" placeholder="Mahesh Poojari, Vinayak, Sumit, Rahul, Imran, Fahad, Arjun, Zeeshan" oninput="window.updateLiveSquadCount()"></textarea>
             </div>
 
             <div style="display:flex; gap: 8px;">
@@ -627,7 +635,6 @@
                     const otherVal = document.getElementById(otherId).value;
                     window.setupTournamentDropdowns(selectId === 'selectTeam1' ? cleanName : otherVal, selectId === 'selectTeam2' ? cleanName : otherVal);
 
-                    // Prompt to populate squad immediately
                     window.openSquadBuilderForTeam(cleanName);
                 } else {
                     sel.selectedIndex = 0;
@@ -635,7 +642,11 @@
             }
         };
 
-        // --- SQUAD ROSTER BUILDER ENGINE ---
+        // --- SQUAD ROSTER BUILDER ENGINE WITH STRICT SQUAD COUNT ---
+        window.getRequiredPlayerCount = () => {
+            return parseInt(document.getElementById('playersPerTeamInput')?.value) || 8;
+        };
+
         window.openSquadEditor = (selectId) => {
             const teamName = document.getElementById(selectId)?.value;
             if (!teamName || teamName === '__add_new_team__') {
@@ -646,34 +657,43 @@
 
         window.openSquadBuilderForTeam = (teamName) => {
             currentEditingTeam = teamName;
+            const requiredCount = window.getRequiredPlayerCount();
             setText('squadBuilderTitle', `BUILD SQUAD: ${teamName.toUpperCase()}`);
+            setText('squadCountInstruction', `Requirement: Enter exactly ${requiredCount} players separated by commas or lines.`);
+            
             const currentRoster = uploadedTeams[teamName] || [];
             const textarea = document.getElementById('squadPlayersTextarea');
             if (textarea) {
                 textarea.value = currentRoster.join(', ');
             }
+            window.updateLiveSquadCount();
             document.getElementById('squadBuilderModal')?.classList.remove('hidden');
+        };
+
+        window.updateLiveSquadCount = () => {
+            const textarea = document.getElementById('squadPlayersTextarea');
+            const raw = textarea?.value || "";
+            const playerList = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && s !== '__add_new_player__');
+            setText('squadLiveCount', playerList.length);
         };
 
         window.saveSquadRoster = async () => {
             if (!currentEditingTeam) return;
+            const requiredCount = window.getRequiredPlayerCount();
             const textarea = document.getElementById('squadPlayersTextarea');
             const raw = textarea?.value || "";
             
-            // Clean up player names from comma or newline separated text
-            const playerList = raw
-                .split(/[\n,]+/)
-                .map(s => s.trim())
-                .filter(s => s.length > 0 && s !== '__add_new_player__');
+            const playerList = Array.from(new Set(
+                raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && s !== '__add_new_player__')
+            ));
 
-            if (playerList.length === 0) {
-                return alert("Please enter at least 2 player names for this squad.");
+            if (playerList.length !== requiredCount) {
+                return alert(`⚠️ SQUAD COUNT MISMATCH!\n\nYou have set "Players Per Team" to ${requiredCount}.\nYou currently entered ${playerList.length} unique players.\n\nPlease enter exactly ${requiredCount} players to save.`);
             }
 
-            // Save to memory cache
-            uploadedTeams[currentEditingTeam] = Array.from(new Set(playerList));
+            uploadedTeams[currentEditingTeam] = playerList;
 
-            const saveCloud = confirm(`Save "${currentEditingTeam}" and its squad (${playerList.length} players) to cloud database for future matches?`);
+            const saveCloud = confirm(`Save "${currentEditingTeam}" with ${playerList.length} players to cloud database for future matches?`);
             if (saveCloud) {
                 try {
                     let docFound = false;
@@ -699,7 +719,7 @@
             }
 
             window.closeModal('squadBuilderModal');
-            alert(`✅ Squad for "${currentEditingTeam}" updated with ${playerList.length} players.`);
+            alert(`✅ Squad for "${currentEditingTeam}" saved with exactly ${playerList.length} players.`);
         };
 
         // --- IN-LINE AD-HOC PLAYER ADDITION HELPER ---
@@ -745,19 +765,19 @@
         window.goToTossScreen = () => {
             const t1 = document.getElementById('selectTeam1').value;
             const t2 = document.getElementById('selectTeam2').value;
+            const requiredCount = window.getRequiredPlayerCount();
+
             if (t1 === t2) return alert("Select two different teams.");
             if (t1 === '__add_new_team__' || t2 === '__add_new_team__') return alert("Please select or add valid teams.");
 
-            // Verify both teams have rosters
-            if (!uploadedTeams[t1] || uploadedTeams[t1].length < 2) {
-                if (confirm(`"${t1}" has fewer than 2 players listed. Would you like to build its squad now?`)) {
-                    return window.openSquadBuilderForTeam(t1);
-                }
+            // Strict Pre-Toss Roster Size Check
+            if (!uploadedTeams[t1] || uploadedTeams[t1].length !== requiredCount) {
+                alert(`Team 1 ("${t1}") has ${uploadedTeams[t1] ? uploadedTeams[t1].length : 0} players, but ${requiredCount} are required. Please adjust squad.`);
+                return window.openSquadBuilderForTeam(t1);
             }
-            if (!uploadedTeams[t2] || uploadedTeams[t2].length < 2) {
-                if (confirm(`"${t2}" has fewer than 2 players listed. Would you like to build its squad now?`)) {
-                    return window.openSquadBuilderForTeam(t2);
-                }
+            if (!uploadedTeams[t2] || uploadedTeams[t2].length !== requiredCount) {
+                alert(`Team 2 ("${t2}") has ${uploadedTeams[t2] ? uploadedTeams[t2].length : 0} players, but ${requiredCount} are required. Please adjust squad.`);
+                return window.openSquadBuilderForTeam(t2);
             }
 
             document.getElementById('coin').className = 'coin';
@@ -827,6 +847,7 @@
             const tourney = document.getElementById('tourneySelect').value;
             const rulesFormat = document.getElementById('rulesFormatSelect').value;
             const totalOvers = parseInt(document.getElementById('matchOversInput').value) || 8;
+            const playersPerTeam = window.getRequiredPlayerCount();
             const decision = document.getElementById('setupDecision').value;
             const sName = document.getElementById('setupStriker').value;
             const nsName = document.getElementById('setupNonStriker').value;
@@ -842,6 +863,7 @@
                 match_status: "in_progress",
                 rulesFormat: rulesFormat,
                 totalOvers: totalOvers,
+                playersPerTeam: playersPerTeam,
                 tournament: tourney,
                 matchId: currentMatchId,
                 inn: 1,
@@ -901,7 +923,7 @@
                 bat1El.style.color = (isPairs && r1 < 0) ? 'var(--red)' : 'var(--gold)';
             }
             if (bat2El) {
-                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
+                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️️`;
                 bat2El.style.color = (isPairs && r2 < 0) ? 'var(--red)' : '#64748b';
             }
 
@@ -1595,7 +1617,6 @@
             await updateDoc(matchDocRef, d);
         };
 
-        // --- PAIRS CRIC-8: ALL 8 OVERS PLAYED BEFORE WINNER IS DECIDED ---
         async function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut = false) {
             const maxBalls = (d.totalOvers || 8) * 6;
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -1777,6 +1798,7 @@
                     tournament: "friendly",
                     rulesFormat: "pairs",
                     totalOvers: 8,
+                    playersPerTeam: 8,
                     tossWinner: 'tA',
                     tossDecision: 'bat',
                     crr_bat_name: "Striker", crr_bat_runs: 0, crr_bat_balls: 0,
