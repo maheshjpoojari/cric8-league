@@ -313,7 +313,7 @@
                 </select>
             </div>
 
-            <!-- DYNAMIC CATCHER SELECTOR -->
+            <!-- CATCHER SELECTOR: VISIBLE ONLY ON 'CAUGHT' -->
             <div class="input-group hidden" id="catcherGroup">
                 <label>Catch Taken By (Fielding Team)</label>
                 <select id="wickCatcher" class="input-field"></select>
@@ -707,7 +707,7 @@
                 bat1El.style.color = (isPairs && r1 < 0) ? 'var(--red)' : 'var(--gold)';
             }
             if (bat2El) {
-                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️️`;
+                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
                 bat2El.style.color = (isPairs && r2 < 0) ? 'var(--red)' : '#64748b';
             }
 
@@ -861,7 +861,6 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                // Bowler selection
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
 
@@ -1122,7 +1121,7 @@
             await evaluateMatchFlow(d, teamKey, oppKey);
         };
 
-        // --- ASYNC ROSTER POPULATION FOR CATCHER LIST ---
+        // --- ASYNC DISMISSAL SETUP & FIELDING LIST ---
         window.openWicketModal = async () => {
             if (!isScoringAuthorized) return;
             const isPairs = (matchData?.rulesFormat === 'pairs');
@@ -1174,7 +1173,7 @@
                 creaseGroup?.classList.add('hidden');
             }
 
-            // Show catcher selection ONLY on Caught
+            // Show catcher selection ONLY on Caught (Hidden for Caught & Bowled, Bowled, etc.)
             if (wType === 'Caught') {
                 catcherGroup?.classList.remove('hidden');
             } else {
@@ -1228,6 +1227,7 @@
                     if (!d[scKey].fielders[catcherName]) d[scKey].fielders[catcherName] = { catches: 0, runOuts: 0 };
                     d[scKey].fielders[catcherName].catches += 1;
                 } else if (wType === 'Caught & Bowled') {
+                    // Automatically added directly to the bowler's catches account
                     if (!d[scKey].fielders[currentBowler]) d[scKey].fielders[currentBowler] = { catches: 0, runOuts: 0 };
                     d[scKey].fielders[currentBowler].catches += 1;
                 }
@@ -1328,7 +1328,6 @@
             await updateDoc(matchDocRef, d);
         };
 
-        // --- PAIRS CRIC-8: ALL 8 OVERS PLAYED BEFORE WINNER IS DECIDED ---
         async function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut = false) {
             const maxBalls = (d.totalOvers || 8) * 6;
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -1450,7 +1449,7 @@
 
             html += `</table>`;
 
-            // FIELDING AWARDS TABLE (BEST FIELDER TRACKING)
+            // FIELDING AWARDS TABLE
             if (sc.fielders && Object.keys(sc.fielders).length > 0) {
                 html += `
                     <div style="color:var(--gold); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FIELDING (MOST CATCHES)</div>
