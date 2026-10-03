@@ -137,11 +137,11 @@
 
             <div class="input-group">
                 <label>Team 1 (Calls HEADS)</label>
-                <select id="selectTeam1" class="input-field" onchange="window.filterTeamOptions()"></select>
+                <select id="selectTeam1" class="input-field" onchange="window.onTeamSelectChange('selectTeam1')"></select>
             </div>
             <div class="input-group">
                 <label>Team 2 (Calls TAILS)</label>
-                <select id="selectTeam2" class="input-field"></select>
+                <select id="selectTeam2" class="input-field" onchange="window.onTeamSelectChange('selectTeam2')"></select>
             </div>
 
             <button class="btn btn-orange" style="width:100%; margin-top:10px;" onclick="window.goToTossScreen()">PROCEED TO TOSS 🪙</button>
@@ -174,15 +174,15 @@
 
                 <div class="input-group">
                     <label id="strikerLabel">Opening Striker</label>
-                    <select id="setupStriker" class="input-field"></select>
+                    <select id="setupStriker" class="input-field" onchange="window.handleInLinePlayerAdd('setupStriker', window.getCurrentBattingTeamName())"></select>
                 </div>
                 <div class="input-group">
                     <label id="nonStrikerLabel">Opening Non-Striker</label>
-                    <select id="setupNonStriker" class="input-field"></select>
+                    <select id="setupNonStriker" class="input-field" onchange="window.handleInLinePlayerAdd('setupNonStriker', window.getCurrentBattingTeamName())"></select>
                 </div>
                 <div class="input-group">
                     <label id="bowlerLabel">Opening Bowler</label>
-                    <select id="setupBowler" class="input-field"></select>
+                    <select id="setupBowler" class="input-field" onchange="window.handleInLinePlayerAdd('setupBowler', window.getCurrentBowlingTeamName())"></select>
                 </div>
                 
                 <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="window.startMatch()">START MATCH & OPEN SCORER</button>
@@ -224,10 +224,8 @@
             
             <button class="btn" style="background:#0284c7" onclick="window.handleAction(1, 'declare')">1D</button>
             
-            <!-- BYE / LEG BYE BUTTON -->
             <button class="btn" style="background:#475569" onclick="window.openByeModal()">BYE</button>
 
-            <!-- HARMONIZED DYNAMIC EXTRAS -->
             <button class="btn btn-blue" onclick="window.openExtraModal('wide')">WD</button>
             <button class="btn btn-orange" onclick="window.openExtraModal('noball')">NB</button>
 
@@ -242,7 +240,7 @@
         </div>
     </div>
 
-    <!-- MODAL: BYES & LEG BYES (DYNAMIC RUNS & TYPE SELECTOR) -->
+    <!-- MODAL: BYES & LEG BYES -->
     <div id="byeModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">RECORD BYE / LEG BYE</h3>
@@ -289,17 +287,17 @@
                 <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR ROTATION</div>
                 <div class="input-group">
                     <label>New Striker</label>
-                    <select id="nextStrikerSelect" class="input-field" onchange="window.filterSecondaryBatter()"></select>
+                    <select id="nextStrikerSelect" class="input-field" onchange="window.handlePairStrikerSelectChange()"></select>
                 </div>
                 <div class="input-group">
                     <label>New Non-Striker</label>
-                    <select id="nextNonStrikerSelect" class="input-field"></select>
+                    <select id="nextNonStrikerSelect" class="input-field" onchange="window.handlePairNonStrikerSelectChange()"></select>
                 </div>
             </div>
 
             <div class="input-group">
                 <label id="nextBowlerTeamLabel">Fielding Team Bowler</label>
-                <select id="nextBowlerSelect" class="input-field"></select>
+                <select id="nextBowlerSelect" class="input-field" onchange="window.handleNextBowlerSelectChange()"></select>
             </div>
             
             <button id="confirmOverBtn" class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.confirmNextOver()">START NEXT OVER</button>
@@ -314,7 +312,7 @@
             <p style="font-size: 0.8rem; color:#94a3b8; text-align:center;">Select the next batter entering the crease.</p>
             <div class="input-group">
                 <label>Available Batters</label>
-                <select id="incomingBatterSelect" class="input-field"></select>
+                <select id="incomingBatterSelect" class="input-field" onchange="window.handleIncomingBatterSelectChange()"></select>
             </div>
             <button class="btn btn-green" style="width:100%;" onclick="window.confirmNewBatter()">SEND TO CREASE</button>
         </div>
@@ -341,7 +339,7 @@
 
             <div class="input-group hidden" id="catcherGroup">
                 <label id="fielderActionLabel">Fielder</label>
-                <select id="wickCatcher" class="input-field"></select>
+                <select id="wickCatcher" class="input-field" onchange="window.handleFielderSelectChange()"></select>
             </div>
 
             <div class="input-group">
@@ -558,7 +556,8 @@
             }
         }
 
-        window.setupTournamentDropdowns = () => {
+        // --- IN-LINE AD-HOC TEAM ADDITION (APPROACH 1) ---
+        window.setupTournamentDropdowns = (selectedT1 = null, selectedT2 = null) => {
             const t1 = document.getElementById('selectTeam1');
             const t2 = document.getElementById('selectTeam2');
             t1.innerHTML = '';
@@ -569,25 +568,115 @@
 
             teamNames.forEach((name, i) => {
                 t1.add(new Option(name, name));
-                const opt = new Option(name, name);
-                if (i === 1) opt.selected = true;
-                t2.add(opt);
-            });
-        };
-
-        window.filterTeamOptions = () => {
-            const t1Val = document.getElementById('selectTeam1').value;
-            const t2 = document.getElementById('selectTeam2');
-            t2.innerHTML = '';
-            Object.keys(uploadedTeams).filter(name => name !== t1Val).forEach(name => {
                 t2.add(new Option(name, name));
             });
+
+            // Permanent In-Line "+ Add New" option
+            t1.add(new Option("➕ Add New Custom Team...", "__add_new_team__"));
+            t2.add(new Option("➕ Add New Custom Team...", "__add_new_team__"));
+
+            if (selectedT1 && uploadedTeams[selectedT1]) {
+                t1.value = selectedT1;
+            } else {
+                t1.selectedIndex = 0;
+            }
+
+            if (selectedT2 && uploadedTeams[selectedT2]) {
+                t2.value = selectedT2;
+            } else {
+                t2.selectedIndex = teamNames.length > 1 ? 1 : 0;
+            }
+        };
+
+        window.onTeamSelectChange = async (selectId) => {
+            const sel = document.getElementById(selectId);
+            if (sel.value === "__add_new_team__") {
+                const customTeamName = prompt("Enter Custom Team Name (e.g., Nahda Warriors):");
+                if (customTeamName && customTeamName.trim()) {
+                    const cleanName = customTeamName.trim();
+                    if (!uploadedTeams[cleanName]) {
+                        uploadedTeams[cleanName] = [];
+                        
+                        // Optional cloud persistence
+                        const saveCloud = confirm(`Save "${cleanName}" to cloud database for future matches?`);
+                        if (saveCloud) {
+                            try {
+                                await addDoc(collection(db, "teams"), { name: cleanName, players: [] });
+                            } catch (err) {
+                                console.warn("Cloud save skipped:", err);
+                            }
+                        }
+                    }
+                    const otherId = selectId === 'selectTeam1' ? 'selectTeam2' : 'selectTeam1';
+                    const otherVal = document.getElementById(otherId).value;
+                    window.setupTournamentDropdowns(selectId === 'selectTeam1' ? cleanName : otherVal, selectId === 'selectTeam2' ? cleanName : otherVal);
+                } else {
+                    sel.selectedIndex = 0;
+                }
+            }
+        };
+
+        // --- IN-LINE AD-HOC PLAYER ADDITION HELPER ---
+        window.handleInLinePlayerAdd = async (selectId, teamName) => {
+            const sel = document.getElementById(selectId);
+            if (!sel) return null;
+            if (sel.value === "__add_new_player__") {
+                const customPlayer = prompt(`Enter New Player Name for ${teamName}:`);
+                if (customPlayer && customPlayer.trim()) {
+                    const clean = customPlayer.trim();
+                    if (!uploadedTeams[teamName]) uploadedTeams[teamName] = [];
+                    if (!uploadedTeams[teamName].includes(clean)) {
+                        uploadedTeams[teamName].push(clean);
+
+                        const saveCloud = confirm(`Save "${clean}" under ${teamName} in cloud database?`);
+                        if (saveCloud) {
+                            try {
+                                const qSnap = await getDocs(collection(db, "teams"));
+                                qSnap.forEach(dSnap => {
+                                    const dName = dSnap.data().teamName || dSnap.data().name || dSnap.id;
+                                    if (dName === teamName) {
+                                        updateDoc(doc(db, "teams", dSnap.id), { players: uploadedTeams[teamName] });
+                                    }
+                                });
+                            } catch (err) {
+                                console.warn("Player cloud save skipped:", err);
+                            }
+                        }
+                    }
+                    // Insert option right before the "+ Add New" option
+                    const opt = new Option(clean, clean, true, true);
+                    sel.add(opt, sel.options[sel.length - 1]);
+                    sel.value = clean;
+                    return clean;
+                } else {
+                    sel.selectedIndex = 0;
+                    return null;
+                }
+            }
+            return sel.value;
+        };
+
+        window.getCurrentBattingTeamName = () => {
+            const t1 = document.getElementById('selectTeam1')?.value;
+            const t2 = document.getElementById('selectTeam2')?.value;
+            const decision = document.getElementById('setupDecision')?.value || 'bat';
+            if (!tossWinnerTeam) return t1;
+            return (tossWinnerTeam === t1) ? (decision === 'bat' ? t1 : t2) : (decision === 'bat' ? t2 : t1);
+        };
+
+        window.getCurrentBowlingTeamName = () => {
+            const t1 = document.getElementById('selectTeam1')?.value;
+            const t2 = document.getElementById('selectTeam2')?.value;
+            const decision = document.getElementById('setupDecision')?.value || 'bat';
+            if (!tossWinnerTeam) return t2;
+            return (tossWinnerTeam === t1) ? (decision === 'bat' ? t2 : t1) : (decision === 'bat' ? t1 : t2);
         };
 
         window.goToTossScreen = () => {
             const t1 = document.getElementById('selectTeam1').value;
             const t2 = document.getElementById('selectTeam2').value;
             if (t1 === t2) return alert("Select two different teams.");
+            if (t1 === '__add_new_team__' || t2 === '__add_new_team__') return alert("Please select or add valid teams.");
 
             document.getElementById('coin').className = 'coin';
             document.getElementById('tossResultBox').classList.add('hidden');
@@ -619,19 +708,11 @@
         };
 
         window.updateLineupDropdowns = () => {
-            const t1 = document.getElementById('selectTeam1').value;
-            const t2 = document.getElementById('selectTeam2').value;
-            const decision = document.getElementById('setupDecision')?.value || 'bat';
+            const battingTeam = window.getCurrentBattingTeamName();
+            const bowlingTeam = window.getCurrentBowlingTeamName();
 
-            let battingTeam = t1;
-            let bowlingTeam = t2;
-            if (tossWinnerTeam) {
-                battingTeam = (tossWinnerTeam === t1) ? (decision === 'bat' ? t1 : t2) : (decision === 'bat' ? t2 : t1);
-                bowlingTeam = (tossWinnerTeam === t1) ? (decision === 'bat' ? t2 : t1) : (decision === 'bat' ? t1 : t2);
-            }
-
-            const batRoster = uploadedTeams[battingTeam] || ["Player 1", "Player 2", "Player 3", "Player 4"];
-            const bowlRoster = uploadedTeams[bowlingTeam] || ["Player 1", "Player 2", "Player 3", "Player 4"];
+            const batRoster = uploadedTeams[battingTeam] || [];
+            const bowlRoster = uploadedTeams[bowlingTeam] || [];
 
             const sSelect = document.getElementById('setupStriker');
             const nsSelect = document.getElementById('setupNonStriker');
@@ -647,8 +728,12 @@
                 if (idx === 1) opt.selected = true;
                 nsSelect.add(opt);
             });
+            // Append "+ Add New Player..." to batsman selections
+            sSelect.add(new Option("➕ Add New Player...", "__add_new_player__"));
+            nsSelect.add(new Option("➕ Add New Player...", "__add_new_player__"));
 
             bowlRoster.forEach(p => bSelect.add(new Option(p, p)));
+            bSelect.add(new Option("➕ Add New Player...", "__add_new_player__"));
 
             setText('strikerLabel', `Opening Striker (${battingTeam})`);
             setText('nonStrikerLabel', `Opening Non-Striker (${battingTeam})`);
@@ -666,6 +751,9 @@
             const nsName = document.getElementById('setupNonStriker').value;
             const bName = document.getElementById('setupBowler').value;
 
+            if (sName === '__add_new_player__' || nsName === '__add_new_player__' || bName === '__add_new_player__') {
+                return alert("Please select or add valid opening players.");
+            }
             if (sName === nsName) return alert("Striker and Non-Striker must be two different players.");
 
             const newMatchData = {
@@ -787,6 +875,7 @@
                     let cls = 'bg-white';
                     if (b === 'W' || b.toString().includes('3D')) cls = 'bg-red';
                     if (b.toString().includes('N') || b.toString().includes('Wd')) cls = 'bg-yellow';
+                    if (b.toString().includes('B')) cls = 'bg-white';
                     return `<div class="ball ${cls}">${b}</div>`;
                 }).join('');
             }
@@ -871,15 +960,13 @@
 
                     if (activeAvailableBatters.length < 2) {
                         activeAvailableBatters = fullBatRoster.filter(p => p !== d.crr_bat_name && p !== d.non_bat_name);
-                        if (activeAvailableBatters.length === 0) {
-                            activeAvailableBatters = [`${battingTeamName} Sub A`, `${battingTeamName} Sub B`];
-                        }
                     }
                     
                     const sSel = document.getElementById('nextStrikerSelect');
                     if (sSel) {
                         sSel.innerHTML = '';
                         activeAvailableBatters.forEach(p => sSel.add(new Option(p, p)));
+                        sSel.add(new Option("➕ Add New Player...", "__add_new_player__"));
                     }
                     window.filterSecondaryBatter();
                 } else {
@@ -900,13 +987,13 @@
 
                 if (eligibleBowlers.length === 0) {
                     eligibleBowlers = fullFieldingRoster.filter(p => !currentCreaseBatters.includes(p));
-                    if (eligibleBowlers.length === 0) eligibleBowlers = [`${fieldingTeamName} Extra Bowler`];
                 }
 
                 const bSel = document.getElementById('nextBowlerSelect');
                 if (bSel) {
                     bSel.innerHTML = '';
                     eligibleBowlers.forEach(p => bSel.add(new Option(p, p)));
+                    bSel.add(new Option("➕ Add New Player...", "__add_new_player__"));
                 }
 
                 setText('nextBowlerTeamLabel', `Choose Bowler (${fieldingTeamName}) - Over ${completedOvers + 1} of ${d.totalOvers || 8}`);
@@ -917,6 +1004,34 @@
             }
         };
 
+        window.handlePairStrikerSelectChange = async () => {
+            const d = matchData || {};
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const batTeam = isTeamABatting ? d.tA?.name : d.tB?.name;
+
+            await window.handleInLinePlayerAdd('nextStrikerSelect', batTeam);
+            window.filterSecondaryBatter();
+        };
+
+        window.handlePairNonStrikerSelectChange = async () => {
+            const d = matchData || {};
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const batTeam = isTeamABatting ? d.tA?.name : d.tB?.name;
+
+            await window.handleInLinePlayerAdd('nextNonStrikerSelect', batTeam);
+        };
+
+        window.handleNextBowlerSelectChange = async () => {
+            const d = matchData || {};
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const fieldTeam = isTeamABatting ? d.tB?.name : d.tA?.name;
+
+            await window.handleInLinePlayerAdd('nextBowlerSelect', fieldTeam);
+        };
+
         window.filterSecondaryBatter = () => {
             const sSel = document.getElementById('nextStrikerSelect');
             const nsSel = document.getElementById('nextNonStrikerSelect');
@@ -924,11 +1039,12 @@
             const primary = sSel.value;
             nsSel.innerHTML = '';
             activeAvailableBatters.filter(p => p !== primary).forEach(p => nsSel.add(new Option(p, p)));
+            nsSel.add(new Option("➕ Add New Player...", "__add_new_player__"));
         };
 
         window.confirmNextOver = async () => {
             const nextBowl = document.getElementById('nextBowlerSelect')?.value;
-            if (!nextBowl) return alert("Please select a bowler.");
+            if (!nextBowl || nextBowl === '__add_new_player__') return alert("Please select a valid bowler.");
 
             window.closeModal('bowlerModal');
             const controls = document.getElementById('mainControls');
@@ -962,7 +1078,7 @@
                     let sName = sSel?.value;
                     let nsName = nsSel?.value;
 
-                    if (!sName || !nsName || sName === nsName) {
+                    if (!sName || !nsName || sName === nsName || sName === '__add_new_player__' || nsName === '__add_new_player__') {
                         const available = activeAvailableBatters.filter(p => p !== sName);
                         nsName = available[0] || `${d.crr_bat_name} Sub`;
                     }
@@ -1103,19 +1219,14 @@
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
             } else if (type === 'bye' || type === 'leg_bye') {
-                // LAWS OF CRICKET: BYES & LEG BYES
-                // 1. Adds to team score
                 d[teamKey].score += val;
-                // 2. Counts as a legal delivery bowled & faced
                 d[teamKey].balls = currentBalls + 1;
                 d.crr_bat_balls += 1;
                 d[scKey].batters[striker].balls += 1;
                 d[scKey].bowlers[bowler].balls += 1;
-                // 3. Stored under extras; NOT charged to bowler, NOT credited to batter
                 d[scKey].extras += val;
                 d.consecutive_dots = 0;
 
-                // 4. Swap strike on odd runs
                 if (val % 2 !== 0) {
                     [d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls, d.non_bat_name, d.non_bat_runs, d.non_bat_balls] = 
                     [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
@@ -1198,8 +1309,18 @@
             const cSel = document.getElementById('wickCatcher');
             if (cSel) {
                 cSel.innerHTML = '';
-                (roster.length ? roster : [`${fieldingTeamName} Fielder`]).forEach(p => cSel.add(new Option(p, p)));
+                roster.forEach(p => cSel.add(new Option(p, p)));
+                cSel.add(new Option("➕ Add New Player...", "__add_new_player__"));
             }
+        };
+
+        window.handleFielderSelectChange = async () => {
+            const d = matchData || {};
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const fieldingTeamName = isTeamABatting ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
+
+            await window.handleInLinePlayerAdd('wickCatcher', fieldingTeamName);
         };
 
         window.onWickTypeChange = () => {
@@ -1257,6 +1378,10 @@
                 const currentBowler = d.crr_bowl || "TBD";
                 const fielderName = document.getElementById('wickCatcher')?.value || "Fielder";
 
+                if ((wType === 'Caught' || wType === 'Run Out') && fielderName === '__add_new_player__') {
+                    return alert("Please select or add a valid fielder.");
+                }
+
                 d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
                 d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
                 d.consecutive_dots = 0;
@@ -1273,12 +1398,10 @@
                 d[scKey].batters[dismissedName].balls += 1;
                 d[scKey].batters[dismissedName].dismissals += 1;
 
-                // Credit Bowler Wicket (All except Run Out)
                 if (wType !== 'Run Out') {
                     d[scKey].bowlers[currentBowler].wkts += 1;
                 }
 
-                // Credit Fielding Stats
                 if (wType === 'Caught') {
                     if (!d[scKey].fielders[fielderName]) d[scKey].fielders[fielderName] = { catches: 0, runOuts: 0 };
                     d[scKey].fielders[fielderName].catches += 1;
@@ -1350,21 +1473,26 @@
             const usedBatters = d.used_batsmen || [];
             const unusedBatters = fullRoster.filter(p => !usedBatters.includes(p));
 
-            if (unusedBatters.length === 0) {
-                alert(`${battingTeamName} is ALL OUT!`);
-                evaluateMatchFlow(d, null, null, true);
-                return;
-            }
-
             const sel = document.getElementById('incomingBatterSelect');
             sel.innerHTML = '';
             unusedBatters.forEach(p => sel.add(new Option(p, p)));
+            sel.add(new Option("➕ Add New Player...", "__add_new_player__"));
+            
             document.getElementById('newBatterModal')?.classList.remove('hidden');
+        };
+
+        window.handleIncomingBatterSelectChange = async () => {
+            const d = matchData || {};
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const battingTeamName = isTeamABatting ? d.tA?.name : d.tB?.name;
+
+            await window.handleInLinePlayerAdd('incomingBatterSelect', battingTeamName);
         };
 
         window.confirmNewBatter = async () => {
             const newBatter = document.getElementById('incomingBatterSelect').value;
-            if (!newBatter) return;
+            if (!newBatter || newBatter === '__add_new_player__') return alert("Please select or add a valid batter.");
 
             const d = JSON.parse(JSON.stringify(matchData));
             if (!Array.isArray(d.used_batsmen)) d.used_batsmen = [];
@@ -1508,7 +1636,6 @@
 
             html += `</table>`;
 
-            // FIELDING AWARDS TABLE (CATCHES & RUN OUTS)
             if (sc.fielders && Object.keys(sc.fielders).length > 0) {
                 html += `
                     <div style="color:var(--gold); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FIELDING (AWARDS)</div>
