@@ -192,7 +192,7 @@
         </div>
     </div>
 
-    <!-- VIEW 5: LIVE SCORER CONSOLE -->
+    <!-- VIEW 5: LIVE SCORER CONSOLE (UNIFIED KEYPAD FOR ALL FORMATS) -->
     <div id="viewScorer" class="app-view hidden">
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
@@ -225,10 +225,9 @@
             <button class="btn" style="background:#0284c7" onclick="window.handleAction(1, 'declare')">1D</button>
             <button class="btn" style="background:#475569" onclick="window.handleAction(1, 'rb')">1RB</button>
 
-            <button class="btn btn-blue" onclick="window.handleAction(0, 'wide')">WD</button>
-            <button class="btn btn-blue" onclick="window.handleAction(1, 'wide')">WD+1</button>
-            <button class="btn btn-orange" onclick="window.handleAction(0, 'noball')">NB</button>
-            <button class="btn btn-orange" style="grid-column: span 4;" onclick="window.handleAction(1, 'noball')">NB+1</button>
+            <!-- HARMONIZED EXTRAS: DYNAMIC RUN INPUT PROMPT -->
+            <button class="btn btn-blue" onclick="window.openExtraModal('wide')">WD</button>
+            <button class="btn btn-orange" onclick="window.openExtraModal('noball')">NB</button>
 
             <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
             
@@ -241,7 +240,21 @@
         </div>
     </div>
 
-    <!-- MODALS -->
+    <!-- MODAL: DYNAMIC EXTRA RUNS (WIDE / NO-BALL) -->
+    <div id="extraModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--gold); text-align:center;" id="extraModalTitle">RECORD EXTRA</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Enter any additional runs completed by running:</p>
+            <div class="input-group">
+                <label>Additional Runs (0 if none)</label>
+                <input type="number" id="extraRunsInput" class="input-field" value="0" min="0" max="20">
+            </div>
+            <button class="btn btn-green" style="width:100%;" onclick="window.confirmExtraAction()">CONFIRM EXTRA</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('extraModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- MODAL: NEXT OVER -->
     <div id="bowlerModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
@@ -268,6 +281,7 @@
         </div>
     </div>
 
+    <!-- MODAL: CLASSIC INCOMING BATTER -->
     <div id="newBatterModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
             <h3 style="margin-top:0; color:var(--gold); text-align:center;">🏏 INCOMING BATTER</h3>
@@ -280,6 +294,7 @@
         </div>
     </div>
 
+    <!-- MODAL: STRUCTURED DISMISSAL -->
     <div id="wickModal" class="modal hidden">
         <div class="view-card" style="border-color: var(--red); width: 100%; max-width: 420px;">
             <h3 style="color: var(--red); margin-top:0; text-align:center;" id="wickModalTitle">RECORD DISMISSAL</h3>
@@ -288,12 +303,20 @@
                 <label>Dismissal Type</label>
                 <select id="wickType" class="input-field" onchange="window.onWickTypeChange()">
                     <option value="Bowled">Bowled (Bowler +1 Wkt)</option>
-                    <option value="Caught">Caught (Bowler +1 Wkt)</option>
+                    <option value="Caught">Caught (Bowler +1 Wkt, Record Fielder)</option>
+                    <option value="Caught & Bowled">Caught & Bowled (Bowler +1 Wkt & Catch)</option>
+                    <option value="Ball Out of Turf">Ball Out of Turf/Court (Bowler +1 Wkt)</option>
                     <option value="Stumped">Stumped (Bowler +1 Wkt)</option>
                     <option value="LBW">LBW (Bowler +1 Wkt)</option>
                     <option value="Hit Wicket">Hit Wicket (Bowler +1 Wkt)</option>
                     <option value="Run Out">Run Out (No Bowler Wkt)</option>
                 </select>
+            </div>
+
+            <!-- DYNAMIC CATCHER SELECTOR -->
+            <div class="input-group hidden" id="catcherGroup">
+                <label>Catch Taken By (Fielder)</label>
+                <select id="wickCatcher" class="input-field"></select>
             </div>
 
             <div class="input-group">
@@ -314,6 +337,7 @@
         </div>
     </div>
 
+    <!-- MODAL: SCORECARD -->
     <div id="scorecardModal" class="modal hidden">
         <div class="view-card" style="max-width: 480px; max-height: 90vh; overflow-y: auto;">
             <h3 style="margin-top:0; color:var(--gold); text-align:center; margin-bottom: 4px;">🏆 OFFICIAL MATCH SCORECARD</h3>
@@ -360,6 +384,7 @@
         let activeAvailableBatters = [];
         let pendingDismissedRole = null;
         let activeScorecardTab = 1;
+        let pendingExtraType = 'wide';
 
         function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return 0;
@@ -741,7 +766,6 @@
                 }).join('');
             }
 
-            // ACCURATE OVER/INNINGS END CHECK
             const legalBallsInThisOver = getLegalDeliveriesInCurrentOver(d.curr_over, isPairs, completedOvers, totalOvers);
             const isOverComplete = legalBallsInThisOver >= 6;
             const isCurrentInningsComplete = (balls >= totalOvers * 6);
@@ -837,7 +861,6 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                // Bowler selection
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
 
@@ -951,7 +974,23 @@
             }
         };
 
-        // --- BULLETPROOF ACTION HANDLER ---
+        // --- DYNAMIC EXTRA PROMPT MODAL (REQ #4 & #5) ---
+        window.openExtraModal = (type) => {
+            if (!isScoringAuthorized) return;
+            pendingExtraType = type;
+            setText('extraModalTitle', type === 'wide' ? 'RECORD WIDE (WD)' : 'RECORD NO-BALL (NB)');
+            const input = document.getElementById('extraRunsInput');
+            if (input) input.value = "0";
+            document.getElementById('extraModal')?.classList.remove('hidden');
+        };
+
+        window.confirmExtraAction = async () => {
+            const extraRuns = parseInt(document.getElementById('extraRunsInput')?.value) || 0;
+            window.closeModal('extraModal');
+            await window.handleAction(extraRuns, pendingExtraType);
+        };
+
+        // --- CORE ACTION ENGINE WITH HARMONIZED EXTRAS ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -982,8 +1021,6 @@
 
             const currentBalls = parseInt(d[teamKey].balls) || 0;
             const completedOvers = Math.floor(currentBalls / 6);
-            
-            // Over 8 is the final over (completedOvers === 7)
             const isFinalOver = (completedOvers >= ((d.totalOvers || 8) - 1));
             
             // In Pairs overs 1-7: Extras DO count as an incremental ball
@@ -1083,19 +1120,36 @@
             await evaluateMatchFlow(d, teamKey, oppKey);
         };
 
+        // --- DISMISSAL MODAL SETUP (REQ #1, #2, #3) ---
         window.openWicketModal = () => {
             if (!isScoringAuthorized) return;
             const isPairs = (matchData?.rulesFormat === 'pairs');
             setText('wickModalTitle', isPairs ? 'RECORD DISMISSAL (-5)' : 'RECORD OUT / WICKET');
             document.getElementById('wickType').value = 'Bowled';
+            window.populateCatcherDropdown();
             window.onWickTypeChange();
             document.getElementById('wickModal')?.classList.remove('hidden');
+        };
+
+        window.populateCatcherDropdown = () => {
+            const d = matchData || {};
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const fieldingTeamName = isTeamABatting ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
+            const roster = uploadedTeams[fieldingTeamName] || [];
+
+            const cSel = document.getElementById('wickCatcher');
+            if (cSel) {
+                cSel.innerHTML = '';
+                (roster.length ? roster : [`${fieldingTeamName} Fielder`]).forEach(p => cSel.add(new Option(p, p)));
+            }
         };
 
         window.onWickTypeChange = () => {
             const wType = document.getElementById('wickType')?.value || 'Bowled';
             const creaseGroup = document.getElementById('creaseOutcomeGroup');
             const creaseSelect = document.getElementById('wickCrease');
+            const catcherGroup = document.getElementById('catcherGroup');
             const bSel = document.getElementById('wickBatter');
             const sName = matchData?.crr_bat_name || "Striker";
             const nsName = matchData?.non_bat_name || "Non-Striker";
@@ -1112,6 +1166,13 @@
                 bSel.disabled = true;
                 if (creaseSelect) creaseSelect.value = 'no_swap';
                 creaseGroup?.classList.add('hidden');
+            }
+
+            // Show catcher selection ONLY on Caught
+            if (wType === 'Caught') {
+                catcherGroup?.classList.remove('hidden');
+            } else {
+                catcherGroup?.classList.add('hidden');
             }
         };
 
@@ -1133,6 +1194,7 @@
                 const creaseOutcome = document.getElementById('wickCrease')?.value || 'no_swap';
                 const dismissedName = (dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name) || "Batter";
                 const currentBowler = d.crr_bowl || "TBD";
+                const catcherName = document.getElementById('wickCatcher')?.value || "Fielder";
 
                 d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
                 d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
@@ -1149,15 +1211,23 @@
                 d[scKey].batters[dismissedName].balls += 1;
                 d[scKey].batters[dismissedName].dismissals += 1;
 
+                // Credit Bowler Wicket (All except Run Out)
                 if (wType !== 'Run Out') {
                     d[scKey].bowlers[currentBowler].wkts += 1;
                 }
+
+                // Format dismissal descriptor for FOW
+                let dismissalDesc = wType;
+                if (wType === 'Caught') dismissalDesc = `c ${catcherName} b ${currentBowler}`;
+                else if (wType === 'Caught & Bowled') dismissalDesc = `c&b ${currentBowler}`;
+                else if (wType === 'Bowled') dismissalDesc = `b ${currentBowler}`;
+                else if (wType === 'Ball Out of Turf') dismissalDesc = `out of turf b ${currentBowler}`;
 
                 const overNotation = `${Math.floor(d[teamKey].balls / 6)}.${d[teamKey].balls % 6}`;
                 d[scKey].fow.push({
                     wkt: d[teamKey].wkts,
                     score: d[teamKey].score,
-                    player: dismissedName,
+                    player: `${dismissedName} (${dismissalDesc})`,
                     over: overNotation
                 });
 
@@ -1242,7 +1312,7 @@
             await updateDoc(matchDocRef, d);
         };
 
-        // --- PAIRS CRIC-8: ALL 8 OVERS MUST BE PLAYED BEFORE WINNER IS DECIDED ---
+        // --- PAIRS CRIC-8: ALL 8 OVERS PLAYED BEFORE WINNER IS DECIDED ---
         async function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut = false) {
             const maxBalls = (d.totalOvers || 8) * 6;
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -1286,11 +1356,9 @@
                 let winnerText = "";
 
                 if (!isPairs && currentScore >= target) {
-                    // Classic cricket only: match ends as soon as target is reached
                     matchOver = true;
                     winnerText = `🎉 ${d[batKey].name} WON by chasing the target!`;
                 } else if (currentBalls >= maxBalls || forceAllOut) {
-                    // Pairs cricket (or 48 balls reached in Classic): decided only after 8 full overs
                     matchOver = true;
                     if (currentScore === oppScore) {
                         winnerText = `🤝 MATCH TIED! Both teams scored ${currentScore} runs.`;
