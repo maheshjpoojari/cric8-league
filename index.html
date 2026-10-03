@@ -136,11 +136,18 @@
             </div>
 
             <div class="input-group">
-                <label>Team 1 (Calls HEADS)</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label style="margin-bottom:0;">Team 1 (Calls HEADS)</label>
+                    <button class="btn btn-util" style="padding:4px 8px; font-size:0.7rem;" onclick="window.openSquadEditor('selectTeam1')">👥 Edit Squad</button>
+                </div>
                 <select id="selectTeam1" class="input-field" onchange="window.onTeamSelectChange('selectTeam1')"></select>
             </div>
+            
             <div class="input-group">
-                <label>Team 2 (Calls TAILS)</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label style="margin-bottom:0;">Team 2 (Calls TAILS)</label>
+                    <button class="btn btn-util" style="padding:4px 8px; font-size:0.7rem;" onclick="window.openSquadEditor('selectTeam2')">👥 Edit Squad</button>
+                </div>
                 <select id="selectTeam2" class="input-field" onchange="window.onTeamSelectChange('selectTeam2')"></select>
             </div>
 
@@ -223,7 +230,6 @@
             <button class="btn" onclick="window.handleAction(6, 'run')">6</button>
             
             <button class="btn" style="background:#0284c7" onclick="window.handleAction(1, 'declare')">1D</button>
-            
             <button class="btn" style="background:#475569" onclick="window.openByeModal()">BYE</button>
 
             <button class="btn btn-blue" onclick="window.openExtraModal('wide')">WD</button>
@@ -236,6 +242,24 @@
                 <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
                 <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
                 <button class="btn btn-util" style="color: var(--red);" onclick="window.abortMatch()">ABORT MATCH</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SQUAD ROSTER BUILDER -->
+    <div id="squadBuilderModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 440px;">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;" id="squadBuilderTitle">SQUAD ROSTER BUILDER</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center; margin-bottom: 12px;">Add players separated by commas or new lines:</p>
+            
+            <div class="input-group">
+                <label>Player Names List</label>
+                <textarea id="squadPlayersTextarea" class="input-field" rows="6" placeholder="Mahesh Poojari, Vinayak, Sumit, Rahul, Imran, Fahad, Arjun, Zeeshan"></textarea>
+            </div>
+
+            <div style="display:flex; gap: 8px;">
+                <button class="btn btn-green" style="flex:1;" onclick="window.saveSquadRoster()">SAVE & ASSIGN SQUAD</button>
+                <button class="btn" style="background:#334155; flex:1; font-size:0.85rem;" onclick="window.closeModal('squadBuilderModal')">CANCEL</button>
             </div>
         </div>
     </div>
@@ -408,6 +432,7 @@
         let pendingDismissedRole = null;
         let activeScorecardTab = 1;
         let pendingExtraType = 'wide';
+        let currentEditingTeam = null;
 
         function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return 0;
@@ -556,7 +581,7 @@
             }
         }
 
-        // --- IN-LINE AD-HOC TEAM ADDITION (APPROACH 1) ---
+        // --- TEAM SETUP DROPDOWNS ---
         window.setupTournamentDropdowns = (selectedT1 = null, selectedT2 = null) => {
             const t1 = document.getElementById('selectTeam1');
             const t2 = document.getElementById('selectTeam2');
@@ -571,7 +596,6 @@
                 t2.add(new Option(name, name));
             });
 
-            // Permanent In-Line "+ Add New" option
             t1.add(new Option("➕ Add New Custom Team...", "__add_new_team__"));
             t2.add(new Option("➕ Add New Custom Team...", "__add_new_team__"));
 
@@ -588,7 +612,8 @@
             }
         };
 
-        window.onTeamSelectChange = async (selectId) => {
+        // --- IN-LINE AD-HOC TEAM SELECTION & SQUAD BUILDER TRIGGER ---
+        window.onTeamSelectChange = (selectId) => {
             const sel = document.getElementById(selectId);
             if (sel.value === "__add_new_team__") {
                 const customTeamName = prompt("Enter Custom Team Name (e.g., Nahda Warriors):");
@@ -596,24 +621,85 @@
                     const cleanName = customTeamName.trim();
                     if (!uploadedTeams[cleanName]) {
                         uploadedTeams[cleanName] = [];
-                        
-                        // Optional cloud persistence
-                        const saveCloud = confirm(`Save "${cleanName}" to cloud database for future matches?`);
-                        if (saveCloud) {
-                            try {
-                                await addDoc(collection(db, "teams"), { name: cleanName, players: [] });
-                            } catch (err) {
-                                console.warn("Cloud save skipped:", err);
-                            }
-                        }
                     }
+                    
                     const otherId = selectId === 'selectTeam1' ? 'selectTeam2' : 'selectTeam1';
                     const otherVal = document.getElementById(otherId).value;
                     window.setupTournamentDropdowns(selectId === 'selectTeam1' ? cleanName : otherVal, selectId === 'selectTeam2' ? cleanName : otherVal);
+
+                    // Prompt to populate squad immediately
+                    window.openSquadBuilderForTeam(cleanName);
                 } else {
                     sel.selectedIndex = 0;
                 }
             }
+        };
+
+        // --- SQUAD ROSTER BUILDER ENGINE ---
+        window.openSquadEditor = (selectId) => {
+            const teamName = document.getElementById(selectId)?.value;
+            if (!teamName || teamName === '__add_new_team__') {
+                return alert("Please select or add a team first.");
+            }
+            window.openSquadBuilderForTeam(teamName);
+        };
+
+        window.openSquadBuilderForTeam = (teamName) => {
+            currentEditingTeam = teamName;
+            setText('squadBuilderTitle', `BUILD SQUAD: ${teamName.toUpperCase()}`);
+            const currentRoster = uploadedTeams[teamName] || [];
+            const textarea = document.getElementById('squadPlayersTextarea');
+            if (textarea) {
+                textarea.value = currentRoster.join(', ');
+            }
+            document.getElementById('squadBuilderModal')?.classList.remove('hidden');
+        };
+
+        window.saveSquadRoster = async () => {
+            if (!currentEditingTeam) return;
+            const textarea = document.getElementById('squadPlayersTextarea');
+            const raw = textarea?.value || "";
+            
+            // Clean up player names from comma or newline separated text
+            const playerList = raw
+                .split(/[\n,]+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0 && s !== '__add_new_player__');
+
+            if (playerList.length === 0) {
+                return alert("Please enter at least 2 player names for this squad.");
+            }
+
+            // Save to memory cache
+            uploadedTeams[currentEditingTeam] = Array.from(new Set(playerList));
+
+            const saveCloud = confirm(`Save "${currentEditingTeam}" and its squad (${playerList.length} players) to cloud database for future matches?`);
+            if (saveCloud) {
+                try {
+                    let docFound = false;
+                    const qSnap = await getDocs(collection(db, "teams"));
+                    for (const dSnap of qSnap.docs) {
+                        const dName = dSnap.data().teamName || dSnap.data().name || dSnap.id;
+                        if (dName === currentEditingTeam) {
+                            await updateDoc(doc(db, "teams", dSnap.id), { players: uploadedTeams[currentEditingTeam] });
+                            docFound = true;
+                            break;
+                        }
+                    }
+                    if (!docFound) {
+                        await addDoc(collection(db, "teams"), {
+                            name: currentEditingTeam,
+                            teamName: currentEditingTeam,
+                            players: uploadedTeams[currentEditingTeam]
+                        });
+                    }
+                } catch (err) {
+                    console.warn("Cloud save skipped:", err);
+                }
+            }
+
+            window.closeModal('squadBuilderModal');
+            alert(`✅ Squad for "${currentEditingTeam}" updated with ${playerList.length} players.`);
         };
 
         // --- IN-LINE AD-HOC PLAYER ADDITION HELPER ---
@@ -627,23 +713,7 @@
                     if (!uploadedTeams[teamName]) uploadedTeams[teamName] = [];
                     if (!uploadedTeams[teamName].includes(clean)) {
                         uploadedTeams[teamName].push(clean);
-
-                        const saveCloud = confirm(`Save "${clean}" under ${teamName} in cloud database?`);
-                        if (saveCloud) {
-                            try {
-                                const qSnap = await getDocs(collection(db, "teams"));
-                                qSnap.forEach(dSnap => {
-                                    const dName = dSnap.data().teamName || dSnap.data().name || dSnap.id;
-                                    if (dName === teamName) {
-                                        updateDoc(doc(db, "teams", dSnap.id), { players: uploadedTeams[teamName] });
-                                    }
-                                });
-                            } catch (err) {
-                                console.warn("Player cloud save skipped:", err);
-                            }
-                        }
                     }
-                    // Insert option right before the "+ Add New" option
                     const opt = new Option(clean, clean, true, true);
                     sel.add(opt, sel.options[sel.length - 1]);
                     sel.value = clean;
@@ -677,6 +747,18 @@
             const t2 = document.getElementById('selectTeam2').value;
             if (t1 === t2) return alert("Select two different teams.");
             if (t1 === '__add_new_team__' || t2 === '__add_new_team__') return alert("Please select or add valid teams.");
+
+            // Verify both teams have rosters
+            if (!uploadedTeams[t1] || uploadedTeams[t1].length < 2) {
+                if (confirm(`"${t1}" has fewer than 2 players listed. Would you like to build its squad now?`)) {
+                    return window.openSquadBuilderForTeam(t1);
+                }
+            }
+            if (!uploadedTeams[t2] || uploadedTeams[t2].length < 2) {
+                if (confirm(`"${t2}" has fewer than 2 players listed. Would you like to build its squad now?`)) {
+                    return window.openSquadBuilderForTeam(t2);
+                }
+            }
 
             document.getElementById('coin').className = 'coin';
             document.getElementById('tossResultBox').classList.add('hidden');
@@ -728,7 +810,6 @@
                 if (idx === 1) opt.selected = true;
                 nsSelect.add(opt);
             });
-            // Append "+ Add New Player..." to batsman selections
             sSelect.add(new Option("➕ Add New Player...", "__add_new_player__"));
             nsSelect.add(new Option("➕ Add New Player...", "__add_new_player__"));
 
@@ -1116,7 +1197,7 @@
             }
         };
 
-        // --- BYE & LEG BYE MODAL (DYNAMIC PROMPT) ---
+        // --- BYE & LEG BYE MODAL ---
         window.openByeModal = () => {
             if (!isScoringAuthorized) return;
             const input = document.getElementById('byeRunsInput');
@@ -1148,7 +1229,7 @@
             await window.handleAction(extraRuns, pendingExtraType);
         };
 
-        // --- CORE ACTION ENGINE SUPPORTING BYES & LEG BYES ---
+        // --- CORE ACTION ENGINE ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
