@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cric-8 League & Quick Match</title>
     <style>
-        :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; }
+        :root { --bg: #0b1120; --card: #111827; --blue: #38bdf8; --gold: #fbbf24; --red: #ef4444; --green: #22c55e; --purple: #a855f7; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 12px; }
         .hidden { display: none !important; }
         
@@ -21,7 +21,7 @@
 
         .btn { border: none; background: #1e293b; color: #fff; padding: 14px 0; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; text-align: center; }
         .btn-blue { background: #0ea5e9; } .btn-orange { background: #f97316; } .btn-red { background: var(--red); }
-        .btn-green { background: var(--green); } .btn-util { background: #334155; font-size: 0.75rem; padding: 10px; }
+        .btn-green { background: var(--green); } .btn-purple { background: var(--purple); } .btn-util { background: #334155; font-size: 0.75rem; padding: 10px; }
 
         .coin-wrapper { perspective: 800px; display: flex; justify-content: center; margin: 15px 0; }
         .coin { width: 80px; height: 80px; position: relative; transform-style: preserve-3d; transition: transform 2s ease-out; }
@@ -46,7 +46,7 @@
         @keyframes blink { 50% { opacity: 0.3; } }
         
         .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px; }
+        .emergency-tools { grid-column: span 4; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 15px; overflow-y: auto; }
 
         .sc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 10px; }
@@ -128,7 +128,7 @@
                 </div>
                 <div class="input-group">
                     <label style="color: var(--gold);">Players Per Team</label>
-                    <input type="number" id="playersPerTeamInput" class="input-field" value="8" min="2" max="11" onchange="window.onPlayerCountChange()">
+                    <input type="number" id="playersPerTeamInput" class="input-field" value="8" min="2" max="11">
                 </div>
             </div>
 
@@ -244,31 +244,66 @@
             <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
             
             <div class="emergency-tools">
-                <button class="btn btn-util" onclick="window.manualSwap()">SWAP STRIKE</button>
-                <button class="btn btn-util" onclick="window.undoAction()">UNDO LAST</button>
+                <button class="btn btn-util" onclick="window.manualSwap()">SWAP</button>
+                <button class="btn btn-util" onclick="window.undoAction()">UNDO</button>
+                <button class="btn btn-purple" onclick="window.openImpactPlayerModal()">⚡ IMPACT</button>
                 <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
-                <button class="btn btn-util" style="color: var(--red);" onclick="window.abortMatch()">ABORT MATCH</button>
+                <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: SQUAD ROSTER BUILDER WITH STRICT COUNT ENFORCEMENT -->
+    <!-- MODAL: SQUAD ROSTER BUILDER WITH IMPACT SUBS -->
     <div id="squadBuilderModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 440px;">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;" id="squadBuilderTitle">SQUAD ROSTER BUILDER</h3>
             <p style="font-size:0.8rem; color:#94a3b8; text-align:center; margin-bottom: 8px;" id="squadCountInstruction">
-                Requirement: Enter exactly 8 players separated by commas or lines.
+                Requirement: Enter playing squad players separated by commas.
             </p>
             
             <div class="input-group">
-                <label>Player Names List (<span id="squadLiveCount" style="color:var(--gold);">0</span> Entered)</label>
-                <textarea id="squadPlayersTextarea" class="input-field" rows="6" placeholder="Mahesh Poojari, Vinayak, Sumit, Rahul, Imran, Fahad, Arjun, Zeeshan" oninput="window.updateLiveSquadCount()"></textarea>
+                <label>Playing Squad (<span id="squadLiveCount" style="color:var(--gold);">0</span> Entered)</label>
+                <textarea id="squadPlayersTextarea" class="input-field" rows="4" placeholder="Mahesh Poojari, Vinayak, Sumit, Rahul, Imran, Fahad, Arjun, Zeeshan" oninput="window.updateLiveSquadCount()"></textarea>
+            </div>
+
+            <div class="input-group" style="border-top:1px solid #334155; padding-top:10px;">
+                <label style="color:var(--purple);">⚡ Impact Substitutes Bench (1 to 4 Players)</label>
+                <textarea id="squadImpactTextarea" class="input-field" rows="2" placeholder="Sub Player 1, Sub Player 2"></textarea>
             </div>
 
             <div style="display:flex; gap: 8px;">
                 <button class="btn btn-green" style="flex:1;" onclick="window.saveSquadRoster()">SAVE & ASSIGN SQUAD</button>
                 <button class="btn" style="background:#334155; flex:1; font-size:0.85rem;" onclick="window.closeModal('squadBuilderModal')">CANCEL</button>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL: IMPACT PLAYER ACTIVATION -->
+    <div id="impactModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px; border-color: var(--purple);">
+            <h3 style="margin-top:0; color:var(--purple); text-align:center;">⚡ ACTIVATE IMPACT PLAYER</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Select the team making the substitution (1 per team per match).</p>
+            
+            <div class="input-group">
+                <label>Substituting Team</label>
+                <select id="impactTeamSelect" class="input-field" onchange="window.updateImpactModalFields()">
+                    <option value="batting">Batting Side</option>
+                    <option value="bowling">Fielding Side</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Select Player Going OFF (Replaced)</label>
+                <select id="impactOutgoingSelect" class="input-field"></select>
+            </div>
+
+            <div class="input-group">
+                <label>Select Impact Player Coming IN</label>
+                <select id="impactIncomingSelect" class="input-field"></select>
+            </div>
+
+            <button class="btn btn-purple" style="width:100%;" onclick="window.confirmImpactSubstitution()">CONFIRM IMPACT SUB ⚡</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('impactModal')">CANCEL</button>
         </div>
     </div>
 
@@ -436,6 +471,7 @@
         let isTournamentMode = false;
         let tossWinnerTeam = "";
         let uploadedTeams = {};
+        let uploadedImpactSubs = {};
         let activeAvailableBatters = [];
         let pendingDismissedRole = null;
         let activeScorecardTab = 1;
@@ -572,24 +608,25 @@
             try {
                 const querySnap = await getDocs(collection(db, "teams"));
                 uploadedTeams = {};
+                uploadedImpactSubs = {};
                 querySnap.forEach(docSnap => {
                     const data = docSnap.data();
                     const teamName = data.teamName || data.name || docSnap.id;
                     let playerList = [];
                     for (const key in data) {
-                        if (Array.isArray(data[key])) { playerList = data[key]; break; }
+                        if (Array.isArray(data[key]) && key !== 'impactSubs') { playerList = data[key]; break; }
                     }
                     if (playerList.length === 0 && data.players) {
                         playerList = Array.isArray(data.players) ? data.players : [data.players];
                     }
                     uploadedTeams[teamName] = playerList.map(p => typeof p === 'string' ? p.trim() : (p?.name || '')).filter(Boolean);
+                    uploadedImpactSubs[teamName] = Array.isArray(data.impactSubs) ? data.impactSubs : [];
                 });
             } catch (e) {
                 console.error("Teams load error:", e);
             }
         }
 
-        // --- TEAM SETUP DROPDOWNS ---
         window.setupTournamentDropdowns = (selectedT1 = null, selectedT2 = null) => {
             const t1 = document.getElementById('selectTeam1');
             const t2 = document.getElementById('selectTeam2');
@@ -620,7 +657,6 @@
             }
         };
 
-        // --- IN-LINE AD-HOC TEAM SELECTION & SQUAD BUILDER TRIGGER ---
         window.onTeamSelectChange = (selectId) => {
             const sel = document.getElementById(selectId);
             if (sel.value === "__add_new_team__") {
@@ -629,6 +665,7 @@
                     const cleanName = customTeamName.trim();
                     if (!uploadedTeams[cleanName]) {
                         uploadedTeams[cleanName] = [];
+                        uploadedImpactSubs[cleanName] = [];
                     }
                     
                     const otherId = selectId === 'selectTeam1' ? 'selectTeam2' : 'selectTeam1';
@@ -642,7 +679,6 @@
             }
         };
 
-        // --- SQUAD ROSTER BUILDER ENGINE WITH STRICT SQUAD COUNT ---
         window.getRequiredPlayerCount = () => {
             return parseInt(document.getElementById('playersPerTeamInput')?.value) || 8;
         };
@@ -659,13 +695,17 @@
             currentEditingTeam = teamName;
             const requiredCount = window.getRequiredPlayerCount();
             setText('squadBuilderTitle', `BUILD SQUAD: ${teamName.toUpperCase()}`);
-            setText('squadCountInstruction', `Requirement: Enter exactly ${requiredCount} players separated by commas or lines.`);
+            setText('squadCountInstruction', `Requirement: Enter exactly ${requiredCount} playing players, plus optional impact subs.`);
             
             const currentRoster = uploadedTeams[teamName] || [];
+            const currentSubs = uploadedImpactSubs[teamName] || [];
+
             const textarea = document.getElementById('squadPlayersTextarea');
-            if (textarea) {
-                textarea.value = currentRoster.join(', ');
-            }
+            if (textarea) textarea.value = currentRoster.join(', ');
+
+            const impactArea = document.getElementById('squadImpactTextarea');
+            if (impactArea) impactArea.value = currentSubs.join(', ');
+
             window.updateLiveSquadCount();
             document.getElementById('squadBuilderModal')?.classList.remove('hidden');
         };
@@ -681,19 +721,24 @@
             if (!currentEditingTeam) return;
             const requiredCount = window.getRequiredPlayerCount();
             const textarea = document.getElementById('squadPlayersTextarea');
-            const raw = textarea?.value || "";
+            const impactArea = document.getElementById('squadImpactTextarea');
             
             const playerList = Array.from(new Set(
-                raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && s !== '__add_new_player__')
+                (textarea?.value || "").split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && s !== '__add_new_player__')
+            ));
+
+            const impactSubsList = Array.from(new Set(
+                (impactArea?.value || "").split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && !playerList.includes(s))
             ));
 
             if (playerList.length !== requiredCount) {
-                return alert(`⚠️ SQUAD COUNT MISMATCH!\n\nYou have set "Players Per Team" to ${requiredCount}.\nYou currently entered ${playerList.length} unique players.\n\nPlease enter exactly ${requiredCount} players to save.`);
+                return alert(`⚠️ SQUAD COUNT MISMATCH!\n\nYou configured ${requiredCount} players.\nYou entered ${playerList.length} unique players.\n\nPlease enter exactly ${requiredCount} players.`);
             }
 
             uploadedTeams[currentEditingTeam] = playerList;
+            uploadedImpactSubs[currentEditingTeam] = impactSubsList;
 
-            const saveCloud = confirm(`Save "${currentEditingTeam}" with ${playerList.length} players to cloud database for future matches?`);
+            const saveCloud = confirm(`Save "${currentEditingTeam}" (${playerList.length} squad, ${impactSubsList.length} impact subs) to cloud database?`);
             if (saveCloud) {
                 try {
                     let docFound = false;
@@ -701,7 +746,10 @@
                     for (const dSnap of qSnap.docs) {
                         const dName = dSnap.data().teamName || dSnap.data().name || dSnap.id;
                         if (dName === currentEditingTeam) {
-                            await updateDoc(doc(db, "teams", dSnap.id), { players: uploadedTeams[currentEditingTeam] });
+                            await updateDoc(doc(db, "teams", dSnap.id), { 
+                                players: uploadedTeams[currentEditingTeam],
+                                impactSubs: uploadedImpactSubs[currentEditingTeam]
+                            });
                             docFound = true;
                             break;
                         }
@@ -710,7 +758,8 @@
                         await addDoc(collection(db, "teams"), {
                             name: currentEditingTeam,
                             teamName: currentEditingTeam,
-                            players: uploadedTeams[currentEditingTeam]
+                            players: uploadedTeams[currentEditingTeam],
+                            impactSubs: uploadedImpactSubs[currentEditingTeam]
                         });
                     }
                 } catch (err) {
@@ -719,10 +768,9 @@
             }
 
             window.closeModal('squadBuilderModal');
-            alert(`✅ Squad for "${currentEditingTeam}" saved with exactly ${playerList.length} players.`);
+            alert(`✅ Squad for "${currentEditingTeam}" saved successfully.`);
         };
 
-        // --- IN-LINE AD-HOC PLAYER ADDITION HELPER ---
         window.handleInLinePlayerAdd = async (selectId, teamName) => {
             const sel = document.getElementById(selectId);
             if (!sel) return null;
@@ -770,13 +818,12 @@
             if (t1 === t2) return alert("Select two different teams.");
             if (t1 === '__add_new_team__' || t2 === '__add_new_team__') return alert("Please select or add valid teams.");
 
-            // Strict Pre-Toss Roster Size Check
             if (!uploadedTeams[t1] || uploadedTeams[t1].length !== requiredCount) {
-                alert(`Team 1 ("${t1}") has ${uploadedTeams[t1] ? uploadedTeams[t1].length : 0} players, but ${requiredCount} are required. Please adjust squad.`);
+                alert(`Team 1 ("${t1}") must have exactly ${requiredCount} squad players.`);
                 return window.openSquadBuilderForTeam(t1);
             }
             if (!uploadedTeams[t2] || uploadedTeams[t2].length !== requiredCount) {
-                alert(`Team 2 ("${t2}") has ${uploadedTeams[t2] ? uploadedTeams[t2].length : 0} players, but ${requiredCount} are required. Please adjust squad.`);
+                alert(`Team 2 ("${t2}") must have exactly ${requiredCount} squad players.`);
                 return window.openSquadBuilderForTeam(t2);
             }
 
@@ -877,6 +924,11 @@
                 used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
                 dismissals: [],
+                impactUsed: { tA: false, tB: false },
+                impactSubsBench: {
+                    tA: uploadedImpactSubs[t1] || [],
+                    tB: uploadedImpactSubs[t2] || []
+                },
                 inn1_scorecard: { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [] },
                 inn2_scorecard: { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [] },
                 tA: { name: t1, score: 0, balls: 0, wkts: 0 },
@@ -886,6 +938,109 @@
 
             await setDoc(matchDocRef, newMatchData);
             window.navigateView('viewScorer');
+        };
+
+        // --- IMPACT PLAYER SUBSTITUTION ENGINE ---
+        window.openImpactPlayerModal = () => {
+            if (!isScoringAuthorized) return;
+            const d = matchData || {};
+            const isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            const batTeamKey = (d.inn === 1 ? isTeamABatting : !isTeamABatting) ? 'tA' : 'tB';
+            const bowlTeamKey = batTeamKey === 'tA' ? 'tB' : 'tA';
+
+            if (d.impactUsed?.[batTeamKey] && d.impactUsed?.[bowlTeamKey]) {
+                return alert("Both teams have already utilized their single Impact Player substitution for this match.");
+            }
+
+            window.updateImpactModalFields();
+            document.getElementById('impactModal')?.classList.remove('hidden');
+        };
+
+        window.updateImpactModalFields = () => {
+            const d = matchData || {};
+            const isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            const currentBatKey = (d.inn === 1 ? isTeamABatting : !isTeamABatting) ? 'tA' : 'tB';
+            const currentBowlKey = currentBatKey === 'tA' ? 'tB' : 'tA';
+
+            const teamType = document.getElementById('impactTeamSelect')?.value || 'batting';
+            const chosenTeamKey = teamType === 'batting' ? currentBatKey : currentBowlKey;
+            const chosenTeamName = d[chosenTeamKey]?.name || "Team";
+
+            const outSel = document.getElementById('impactOutgoingSelect');
+            const inSel = document.getElementById('impactIncomingSelect');
+            outSel.innerHTML = '';
+            inSel.innerHTML = '';
+
+            if (d.impactUsed?.[chosenTeamKey]) {
+                outSel.add(new Option(`⚠️ Impact Player already used by ${chosenTeamName}`, ''));
+                inSel.add(new Option('No substitutes available', ''));
+                return;
+            }
+
+            // Populate Outgoing active squad
+            const teamSquad = uploadedTeams[chosenTeamName] || [];
+            teamSquad.forEach(p => outSel.add(new Option(p, p)));
+
+            // Populate Incoming Bench
+            const bench = d.impactSubsBench?.[chosenTeamKey] || uploadedImpactSubs[chosenTeamName] || [];
+            bench.forEach(p => inSel.add(new Option(p, p)));
+            inSel.add(new Option("➕ Add Unlisted Impact Sub...", "__add_impact_sub__"));
+        };
+
+        window.confirmImpactSubstitution = async () => {
+            const d = JSON.parse(JSON.stringify(matchData || {}));
+            const isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            const currentBatKey = (d.inn === 1 ? isTeamABatting : !isTeamABatting) ? 'tA' : 'tB';
+            const currentBowlKey = currentBatKey === 'tA' ? 'tB' : 'tA';
+
+            const teamType = document.getElementById('impactTeamSelect')?.value || 'batting';
+            const targetTeamKey = teamType === 'batting' ? currentBatKey : currentBowlKey;
+            const teamName = d[targetTeamKey]?.name;
+
+            if (d.impactUsed?.[targetTeamKey]) {
+                return alert(`${teamName} has already used their Impact Player.`);
+            }
+
+            const outgoing = document.getElementById('impactOutgoingSelect')?.value;
+            let incoming = document.getElementById('impactIncomingSelect')?.value;
+
+            if (!outgoing) return alert("Select an outgoing player.");
+            if (incoming === '__add_impact_sub__') {
+                const customSub = prompt(`Enter Impact Player Name for ${teamName}:`);
+                if (!customSub || !customSub.trim()) return;
+                incoming = customSub.trim();
+            }
+            if (!incoming) return alert("Select an incoming player.");
+
+            // Tag with Impact Player badge
+            const incomingTag = `${incoming} ⚡(IP)`;
+
+            // Replace player in squad memory
+            if (uploadedTeams[teamName]) {
+                const idx = uploadedTeams[teamName].indexOf(outgoing);
+                if (idx !== -1) uploadedTeams[teamName][idx] = incomingTag;
+                else uploadedTeams[teamName].push(incomingTag);
+            }
+
+            // Replace in live crease if outgoing is currently batting
+            if (d.crr_bat_name === outgoing) d.crr_bat_name = incomingTag;
+            if (d.non_bat_name === outgoing) d.non_bat_name = incomingTag;
+            if (d.crr_bowl === outgoing) d.crr_bowl = incomingTag;
+
+            if (!d.impactUsed) d.impactUsed = {};
+            d.impactUsed[targetTeamKey] = true;
+
+            const scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
+            if (d[scKey]) {
+                if (!d[scKey].batters) d[scKey].batters = {};
+                d[scKey].batters[incomingTag] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
+            }
+
+            window.closeModal('impactModal');
+            matchData = d;
+            updateUI();
+            await updateDoc(matchDocRef, d);
+            alert(`⚡ IMPACT PLAYER ACTIVATED!\n\n${outgoing} is replaced by ${incomingTag} for ${teamName}.`);
         };
 
         function updateUI() {
@@ -923,7 +1078,7 @@
                 bat1El.style.color = (isPairs && r1 < 0) ? 'var(--red)' : 'var(--gold)';
             }
             if (bat2El) {
-                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️️`;
+                bat2El.innerText = `${d.non_bat_name || 'Non-Striker'} (${r2}) ✏️`;
                 bat2El.style.color = (isPairs && r2 < 0) ? 'var(--red)' : '#64748b';
             }
 
@@ -1076,7 +1231,6 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
-                // Bowler selection
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
 
@@ -1219,7 +1373,6 @@
             }
         };
 
-        // --- BYE & LEG BYE MODAL ---
         window.openByeModal = () => {
             if (!isScoringAuthorized) return;
             const input = document.getElementById('byeRunsInput');
@@ -1235,7 +1388,6 @@
             await window.handleAction(byeRuns, subType);
         };
 
-        // --- DYNAMIC EXTRA PROMPT MODAL ---
         window.openExtraModal = (type) => {
             if (!isScoringAuthorized) return;
             pendingExtraType = type;
@@ -1251,7 +1403,6 @@
             await window.handleAction(extraRuns, pendingExtraType);
         };
 
-        // --- CORE ACTION ENGINE ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -1387,7 +1538,6 @@
             await evaluateMatchFlow(d, teamKey, oppKey);
         };
 
-        // --- ASYNC DISMISSAL SETUP & FIELDING LIST ---
         window.openWicketModal = async () => {
             if (!isScoringAuthorized) return;
             const isPairs = (matchData?.rulesFormat === 'pairs');
@@ -1807,6 +1957,8 @@
                     consecutive_dots: 0,
                     used_batsmen: [], used_bowlers: [],
                     dismissals: [],
+                    impactUsed: { tA: false, tB: false },
+                    impactSubsBench: { tA: [], tB: [] },
                     inn1_scorecard: null, inn2_scorecard: null,
                     tA: { name: "Team 1", score: 0, balls: 0, wkts: 0 },
                     tB: { name: "Team 2", score: 0, balls: 0, wkts: 0 },
