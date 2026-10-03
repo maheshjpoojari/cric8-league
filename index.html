@@ -313,9 +313,9 @@
                 </select>
             </div>
 
-            <!-- CATCHER SELECTOR: VISIBLE ONLY ON 'CAUGHT' -->
+            <!-- FIELDING PARTICIPANT SELECTOR: CATCHER OR RUN OUT EXECUTOR -->
             <div class="input-group hidden" id="catcherGroup">
-                <label>Catch Taken By (Fielding Team)</label>
+                <label id="fielderActionLabel">Fielder</label>
                 <select id="wickCatcher" class="input-field"></select>
             </div>
 
@@ -861,6 +861,7 @@
                     if (pairSection) pairSection.classList.add('hidden');
                 }
 
+                // Bowler selection
                 const currentCreaseBatters = [d.crr_bat_name, d.non_bat_name];
                 const fullFieldingRoster = uploadedTeams[fieldingTeamName] || [];
 
@@ -1155,6 +1156,7 @@
             const creaseGroup = document.getElementById('creaseOutcomeGroup');
             const creaseSelect = document.getElementById('wickCrease');
             const catcherGroup = document.getElementById('catcherGroup');
+            const fielderActionLabel = document.getElementById('fielderActionLabel');
             const bSel = document.getElementById('wickBatter');
             const sName = matchData?.crr_bat_name || "Striker";
             const nsName = matchData?.non_bat_name || "Non-Striker";
@@ -1173,8 +1175,12 @@
                 creaseGroup?.classList.add('hidden');
             }
 
-            // Show catcher selection ONLY on Caught (Hidden for Caught & Bowled, Bowled, etc.)
+            // Show fielder selection for Caught OR Run Out
             if (wType === 'Caught') {
+                if (fielderActionLabel) fielderActionLabel.innerText = "Catch Taken By (Fielder)";
+                catcherGroup?.classList.remove('hidden');
+            } else if (wType === 'Run Out') {
+                if (fielderActionLabel) fielderActionLabel.innerText = "Run Out Executed By (Fielder)";
                 catcherGroup?.classList.remove('hidden');
             } else {
                 catcherGroup?.classList.add('hidden');
@@ -1199,7 +1205,7 @@
                 const creaseOutcome = document.getElementById('wickCrease')?.value || 'no_swap';
                 const dismissedName = (dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name) || "Batter";
                 const currentBowler = d.crr_bowl || "TBD";
-                const catcherName = document.getElementById('wickCatcher')?.value || "Fielder";
+                const fielderName = document.getElementById('wickCatcher')?.value || "Fielder";
 
                 d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
                 d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
@@ -1222,22 +1228,25 @@
                     d[scKey].bowlers[currentBowler].wkts += 1;
                 }
 
-                // Credit Fielding / Catches
+                // Credit Fielding Stats
                 if (wType === 'Caught') {
-                    if (!d[scKey].fielders[catcherName]) d[scKey].fielders[catcherName] = { catches: 0, runOuts: 0 };
-                    d[scKey].fielders[catcherName].catches += 1;
+                    if (!d[scKey].fielders[fielderName]) d[scKey].fielders[fielderName] = { catches: 0, runOuts: 0 };
+                    d[scKey].fielders[fielderName].catches += 1;
                 } else if (wType === 'Caught & Bowled') {
-                    // Automatically added directly to the bowler's catches account
                     if (!d[scKey].fielders[currentBowler]) d[scKey].fielders[currentBowler] = { catches: 0, runOuts: 0 };
                     d[scKey].fielders[currentBowler].catches += 1;
+                } else if (wType === 'Run Out') {
+                    if (!d[scKey].fielders[fielderName]) d[scKey].fielders[fielderName] = { catches: 0, runOuts: 0 };
+                    d[scKey].fielders[fielderName].runOuts += 1;
                 }
 
                 // Format dismissal descriptor for FOW
                 let dismissalDesc = wType;
-                if (wType === 'Caught') dismissalDesc = `c ${catcherName} b ${currentBowler}`;
+                if (wType === 'Caught') dismissalDesc = `c ${fielderName} b ${currentBowler}`;
                 else if (wType === 'Caught & Bowled') dismissalDesc = `c&b ${currentBowler}`;
                 else if (wType === 'Bowled') dismissalDesc = `b ${currentBowler}`;
                 else if (wType === 'Ball Out of Turf') dismissalDesc = `out of turf b ${currentBowler}`;
+                else if (wType === 'Run Out') dismissalDesc = `run out (${fielderName})`;
 
                 const overNotation = `${Math.floor(d[teamKey].balls / 6)}.${d[teamKey].balls % 6}`;
                 d[scKey].fow.push({
@@ -1328,6 +1337,7 @@
             await updateDoc(matchDocRef, d);
         };
 
+        // --- PAIRS CRIC-8: ALL 8 OVERS PLAYED BEFORE WINNER IS DECIDED ---
         async function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut = false) {
             const maxBalls = (d.totalOvers || 8) * 6;
             let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -1449,16 +1459,16 @@
 
             html += `</table>`;
 
-            // FIELDING AWARDS TABLE
+            // FIELDING AWARDS TABLE (CATCHES & RUN OUTS)
             if (sc.fielders && Object.keys(sc.fielders).length > 0) {
                 html += `
-                    <div style="color:var(--gold); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FIELDING (MOST CATCHES)</div>
+                    <div style="color:var(--gold); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FIELDING (AWARDS)</div>
                     <table class="sc-table">
-                        <tr><th>Fielder</th><th>Catches</th></tr>
+                        <tr><th>Fielder</th><th>Catches</th><th>Run Outs</th></tr>
                 `;
                 for (const [name, stats] of Object.entries(sc.fielders)) {
-                    if (stats.catches > 0) {
-                        html += `<tr><td><b>${name}</b></td><td>${stats.catches}</td></tr>`;
+                    if ((stats.catches || 0) > 0 || (stats.runOuts || 0) > 0) {
+                        html += `<tr><td><b>${name}</b></td><td>${stats.catches || 0}</td><td>${stats.runOuts || 0}</td></tr>`;
                     }
                 }
                 html += `</table>`;
