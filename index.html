@@ -67,11 +67,12 @@
     <div id="viewHome" class="app-view">
         <div class="view-card" style="text-align: center;">
             <h2 class="view-title" style="margin-bottom:8px;">🏏 CRIC-8 ARENA</h2>
-            <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:20px;">Host a match directly or access tournament fixtures</p>
+            <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:20px;">Host a match directly, manage fixtures, or view standings</p>
 
             <button class="btn btn-green" style="width:100%; margin-bottom:12px;" onclick="window.startHostFlow()">⚡ SCORE A QUICK MATCH (HOST)</button>
             <button class="btn btn-blue" style="width:100%; margin-bottom:12px;" onclick="window.openTournamentLogin()">🏆 TOURNAMENT OFFICIAL ACCESS</button>
-            <button class="btn" style="width:100%; background:#334155; font-size:0.85rem;" onclick="window.enterAsGuest()">SPECTATOR / LIVE VIEW</button>
+            <button class="btn btn-purple" style="width:100%; margin-bottom:12px;" onclick="window.openStandingsView()">📊 VIEW STANDINGS & LEADERBOARD</button>
+            <button class="btn" style="width:100%; background:#334155; font-size:0.85rem;" onclick="window.enterAsGuest()">SPECTATOR / LIVE MATCH VIEW</button>
         </div>
     </div>
 
@@ -92,7 +93,37 @@
         </div>
     </div>
 
-    <!-- VIEW 3: FIXTURE SETUP -->
+    <!-- VIEW 3: TOURNAMENT STANDINGS & LEADERBOARD -->
+    <div id="viewStandings" class="app-view hidden">
+        <div class="view-card">
+            <h2 class="view-title">🏆 STANDINGS & LEADERBOARDS</h2>
+
+            <div class="input-group">
+                <label>Filter By Tournament</label>
+                <select id="standingsTourneyFilter" class="input-field" onchange="window.loadTournamentStandings()">
+                    <option value="all">All Tournaments</option>
+                    <option value="corporate">Corporate Pairs Championship</option>
+                    <option value="premier">Dubai Premier League</option>
+                    <option value="friendly">Friendly / Exhibition</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 6px; margin-bottom: 15px; justify-content: center;">
+                <button class="tab-btn active" id="tabPointsBtn" onclick="window.switchStandingsTab('points')">Points Table</button>
+                <button class="tab-btn" id="tabOrangeBtn" onclick="window.switchStandingsTab('orange')">Orange Cap</button>
+                <button class="tab-btn" id="tabPurpleBtn" onclick="window.switchStandingsTab('purple')">Purple Cap</button>
+                <button class="tab-btn" id="tabGloveBtn" onclick="window.switchStandingsTab('glove')">Fielding</button>
+            </div>
+
+            <div id="standingsTabContent">
+                <div style="text-align:center; padding:20px; color:#64748b;">Loading tournament records...</div>
+            </div>
+
+            <button class="btn" style="width:100%; margin-top:15px; background:#334155; font-size:0.85rem;" onclick="window.navigateView('viewHome')">BACK TO HOME</button>
+        </div>
+    </div>
+
+    <!-- VIEW 4: FIXTURE SETUP -->
     <div id="viewTournament" class="app-view hidden">
         <div class="view-card">
             <h2 class="view-title" id="setupTitle">⚙️ MATCH SETUP</h2>
@@ -162,7 +193,7 @@
         </div>
     </div>
 
-    <!-- VIEW 4: TOSS & LINEUP -->
+    <!-- VIEW 5: TOSS & LINEUP -->
     <div id="viewToss" class="app-view hidden">
         <div class="view-card">
             <h2 class="view-title">🪙 MATCH TOSS & LINEUP</h2>
@@ -205,7 +236,7 @@
         </div>
     </div>
 
-    <!-- VIEW 5: LIVE SCORER CONSOLE -->
+    <!-- VIEW 6: LIVE SCORER CONSOLE -->
     <div id="viewScorer" class="app-view hidden">
         <div class="header">
             <div id="teamNameDisp">Loading...</div>
@@ -475,8 +506,12 @@
         let activeAvailableBatters = [];
         let pendingDismissedRole = null;
         let activeScorecardTab = 1;
+        let activeStandingsTab = 'points';
         let pendingExtraType = 'wide';
         let currentEditingTeam = null;
+
+        // Cached tournament match history data
+        let cachedMatchHistory = [];
 
         function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return 0;
@@ -546,7 +581,7 @@
         }
 
         window.navigateView = (viewId) => {
-            ['viewHome', 'viewLogin', 'viewTournament', 'viewToss', 'viewScorer'].forEach(id => {
+            ['viewHome', 'viewLogin', 'viewTournament', 'viewToss', 'viewScorer', 'viewStandings'].forEach(id => {
                 document.getElementById(id)?.classList.add('hidden');
             });
             document.getElementById(viewId)?.classList.remove('hidden');
@@ -627,6 +662,223 @@
             }
         }
 
+        // --- TOURNAMENT STANDINGS & LEADERBOARDS ENGINE ---
+        window.openStandingsView = async () => {
+            window.navigateView('viewStandings');
+            await window.loadTournamentStandings();
+        };
+
+        window.loadTournamentStandings = async () => {
+            const container = document.getElementById('standingsTabContent');
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:#64748b;">Loading tournament records...</div>`;
+
+            try {
+                const querySnap = await getDocs(collection(db, "match_history"));
+                cachedMatchHistory = [];
+                querySnap.forEach(d => {
+                    const data = d.data();
+                    cachedMatchHistory.push(data);
+                });
+                window.renderCurrentStandingsTab();
+            } catch (err) {
+                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Error loading standings: ${err.message}</div>`;
+            }
+        };
+
+        window.switchStandingsTab = (tab) => {
+            activeStandingsTab = tab;
+            document.getElementById('tabPointsBtn')?.classList.toggle('active', tab === 'points');
+            document.getElementById('tabOrangeBtn')?.classList.toggle('active', tab === 'orange');
+            document.getElementById('tabPurpleBtn')?.classList.toggle('active', tab === 'purple');
+            document.getElementById('tabGloveBtn')?.classList.toggle('active', tab === 'glove');
+            window.renderCurrentStandingsTab();
+        };
+
+        window.renderCurrentStandingsTab = () => {
+            const container = document.getElementById('standingsTabContent');
+            const selectedFilter = document.getElementById('standingsTourneyFilter')?.value || 'all';
+
+            // Filter history by tournament
+            const matches = cachedMatchHistory.filter(m => {
+                if (selectedFilter === 'all') return true;
+                return m.tournament === selectedFilter;
+            });
+
+            if (matches.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:25px; color:#64748b;">No completed matches found for this tournament yet.</div>`;
+                return;
+            }
+
+            if (activeStandingsTab === 'points') {
+                // Compute Points Table and NRR
+                const tableData = {};
+
+                matches.forEach(m => {
+                    const tAName = m.tA?.name || "Team A";
+                    const tBName = m.tB?.name || "Team B";
+                    const tAScore = parseInt(m.tA?.score) || 0;
+                    const tBScore = parseInt(m.tB?.score) || 0;
+                    const tABalls = parseInt(m.tA?.balls) || 0;
+                    const tBBalls = parseInt(m.tB?.balls) || 0;
+
+                    if (!tableData[tAName]) tableData[tAName] = { p: 0, w: 0, l: 0, t: 0, pts: 0, runsFor: 0, ballsFor: 0, runsAgainst: 0, ballsAgainst: 0 };
+                    if (!tableData[tBName]) tableData[tBName] = { p: 0, w: 0, l: 0, t: 0, pts: 0, runsFor: 0, ballsFor: 0, runsAgainst: 0, ballsAgainst: 0 };
+
+                    tableData[tAName].p += 1;
+                    tableData[tBName].p += 1;
+
+                    tableData[tAName].runsFor += tAScore;
+                    tableData[tAName].ballsFor += tABalls;
+                    tableData[tAName].runsAgainst += tBScore;
+                    tableData[tAName].ballsAgainst += tBBalls;
+
+                    tableData[tBName].runsFor += tBScore;
+                    tableData[tBName].ballsFor += tBBalls;
+                    tableData[tBName].runsAgainst += tAScore;
+                    tableData[tBName].ballsAgainst += tABalls;
+
+                    if (tAScore > tBScore) {
+                        tableData[tAName].w += 1;
+                        tableData[tAName].pts += 2;
+                        tableData[tBName].l += 1;
+                    } else if (tBScore > tAScore) {
+                        tableData[tBName].w += 1;
+                        tableData[tBName].pts += 2;
+                        tableData[tAName].l += 1;
+                    } else {
+                        tableData[tAName].t += 1;
+                        tableData[tBName].t += 1;
+                        tableData[tAName].pts += 1;
+                        tableData[tBName].pts += 1;
+                    }
+                });
+
+                // Convert to Array & Calculate Net Run Rate
+                const sortedTeams = Object.keys(tableData).map(name => {
+                    const t = tableData[name];
+                    const oversFor = t.ballsFor > 0 ? (t.ballsFor / 6) : 0;
+                    const oversAgainst = t.ballsAgainst > 0 ? (t.ballsAgainst / 6) : 0;
+                    
+                    const runRateFor = oversFor > 0 ? (t.runsFor / oversFor) : 0;
+                    const runRateAgainst = oversAgainst > 0 ? (t.runsAgainst / oversAgainst) : 0;
+                    const nrr = runRateFor - runRateAgainst;
+
+                    return { name, ...t, nrr };
+                }).sort((a, b) => {
+                    if (b.pts !== a.pts) return b.pts - a.pts;
+                    return b.nrr - a.nrr;
+                });
+
+                let html = `
+                    <table class="sc-table">
+                        <tr><th>Team</th><th>P</th><th>W</th><th>L</th><th>T</th><th>Pts</th><th>NRR</th></tr>
+                `;
+                sortedTeams.forEach((t, i) => {
+                    const nrrStr = (t.nrr >= 0 ? "+" : "") + t.nrr.toFixed(3);
+                    html += `<tr><td><b>${i+1}. ${t.name}</b></td><td>${t.p}</td><td>${t.w}</td><td>${t.l}</td><td>${t.t}</td><td><b style="color:var(--gold);">${t.pts}</b></td><td>${nrrStr}</td></tr>`;
+                });
+                html += `</table>`;
+                container.innerHTML = html;
+
+            } else if (activeStandingsTab === 'orange') {
+                // Orange Cap (Batters)
+                const batters = {};
+                matches.forEach(m => {
+                    [m.inn1_scorecard, m.inn2_scorecard].forEach(sc => {
+                        if (sc && sc.batters) {
+                            for (const [name, stats] of Object.entries(sc.batters)) {
+                                if (!batters[name]) batters[name] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
+                                batters[name].runs += (stats.runs || 0);
+                                batters[name].balls += (stats.balls || 0);
+                                batters[name].fours += (stats.fours || 0);
+                                batters[name].sixes += (stats.sixes || 0);
+                            }
+                        }
+                    });
+                });
+
+                const sortedBatters = Object.keys(batters).map(name => ({ name, ...batters[name] }))
+                    .sort((a, b) => b.runs - a.runs);
+
+                let html = `
+                    <div style="color:var(--orange); font-weight:bold; font-size: 0.85rem; margin-bottom: 8px;">🟠 ORANGE CAP (MOST RUNS)</div>
+                    <table class="sc-table">
+                        <tr><th>Batter</th><th>Runs</th><th>Balls</th><th>4s</th><th>6s</th><th>SR</th></tr>
+                `;
+                sortedBatters.slice(0, 10).forEach(b => {
+                    const sr = b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(1) : "0.0";
+                    html += `<tr><td><b>${b.name}</b></td><td><b style="color:var(--orange);">${b.runs}</b></td><td>${b.balls}</td><td>${b.fours}</td><td>${b.sixes}</td><td>${sr}</td></tr>`;
+                });
+                html += `</table>`;
+                container.innerHTML = html;
+
+            } else if (activeStandingsTab === 'purple') {
+                // Purple Cap (Bowlers)
+                const bowlers = {};
+                matches.forEach(m => {
+                    [m.inn1_scorecard, m.inn2_scorecard].forEach(sc => {
+                        if (sc && sc.bowlers) {
+                            for (const [name, stats] of Object.entries(sc.bowlers)) {
+                                if (!bowlers[name]) bowlers[name] = { balls: 0, runs: 0, wkts: 0 };
+                                bowlers[name].balls += (stats.balls || 0);
+                                bowlers[name].runs += (stats.runs || 0);
+                                bowlers[name].wkts += (stats.wkts || 0);
+                            }
+                        }
+                    });
+                });
+
+                const sortedBowlers = Object.keys(bowlers).map(name => ({ name, ...bowlers[name] }))
+                    .sort((a, b) => b.wkts - a.wkts);
+
+                let html = `
+                    <div style="color:var(--purple); font-weight:bold; font-size: 0.85rem; margin-bottom: 8px;">🟣 PURPLE CAP (MOST WICKETS)</div>
+                    <table class="sc-table">
+                        <tr><th>Bowler</th><th>Wkts</th><th>Overs</th><th>Runs</th><th>Econ</th></tr>
+                `;
+                sortedBowlers.slice(0, 10).forEach(b => {
+                    const overs = `${Math.floor(b.balls / 6)}.${b.balls % 6}`;
+                    const econ = b.balls > 0 ? ((b.runs / b.balls) * 6).toFixed(1) : "0.0";
+                    html += `<tr><td><b>${b.name}</b></td><td><b style="color:var(--purple);">${b.wkts}</b></td><td>${overs}</td><td>${b.runs}</td><td>${econ}</td></tr>`;
+                });
+                html += `</table>`;
+                container.innerHTML = html;
+
+            } else if (activeStandingsTab === 'glove') {
+                // Golden Glove (Fielding)
+                const fielders = {};
+                matches.forEach(m => {
+                    [m.inn1_scorecard, m.inn2_scorecard].forEach(sc => {
+                        if (sc && sc.fielders) {
+                            for (const [name, stats] of Object.entries(sc.fielders)) {
+                                if (!fielders[name]) fielders[name] = { catches: 0, runOuts: 0, total: 0 };
+                                const c = stats.catches || 0;
+                                const ro = stats.runOuts || 0;
+                                fielders[name].catches += c;
+                                fielders[name].runOuts += ro;
+                                fielders[name].total += (c + ro);
+                            }
+                        }
+                    });
+                });
+
+                const sortedFielders = Object.keys(fielders).map(name => ({ name, ...fielders[name] }))
+                    .sort((a, b) => b.total - a.total);
+
+                let html = `
+                    <div style="color:var(--gold); font-weight:bold; font-size: 0.85rem; margin-bottom: 8px;">🧤 GOLDEN GLOVE (MOST DISMISSALS)</div>
+                    <table class="sc-table">
+                        <tr><th>Fielder</th><th>Catches</th><th>Run Outs</th><th>Total</th></tr>
+                `;
+                sortedFielders.slice(0, 10).forEach(f => {
+                    html += `<tr><td><b>${f.name}</b></td><td>${f.catches}</td><td>${f.runOuts}</td><td><b style="color:var(--gold);">${f.total}</b></td></tr>`;
+                });
+                html += `</table>`;
+                container.innerHTML = html;
+            }
+        };
+
+        // --- TEAM SETUP DROPDOWNS ---
         window.setupTournamentDropdowns = (selectedT1 = null, selectedT2 = null) => {
             const t1 = document.getElementById('selectTeam1');
             const t2 = document.getElementById('selectTeam2');
@@ -977,11 +1229,9 @@
                 return;
             }
 
-            // Populate Outgoing active squad
             const teamSquad = uploadedTeams[chosenTeamName] || [];
             teamSquad.forEach(p => outSel.add(new Option(p, p)));
 
-            // Populate Incoming Bench
             const bench = d.impactSubsBench?.[chosenTeamKey] || uploadedImpactSubs[chosenTeamName] || [];
             bench.forEach(p => inSel.add(new Option(p, p)));
             inSel.add(new Option("➕ Add Unlisted Impact Sub...", "__add_impact_sub__"));
@@ -1012,17 +1262,14 @@
             }
             if (!incoming) return alert("Select an incoming player.");
 
-            // Tag with Impact Player badge
             const incomingTag = `${incoming} ⚡(IP)`;
 
-            // Replace player in squad memory
             if (uploadedTeams[teamName]) {
                 const idx = uploadedTeams[teamName].indexOf(outgoing);
                 if (idx !== -1) uploadedTeams[teamName][idx] = incomingTag;
                 else uploadedTeams[teamName].push(incomingTag);
             }
 
-            // Replace in live crease if outgoing is currently batting
             if (d.crr_bat_name === outgoing) d.crr_bat_name = incomingTag;
             if (d.non_bat_name === outgoing) d.non_bat_name = incomingTag;
             if (d.crr_bowl === outgoing) d.crr_bowl = incomingTag;
@@ -1906,7 +2153,7 @@
                 html += `
                     <div style="color:var(--blue); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FALL OF WICKETS</div>
                     <div style="font-size:0.75rem; color:#94a3b8; margin-top: 4px;">
-                        ${sc.fow.map(f => `${f.score}/${f.wkt} (${f.player},${f.over} ov)`).join(' | ')}
+                        ${sc.fow.map(f => `${f.score}/${f.wkt} (${f.player}, ${f.over} ov)`).join(' | ')}
                     </div>
                 `;
             }
