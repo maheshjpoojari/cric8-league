@@ -54,6 +54,13 @@
         .sc-table th { color: var(--blue); }
         .tab-btn { background: #1e293b; border: none; color: #94a3b8; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
         .tab-btn.active { background: #0ea5e9; color: white; }
+
+        /* TAP-TO-SELECT CHIP STYLES */
+        .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; max-height: 220px; overflow-y: auto; padding: 4px; background: #0b1120; border-radius: 8px; border: 1px solid #1e293b; }
+        .player-chip { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; background: #1e293b; color: #94a3b8; border: 1px solid #334155; cursor: pointer; user-select: none; transition: all 0.15s ease; }
+        .player-chip.selected { background: rgba(34, 197, 94, 0.2); color: var(--green); border-color: var(--green); }
+        .player-chip.impact { background: rgba(168, 85, 247, 0.2); color: var(--purple); border-color: var(--purple); }
+        .player-chip:active { transform: scale(0.96); }
     </style>
 </head>
 <body>
@@ -175,7 +182,7 @@
             <div class="input-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <label style="margin-bottom:0;">Team 1 (Calls HEADS)</label>
-                    <button class="btn btn-util" style="padding:4px 8px; font-size:0.7rem;" onclick="window.openSquadEditor('selectTeam1')">👥 Edit Squad</button>
+                    <button class="btn btn-util" style="padding:4px 8px; font-size:0.7rem;" onclick="window.openSquadEditor('selectTeam1')">👥 Select Playing Squad</button>
                 </div>
                 <select id="selectTeam1" class="input-field" onchange="window.onTeamSelectChange('selectTeam1')"></select>
             </div>
@@ -183,7 +190,7 @@
             <div class="input-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <label style="margin-bottom:0;">Team 2 (Calls TAILS)</label>
-                    <button class="btn btn-util" style="padding:4px 8px; font-size:0.7rem;" onclick="window.openSquadEditor('selectTeam2')">👥 Edit Squad</button>
+                    <button class="btn btn-util" style="padding:4px 8px; font-size:0.7rem;" onclick="window.openSquadEditor('selectTeam2')">👥 Select Playing Squad</button>
                 </div>
                 <select id="selectTeam2" class="input-field" onchange="window.onTeamSelectChange('selectTeam2')"></select>
             </div>
@@ -284,26 +291,35 @@
         </div>
     </div>
 
-    <!-- MODAL: SQUAD ROSTER BUILDER WITH IMPACT SUBS -->
+    <!-- MODAL: TAP-TO-SELECT SQUAD BUILDER -->
     <div id="squadBuilderModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 440px;">
-            <h3 style="margin-top:0; color:var(--blue); text-align:center;" id="squadBuilderTitle">SQUAD ROSTER BUILDER</h3>
-            <p style="font-size:0.8rem; color:#94a3b8; text-align:center; margin-bottom: 8px;" id="squadCountInstruction">
-                Requirement: Enter playing squad players separated by commas.
-            </p>
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;" id="squadBuilderTitle">SELECT PLAYING SQUAD</h3>
             
-            <div class="input-group">
-                <label>Playing Squad (<span id="squadLiveCount" style="color:var(--gold);">0</span> Entered)</label>
-                <textarea id="squadPlayersTextarea" class="input-field" rows="4" placeholder="Mahesh Poojari, Vinayak, Sumit, Rahul, Imran, Fahad, Arjun, Zeeshan" oninput="window.updateLiveSquadCount()"></textarea>
+            <div style="background:#0b1120; border: 1px solid #1e293b; padding:10px; border-radius:8px; margin-bottom:12px; text-align:center;">
+                <div style="font-size:0.8rem; color:#94a3b8;">Playing Squad Status</div>
+                <div style="font-size:1.3rem; font-weight:900; color:var(--green); margin:4px 0;" id="squadCounterDisplay">0 / 8 Selected</div>
+                <div style="font-size:0.75rem; color:#64748b;" id="squadInstructionText">Tap players to toggle them into the playing squad.</div>
             </div>
 
-            <div class="input-group" style="border-top:1px solid #334155; padding-top:10px;">
-                <label style="color:var(--purple);">⚡ Impact Substitutes Bench (1 to 4 Players)</label>
-                <textarea id="squadImpactTextarea" class="input-field" rows="2" placeholder="Sub Player 1, Sub Player 2"></textarea>
+            <!-- Tap-to-select chip grid -->
+            <label style="font-size:0.8rem; color:#94a3b8; font-weight:bold;">Tap to Pick Playing Squad:</label>
+            <div class="chip-grid" id="squadChipContainer"></div>
+
+            <!-- Optional: Select Impact subs from remaining -->
+            <div style="margin-top:12px; border-top: 1px solid #334155; padding-top:10px;">
+                <label style="font-size:0.8rem; color:var(--purple); font-weight:bold;">Tap Unselected to Pick Impact Subs (Optional):</label>
+                <div class="chip-grid" id="impactChipContainer" style="max-height:100px;"></div>
             </div>
 
-            <div style="display:flex; gap: 8px;">
-                <button class="btn btn-green" style="flex:1;" onclick="window.saveSquadRoster()">SAVE & ASSIGN SQUAD</button>
+            <!-- Fast inline entry for new unlisted player -->
+            <div style="margin-top:12px; display:flex; gap:6px;">
+                <input type="text" id="inlineNewPlayerName" class="input-field" style="padding:8px;" placeholder="Add unlisted player...">
+                <button class="btn btn-blue" style="padding:8px 12px; font-size:0.8rem; white-space:nowrap;" onclick="window.addPlayerToMasterPool()">+ Add</button>
+            </div>
+
+            <div style="display:flex; gap: 8px; margin-top:15px;">
+                <button class="btn btn-green" style="flex:1;" onclick="window.confirmSelectedSquad()">CONFIRM SQUAD</button>
                 <button class="btn" style="background:#334155; flex:1; font-size:0.85rem;" onclick="window.closeModal('squadBuilderModal')">CANCEL</button>
             </div>
         </div>
@@ -508,9 +524,13 @@
         let activeScorecardTab = 1;
         let activeStandingsTab = 'points';
         let pendingExtraType = 'wide';
+        
+        // Tap-to-select state tracking
         let currentEditingTeam = null;
+        let activeMasterRoster = [];
+        let selectedPlayingSquad = [];
+        let selectedImpactSubs = [];
 
-        // Cached tournament match history data
         let cachedMatchHistory = [];
 
         function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
@@ -698,7 +718,6 @@
             const container = document.getElementById('standingsTabContent');
             const selectedFilter = document.getElementById('standingsTourneyFilter')?.value || 'all';
 
-            // Filter history by tournament
             const matches = cachedMatchHistory.filter(m => {
                 if (selectedFilter === 'all') return true;
                 return m.tournament === selectedFilter;
@@ -710,7 +729,6 @@
             }
 
             if (activeStandingsTab === 'points') {
-                // Compute Points Table and NRR
                 const tableData = {};
 
                 matches.forEach(m => {
@@ -753,7 +771,6 @@
                     }
                 });
 
-                // Convert to Array & Calculate Net Run Rate
                 const sortedTeams = Object.keys(tableData).map(name => {
                     const t = tableData[name];
                     const oversFor = t.ballsFor > 0 ? (t.ballsFor / 6) : 0;
@@ -781,7 +798,6 @@
                 container.innerHTML = html;
 
             } else if (activeStandingsTab === 'orange') {
-                // Orange Cap (Batters)
                 const batters = {};
                 matches.forEach(m => {
                     [m.inn1_scorecard, m.inn2_scorecard].forEach(sc => {
@@ -813,7 +829,6 @@
                 container.innerHTML = html;
 
             } else if (activeStandingsTab === 'purple') {
-                // Purple Cap (Bowlers)
                 const bowlers = {};
                 matches.forEach(m => {
                     [m.inn1_scorecard, m.inn2_scorecard].forEach(sc => {
@@ -845,7 +860,6 @@
                 container.innerHTML = html;
 
             } else if (activeStandingsTab === 'glove') {
-                // Golden Glove (Fielding)
                 const fielders = {};
                 matches.forEach(m => {
                     [m.inn1_scorecard, m.inn2_scorecard].forEach(sc => {
@@ -943,54 +957,123 @@
             window.openSquadBuilderForTeam(teamName);
         };
 
+        // --- TAP-TO-SELECT SQUAD BUILDER ENGINE ---
         window.openSquadBuilderForTeam = (teamName) => {
             currentEditingTeam = teamName;
             const requiredCount = window.getRequiredPlayerCount();
-            setText('squadBuilderTitle', `BUILD SQUAD: ${teamName.toUpperCase()}`);
-            setText('squadCountInstruction', `Requirement: Enter exactly ${requiredCount} playing players, plus optional impact subs.`);
+            setText('squadBuilderTitle', `SQUAD: ${teamName.toUpperCase()}`);
             
-            const currentRoster = uploadedTeams[teamName] || [];
-            const currentSubs = uploadedImpactSubs[teamName] || [];
+            // Build the master pool combining playing squad and registered subs
+            const existingPlaying = uploadedTeams[teamName] || [];
+            const existingImpact = uploadedImpactSubs[teamName] || [];
+            
+            activeMasterRoster = Array.from(new Set([...existingPlaying, ...existingImpact]));
+            
+            // Default select up to required count
+            selectedPlayingSquad = existingPlaying.slice(0, requiredCount);
+            selectedImpactSubs = existingImpact.filter(p => !selectedPlayingSquad.includes(p));
 
-            const textarea = document.getElementById('squadPlayersTextarea');
-            if (textarea) textarea.value = currentRoster.join(', ');
-
-            const impactArea = document.getElementById('squadImpactTextarea');
-            if (impactArea) impactArea.value = currentSubs.join(', ');
-
-            window.updateLiveSquadCount();
+            window.renderSquadChips();
             document.getElementById('squadBuilderModal')?.classList.remove('hidden');
         };
 
-        window.updateLiveSquadCount = () => {
-            const textarea = document.getElementById('squadPlayersTextarea');
-            const raw = textarea?.value || "";
-            const playerList = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && s !== '__add_new_player__');
-            setText('squadLiveCount', playerList.length);
-        };
+        window.renderSquadChips = () => {
+            const req = window.getRequiredPlayerCount();
+            const container = document.getElementById('squadChipContainer');
+            const impactContainer = document.getElementById('impactChipContainer');
+            container.innerHTML = '';
+            impactContainer.innerHTML = '';
 
-        window.saveSquadRoster = async () => {
-            if (!currentEditingTeam) return;
-            const requiredCount = window.getRequiredPlayerCount();
-            const textarea = document.getElementById('squadPlayersTextarea');
-            const impactArea = document.getElementById('squadImpactTextarea');
-            
-            const playerList = Array.from(new Set(
-                (textarea?.value || "").split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && s !== '__add_new_player__')
-            ));
+            // Update Header Display
+            const counter = document.getElementById('squadCounterDisplay');
+            counter.innerText = `${selectedPlayingSquad.length} / ${req} Selected`;
+            counter.style.color = (selectedPlayingSquad.length === req) ? 'var(--green)' : 'var(--gold)';
 
-            const impactSubsList = Array.from(new Set(
-                (impactArea?.value || "").split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && !playerList.includes(s))
-            ));
-
-            if (playerList.length !== requiredCount) {
-                return alert(`⚠️ SQUAD COUNT MISMATCH!\n\nYou configured ${requiredCount} players.\nYou entered ${playerList.length} unique players.\n\nPlease enter exactly ${requiredCount} players.`);
+            if (activeMasterRoster.length === 0) {
+                container.innerHTML = `<div style="font-size:0.8rem; color:#64748b; padding:10px;">No players registered yet. Add players below.</div>`;
             }
 
-            uploadedTeams[currentEditingTeam] = playerList;
-            uploadedImpactSubs[currentEditingTeam] = impactSubsList;
+            activeMasterRoster.forEach(player => {
+                const isSelected = selectedPlayingSquad.includes(player);
+                const isImpact = selectedImpactSubs.includes(player);
 
-            const saveCloud = confirm(`Save "${currentEditingTeam}" (${playerList.length} squad, ${impactSubsList.length} impact subs) to cloud database?`);
+                // Playing Squad Chip
+                const chip = document.createElement('div');
+                chip.className = `player-chip ${isSelected ? 'selected' : ''}`;
+                chip.innerHTML = `${isSelected ? '✓ ' : ''}${player}`;
+                chip.onclick = () => window.togglePlayerSelection(player);
+                container.appendChild(chip);
+
+                // If not playing, can be tapped as impact sub
+                if (!isSelected) {
+                    const impChip = document.createElement('div');
+                    impChip.className = `player-chip ${isImpact ? 'impact' : ''}`;
+                    impChip.innerHTML = `${isImpact ? '⚡ ' : ''}${player}`;
+                    impChip.onclick = () => window.toggleImpactSelection(player);
+                    impactContainer.appendChild(impChip);
+                }
+            });
+        };
+
+        window.togglePlayerSelection = (player) => {
+            const req = window.getRequiredPlayerCount();
+            const idx = selectedPlayingSquad.indexOf(player);
+
+            if (idx !== -1) {
+                selectedPlayingSquad.splice(idx, 1);
+            } else {
+                if (selectedPlayingSquad.length >= req) {
+                    return alert(`You have already selected the required ${req} players. Deselect one first to swap.`);
+                }
+                selectedPlayingSquad.push(player);
+                // Remove from impact if selected to play
+                const impIdx = selectedImpactSubs.indexOf(player);
+                if (impIdx !== -1) selectedImpactSubs.splice(impIdx, 1);
+            }
+            window.renderSquadChips();
+        };
+
+        window.toggleImpactSelection = (player) => {
+            const idx = selectedImpactSubs.indexOf(player);
+            if (idx !== -1) {
+                selectedImpactSubs.splice(idx, 1);
+            } else {
+                if (selectedImpactSubs.length >= 4) {
+                    return alert("Maximum 4 Impact Substitutes allowed per team.");
+                }
+                selectedImpactSubs.push(player);
+            }
+            window.renderSquadChips();
+        };
+
+        window.addPlayerToMasterPool = () => {
+            const input = document.getElementById('inlineNewPlayerName');
+            const name = input?.value.trim();
+            if (!name) return;
+
+            if (activeMasterRoster.includes(name)) {
+                alert("Player already exists in the pool.");
+            } else {
+                activeMasterRoster.push(name);
+                const req = window.getRequiredPlayerCount();
+                if (selectedPlayingSquad.length < req) {
+                    selectedPlayingSquad.push(name);
+                }
+                input.value = '';
+                window.renderSquadChips();
+            }
+        };
+
+        window.confirmSelectedSquad = async () => {
+            const req = window.getRequiredPlayerCount();
+            if (selectedPlayingSquad.length !== req) {
+                return alert(`⚠️ SQUAD INCOMPLETE!\n\nPlease select exactly ${req} players for the playing squad (currently ${selectedPlayingSquad.length} selected).`);
+            }
+
+            uploadedTeams[currentEditingTeam] = [...selectedPlayingSquad];
+            uploadedImpactSubs[currentEditingTeam] = [...selectedImpactSubs];
+
+            const saveCloud = confirm(`Save this selection for "${currentEditingTeam}" to cloud database for future matches?`);
             if (saveCloud) {
                 try {
                     let docFound = false;
@@ -1020,7 +1103,7 @@
             }
 
             window.closeModal('squadBuilderModal');
-            alert(`✅ Squad for "${currentEditingTeam}" saved successfully.`);
+            alert(`✅ "${currentEditingTeam}" playing squad confirmed (${selectedPlayingSquad.length} players, ${selectedImpactSubs.length} impact subs).`);
         };
 
         window.handleInLinePlayerAdd = async (selectId, teamName) => {
@@ -1192,7 +1275,6 @@
             window.navigateView('viewScorer');
         };
 
-        // --- IMPACT PLAYER SUBSTITUTION ENGINE ---
         window.openImpactPlayerModal = () => {
             if (!isScoringAuthorized) return;
             const d = matchData || {};
