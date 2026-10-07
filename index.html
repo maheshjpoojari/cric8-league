@@ -520,7 +520,6 @@
             <h3 style="margin-top:0; color:var(--gold); text-align:center; margin-bottom: 4px;">🏆 OFFICIAL MATCH SCORECARD</h3>
             <div id="scWinnerBanner" style="text-align:center; font-size: 0.95rem; font-weight: bold; color: var(--green); margin-bottom: 8px;"></div>
             
-            <!-- MVP AWARD BANNER -->
             <div id="scMVPBanner" style="background:#0b1120; border:1px solid var(--purple); padding:8px; border-radius:8px; margin-bottom:12px; text-align:center;"></div>
 
             <div style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: center;">
@@ -576,21 +575,25 @@
         let cachedMatchHistory = [];
         let cachedFixtures = [];
 
-        // FIXED: Robust over delivery counter that never miscounts Over 7.0 (Ball 42)
-        function getLegalDeliveriesInCurrentOver(currOverArray, isPairs, completedOvers, totalOvers) {
-            if (!Array.isArray(currOverArray)) return 0;
-            // Over is final ONLY if we are actively inside the final over (e.g. over 8 of 8: completedOvers === 7 and balls < 48)
-            const isCurrentlyPlayingFinalOver = (completedOvers === (totalOvers - 1));
+        // DETERMINISTIC OVER COMPLETION ENGINE
+        function isCurrentOverComplete(currOverArray, isPairs, completedOvers, totalOvers) {
+            if (!Array.isArray(currOverArray)) return false;
             
-            // In pairs format overs 1 to 7: Every delivery increments the over ball
-            if (isPairs && !isCurrentlyPlayingFinalOver) {
-                return currOverArray.length;
+            // In Pairs, ONLY the final scheduled over (Over 8) requires 6 legal deliveries.
+            // Overs 1 through 7 end strictly after exactly 6 deliveries bowled (including WD/NB).
+            const isFinalOverActive = (completedOvers >= (totalOvers - 1));
+
+            if (isPairs && !isFinalOverActive) {
+                return currOverArray.length >= 6;
             }
-            // In classic format or over 8: Wides & No-balls do not count as legal balls
-            return currOverArray.filter(b => {
+
+            // In classic format or during Over 8: Wides/No-balls must be re-bowled
+            const legalCount = currOverArray.filter(b => {
                 const s = b.toString();
                 return !s.includes('Wd') && !s.includes('N');
             }).length;
+
+            return legalCount >= 6;
         }
 
         function updateSlotBadge() {
@@ -748,9 +751,7 @@
             try {
                 const querySnap = await getDocs(collection(db, "tournament_fixtures"));
                 cachedFixtures = [];
-                querySnap.forEach(d => {
-                    cachedFixtures.push({ id: d.id, ...d.data() });
-                });
+                querySnap.forEach(d => cachedFixtures.push({ id: d.id, ...d.data() }));
                 localStorage.setItem('cric8_fixtures_cache', JSON.stringify(cachedFixtures));
                 window.renderFixturesList();
             } catch (err) {
@@ -1259,7 +1260,7 @@
                 consecutive_dots: 0,
                 used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
-                ball_timeline: [], // Stores complete ball-by-ball history
+                ball_timeline: [],
                 impactUsed: { tA: false, tB: false },
                 impactSubsBench: { tA: uploadedImpactSubs[t1] || [], tB: uploadedImpactSubs[t2] || [] },
                 inn1_scorecard: { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [] },
@@ -1451,10 +1452,9 @@
                 }).join('');
             }
 
-            // CRITICAL FIX FOR BALL 42 / OVER 7 TRANSITION:
-            const legalBallsInThisOver = getLegalDeliveriesInCurrentOver(d.curr_over, isPairs, completedOvers, totalOvers);
-            const isOverComplete = (legalBallsInThisOver >= 6);
-            const isCurrentInningsComplete = (balls >= totalOvers * 6);
+            // DETERMINISTIC OVER BOUNDARY EVALUATION (NO LEAKAGE ON OVER 7)
+            const isOverComplete = isCurrentOverComplete(d.curr_over, isPairs, completedOvers, totalOvers);
+            const isCurrentInningsComplete = (completedOvers >= totalOvers);
 
             const nextBtn = document.getElementById('nextOverBtn');
             if (nextBtn) {
@@ -1601,7 +1601,7 @@
                 const isPairSectionVisible = !document.getElementById('pairChangeSection')?.classList.contains('hidden');
 
                 d.crr_bowl = nextBowl;
-                d.curr_over = [];
+                d.curr_over = []; // FULL RESET: Always clear the ball tracker for the new over
                 d.consecutive_dots = 0;
 
                 if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
@@ -1619,7 +1619,6 @@
                     if (!Array.isArray(d.used_batsmen)) d.used_batsmen = [];
                     d.used_batsmen.push(d.crr_bat_name, d.non_bat_name);
                 } else {
-                    // Strike rotates between ends at the end of each completed over
                     const tempName = d.crr_bat_name;
                     const tempRuns = parseInt(d.crr_bat_runs) || 0;
                     const tempBalls = parseInt(d.crr_bat_balls) || 0;
@@ -1706,8 +1705,10 @@
 
             const currentBalls = parseInt(d[teamKey].balls) || 0;
             const completedOvers = Math.floor(currentBalls / 6);
-            const isCurrentlyPlayingFinalOver = (completedOvers === ((d.totalOvers || 8) - 1));
-            const extraCountsAsDelivery = isPairs && !isCurrentlyPlayingFinalOver;
+            
+            // STRICT BOUNDARY: Extra only counts as a legal delivery in overs 1-7 in Pairs mode
+            const isFinalOverActive = (completedOvers >= ((d.totalOvers || 8) - 1));
+            const extraCountsAsDelivery = isPairs && !isFinalOverActive;
 
             let ballEvent = '0';
 
@@ -1825,7 +1826,6 @@
             d[scKey].totalScore = d[teamKey].score;
             d[scKey].totalBalls = d[teamKey].balls;
 
-            // Record into Timeline
             d.ball_timeline.push({
                 inn: d.inn,
                 over: Math.floor(currentBalls / 6) + 1,
@@ -1863,6 +1863,15 @@
                 cSel.innerHTML = '';
                 roster.forEach(p => cSel.add(new Option(p, p)));
             }
+        };
+
+        window.handleFielderSelectChange = async () => {
+            const d = matchData || {};
+            let isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            const fieldingTeamName = isTeamABatting ? (d.tB?.name || "Team 2") : (d.tA?.name || "Team 1");
+
+            await window.handleInLinePlayerAdd('wickCatcher', fieldingTeamName);
         };
 
         window.onWickTypeChange = () => {
@@ -2043,35 +2052,23 @@
         // --- CALCULATE MATCH MVP ---
         function calculateMatchMVP(d) {
             const playerScores = {};
-            const addPoints = (player, pts, reason) => {
-                if (!player) return;
-                if (!playerScores[player]) playerScores[player] = { pts: 0, runs: 0, wkts: 0, catches: 0, ro: 0 };
-                playerScores[player].pts += pts;
-            };
-
             [d.inn1_scorecard, d.inn2_scorecard].forEach(sc => {
                 if (!sc) return;
-                // Batting Points
                 for (const [name, stats] of Object.entries(sc.batters || {})) {
                     if (!playerScores[name]) playerScores[name] = { pts: 0, runs: 0, wkts: 0, catches: 0, ro: 0 };
                     playerScores[name].runs += stats.runs;
-                    playerScores[name].pts += stats.runs;
-                    playerScores[name].pts += (stats.fours * 1) + (stats.sixes * 2);
-                    playerScores[name].pts -= (stats.dismissals * 5); // Pairs dismissal penalty
+                    playerScores[name].pts += stats.runs + (stats.fours * 1) + (stats.sixes * 2) - (stats.dismissals * 5);
                 }
-                // Bowling Points
                 for (const [name, stats] of Object.entries(sc.bowlers || {})) {
                     if (!playerScores[name]) playerScores[name] = { pts: 0, runs: 0, wkts: 0, catches: 0, ro: 0 };
                     playerScores[name].wkts += stats.wkts;
                     playerScores[name].pts += (stats.wkts * 20);
                 }
-                // Fielding Points
                 for (const [name, stats] of Object.entries(sc.fielders || {})) {
                     if (!playerScores[name]) playerScores[name] = { pts: 0, runs: 0, wkts: 0, catches: 0, ro: 0 };
                     playerScores[name].catches += (stats.catches || 0);
                     playerScores[name].ro += (stats.runOuts || 0);
-                    playerScores[name].pts += (stats.catches || 0) * 10;
-                    playerScores[name].pts += (stats.runOuts || 0) * 15;
+                    playerScores[name].pts += (stats.catches || 0) * 10 + (stats.runOuts || 0) * 15;
                 }
             });
 
@@ -2080,7 +2077,7 @@
             for (const [name, data] of Object.entries(playerScores)) {
                 if (data.pts > maxPts) {
                     maxPts = data.pts;
-                    bestPlayer = `${name} (${data.runs} runs, ${data.wkts} wkts, ${data.catches + data.ro} fielding dismissals)`;
+                    bestPlayer = `${name} (${data.runs} runs, ${data.wkts} wkts, ${data.catches + data.ro} dismissals)`;
                 }
             }
             return bestPlayer;
