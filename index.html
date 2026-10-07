@@ -61,7 +61,6 @@
         .player-chip.impact { background: rgba(168, 85, 247, 0.2); color: var(--purple); border-color: var(--purple); }
         .player-chip:active { transform: scale(0.96); }
 
-        /* FIXTURE CARDS */
         .fixture-card { background: #0b1120; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .fixture-teams { font-weight: bold; font-size: 0.9rem; }
         .fixture-meta { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
@@ -304,9 +303,11 @@
             <button class="btn" onclick="window.handleAction(5, 'run')">5</button>
             <button class="btn" onclick="window.handleAction(6, 'run')">6</button>
             
-            <button class="btn" style="background:#0284c7" onclick="window.handleAction(1, 'declare')">1D</button>
+            <!-- 1D BUTTON WITH DYNAMIC RUNS PROMPT -->
+            <button class="btn" style="background:#0284c7" onclick="window.openDeclareModal()">1D</button>
             <button class="btn" style="background:#475569" onclick="window.openByeModal()">BYE</button>
 
+            <!-- EXTRAS WITH 2 RUNS BASE + ADDITIONAL PROMPT -->
             <button class="btn btn-blue" onclick="window.openExtraModal('wide')">WD</button>
             <button class="btn btn-orange" onclick="window.openExtraModal('noball')">NB</button>
 
@@ -350,6 +351,20 @@
                 <button class="btn btn-green" style="flex:1;" onclick="window.confirmSelectedSquad()">CONFIRM SQUAD</button>
                 <button class="btn" style="background:#334155; flex:1; font-size:0.85rem;" onclick="window.closeModal('squadBuilderModal')">CANCEL</button>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DECLARED RUNS (1D) -->
+    <div id="declareModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">DECLARED RUN (1D)</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">1 run base. Enter any additional declared runs:</p>
+            <div class="input-group">
+                <label>Additional Declared Runs (0 for just 1D)</label>
+                <input type="number" id="declareAdditionalRunsInput" class="input-field" value="0" min="0" max="10">
+            </div>
+            <button class="btn btn-blue" style="width:100%;" onclick="window.confirmDeclareAction()">CONFIRM DECLARED RUN</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('declareModal')">CANCEL</button>
         </div>
     </div>
 
@@ -406,16 +421,16 @@
         </div>
     </div>
 
-    <!-- MODAL: DYNAMIC EXTRA RUNS (WIDE / NO-BALL) -->
+    <!-- MODAL: DYNAMIC EXTRA RUNS (WIDE / NO-BALL - 2 RUNS BASE) -->
     <div id="extraModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
-            <h3 style="margin-top:0; color:var(--gold); text-align:center;" id="extraModalTitle">RECORD EXTRA</h3>
-            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Enter any additional runs completed by running:</p>
+            <h3 style="margin-top:0; color:var(--gold); text-align:center;" id="extraModalTitle">RECORD EXTRA (2 RUNS BASE)</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Penalty is 2 runs base. Enter any additional completed runs:</p>
             <div class="input-group">
-                <label>Additional Runs (0 if none)</label>
+                <label>Additional Runs Completed by Running (0 if none)</label>
                 <input type="number" id="extraRunsInput" class="input-field" value="0" min="0" max="20">
             </div>
-            <button class="btn btn-green" style="width:100%;" onclick="window.confirmExtraAction()">CONFIRM EXTRA</button>
+            <button class="btn btn-green" style="width:100%;" onclick="window.confirmExtraAction()">CONFIRM EXTRA (2 + ADDL)</button>
             <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('extraModal')">CANCEL</button>
         </div>
     </div>
@@ -727,9 +742,22 @@
                 querySnap.forEach(d => {
                     cachedFixtures.push({ id: d.id, ...d.data() });
                 });
+                localStorage.setItem('cric8_fixtures_cache', JSON.stringify(cachedFixtures));
                 window.renderFixturesList();
             } catch (err) {
-                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Error loading fixtures: ${err.message}</div>`;
+                console.warn("Firestore fixtures fetch error:", err);
+                const localData = localStorage.getItem('cric8_fixtures_cache');
+                if (localData) {
+                    cachedFixtures = JSON.parse(localData);
+                    window.renderFixturesList();
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align:center; padding:20px; color:var(--red); font-size:0.85rem;">
+                            Firestore permission issue for <code>tournament_fixtures</code>.<br>
+                            Please ensure rules allow read/write in Firebase Console.
+                        </div>
+                    `;
+                }
             }
         };
 
@@ -794,7 +822,11 @@
                         timestamp: new Date().toISOString()
                     };
                     pitchIdx++;
-                    await addDoc(collection(db, "tournament_fixtures"), fixture);
+                    try {
+                        await addDoc(collection(db, "tournament_fixtures"), fixture);
+                    } catch (e) {
+                        console.warn("Could not save to cloud:", e);
+                    }
                 }
             }
 
@@ -1091,6 +1123,7 @@
             window.openSquadBuilderForTeam(teamName);
         };
 
+        // --- TAP-TO-SELECT SQUAD BUILDER ENGINE ---
         window.openSquadBuilderForTeam = (teamName) => {
             currentEditingTeam = teamName;
             const requiredCount = window.getRequiredPlayerCount();
@@ -1402,6 +1435,21 @@
             window.navigateView('viewScorer');
         };
 
+        // --- DECLARED RUNS PROMPT MODAL ---
+        window.openDeclareModal = () => {
+            if (!isScoringAuthorized) return;
+            const input = document.getElementById('declareAdditionalRunsInput');
+            if (input) input.value = "0";
+            document.getElementById('declareModal')?.classList.remove('hidden');
+        };
+
+        window.confirmDeclareAction = async () => {
+            const additional = parseInt(document.getElementById('declareAdditionalRunsInput')?.value) || 0;
+            window.closeModal('declareModal');
+            await window.handleAction(additional, 'declare');
+        };
+
+        // --- IMPACT PLAYER SUBSTITUTION ENGINE ---
         window.openImpactPlayerModal = () => {
             if (!isScoringAuthorized) return;
             const d = matchData || {};
@@ -1847,7 +1895,7 @@
         window.openExtraModal = (type) => {
             if (!isScoringAuthorized) return;
             pendingExtraType = type;
-            setText('extraModalTitle', type === 'wide' ? 'RECORD WIDE (WD)' : 'RECORD NO-BALL (NB)');
+            setText('extraModalTitle', type === 'wide' ? 'RECORD WIDE (2 RUNS BASE)' : 'RECORD NO-BALL (2 RUNS BASE)');
             const input = document.getElementById('extraRunsInput');
             if (input) input.value = "0";
             document.getElementById('extraModal')?.classList.remove('hidden');
@@ -1859,6 +1907,7 @@
             await window.handleAction(extraRuns, pendingExtraType);
         };
 
+        // --- CORE ACTION ENGINE (UPDATED WITH 1D PROMPT & 2-RUN BASE EXTRAS) ---
         window.handleAction = async (val, type) => {
             if (!isScoringAuthorized) return;
             const d = JSON.parse(JSON.stringify(matchData));
@@ -1893,10 +1942,12 @@
             const isFinalOver = (completedOvers >= ((d.totalOvers || 8) - 1));
             const extraCountsAsDelivery = isPairs && !isFinalOver;
 
+            // UPDATED: WIDE = 2 RUNS BASE + ANY ADDITIONAL
             if (type === 'wide') {
-                d[teamKey].score += (val + 1);
-                d[scKey].bowlers[bowler].runs += (val + 1);
-                d[scKey].extras += (val + 1);
+                const totalRuns = val + 2;
+                d[teamKey].score += totalRuns;
+                d[scKey].bowlers[bowler].runs += totalRuns;
+                d[scKey].extras += totalRuns;
                 d.consecutive_dots = 0;
 
                 if (extraCountsAsDelivery) {
@@ -1908,12 +1959,15 @@
                     [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                 }
                 d.curr_over.push(val > 0 ? `Wd+${val}` : 'Wd');
+
+            // UPDATED: NO-BALL = 2 RUNS BASE + ANY ADDITIONAL OFF BAT
             } else if (type === 'noball') {
-                d[teamKey].score += (val + 1);
+                const totalRuns = val + 2;
+                d[teamKey].score += totalRuns;
                 d.crr_bat_runs += val;
                 d[scKey].batters[striker].runs += val;
-                d[scKey].bowlers[bowler].runs += (val + 1);
-                d[scKey].extras += 1;
+                d[scKey].bowlers[bowler].runs += totalRuns;
+                d[scKey].extras += 2; // 2 penalty runs stored under extras
                 d.consecutive_dots = 0;
 
                 d.crr_bat_balls += 1;
@@ -1928,6 +1982,8 @@
                     [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                 }
                 d.curr_over.push(val > 0 ? `N+${val}` : 'N');
+
+            // BYES & LEG BYES
             } else if (type === 'bye' || type === 'leg_bye') {
                 d[teamKey].score += val;
                 d[teamKey].balls = currentBalls + 1;
@@ -1942,6 +1998,21 @@
                     [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                 }
                 d.curr_over.push(type === 'bye' ? `${val}B` : `${val}LB`);
+
+            // UPDATED: 1D (DECLARED RUNS) WITH ADDITIONAL RUNS (NO END SWAP)
+            } else if (type === 'declare') {
+                const totalRuns = val + 1; // 1 base + additional
+                d[teamKey].score += totalRuns;
+                d[teamKey].balls = currentBalls + 1;
+                d.crr_bat_balls += 1;
+                d.crr_bat_runs += totalRuns;
+                d[scKey].batters[striker].runs += totalRuns;
+                d[scKey].batters[striker].balls += 1;
+                d[scKey].bowlers[bowler].balls += 1;
+                d[scKey].bowlers[bowler].runs += totalRuns;
+                d.consecutive_dots = 0;
+                d.curr_over.push(val > 0 ? `1D+${val}` : `1D`);
+
             } else {
                 d[teamKey].score += val;
                 d[teamKey].balls = currentBalls + 1;
@@ -1976,12 +2047,6 @@
                         [d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls, d.non_bat_name, d.non_bat_runs, d.non_bat_balls] = 
                         [d.non_bat_name, d.non_bat_runs, d.non_bat_balls, d.crr_bat_name, d.crr_bat_runs, d.crr_bat_balls];
                     }
-                } else if (type === 'declare') {
-                    d.consecutive_dots = 0;
-                    d.crr_bat_runs += val;
-                    d[scKey].batters[striker].runs += val;
-                    d[scKey].batters[striker].balls += 1;
-                    d.curr_over.push(`${val}D`);
                 }
             }
 
