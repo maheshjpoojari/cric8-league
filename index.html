@@ -216,4 +216,2109 @@
             </div>
             
             <div class="input-group">
-                <div style
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label style="margin-bottom:0;">Team 2 (Calls TAILS)</label>
+                    <button class="btn btn-util" style="padding:4px 8px; font-size:0.7rem;" onclick="window.openSquadEditor('selectTeam2')">👥 Select Playing Squad</button>
+                </div>
+                <select id="selectTeam2" class="input-field" onchange="window.onTeamSelectChange('selectTeam2')"></select>
+            </div>
+
+            <button class="btn btn-orange" style="width:100%; margin-top:10px;" onclick="window.goToTossScreen()">PROCEED TO TOSS 🪙</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.navigateView('viewHome')">BACK TO HOME</button>
+        </div>
+    </div>
+
+    <!-- VIEW 6: TOSS & LINEUP -->
+    <div id="viewToss" class="app-view hidden">
+        <div class="view-card">
+            <h2 class="view-title">🪙 MATCH TOSS & LINEUP</h2>
+            <div class="coin-wrapper">
+                <div id="coin" class="coin">
+                    <div class="coin-face heads">H</div>
+                    <div class="coin-face tails">T</div>
+                </div>
+            </div>
+            <button id="flipBtn" class="btn btn-orange" style="width:100%; margin-bottom: 15px;" onclick="window.flipCoin()">FLIP COIN</button>
+
+            <div id="tossResultBox" class="hidden">
+                <div id="tossResultText" style="text-align: center; color: var(--gold); margin-bottom: 15px; font-weight: bold;"></div>
+                
+                <div class="input-group">
+                    <label><span id="tossWinnerName">Winner</span> Opts To</label>
+                    <select id="setupDecision" class="input-field" onchange="window.updateLineupDropdowns()">
+                        <option value="bat">Bat First</option>
+                        <option value="bowl">Bowl First</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label id="strikerLabel">Opening Striker</label>
+                    <select id="setupStriker" class="input-field"></select>
+                </div>
+                <div class="input-group">
+                    <label id="nonStrikerLabel">Opening Non-Striker</label>
+                    <select id="setupNonStriker" class="input-field"></select>
+                </div>
+                <div class="input-group">
+                    <label id="bowlerLabel">Opening Bowler</label>
+                    <select id="setupBowler" class="input-field"></select>
+                </div>
+                
+                <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="window.startMatch()">START MATCH & OPEN SCORER</button>
+            </div>
+            
+            <button class="btn" style="width:100%; margin-top:10px; background:#334155; font-size:0.8rem;" onclick="window.navigateView('viewTournament')">BACK TO TEAMS</button>
+        </div>
+    </div>
+
+    <!-- VIEW 7: LIVE SCORER CONSOLE -->
+    <div id="viewScorer" class="app-view hidden">
+        <div class="header">
+            <div id="teamNameDisp">Loading...</div>
+            <div id="formatBadgeDisp" class="pair-badge">Pairs Mode</div>
+            <div id="bowlNameDisp" style="font-weight: bold;">Bowler: TBD</div>
+        </div>
+
+        <div class="player-bar">
+            <div id="bat1" class="bat-card striker-active" onclick="window.editStriker()">P1* (0) ✏️</div>
+            <div id="bat2" class="bat-card" onclick="window.editNonStriker()">P2 (0) ✏️</div>
+        </div>
+
+        <div class="score-card">
+            <div id="targetBox" class="hidden" style="color: var(--gold); font-weight: bold; margin-bottom: 8px;"></div>
+            <div id="mainScore" class="main-score">0</div>
+            <div id="stats" style="color:#94a3b8; font-weight:bold;">Overs: 0.0 / 8.0 | Wkts: 0</div>
+            <div id="tracker" class="ball-row"></div>
+            <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.handleOverTransition()">TAP HERE TO START NEXT OVER</div>
+        </div>
+
+        <div id="mainControls" class="admin-grid">
+            <button class="btn" onclick="window.handleAction(0, 'run')">0</button>
+            <button class="btn" onclick="window.handleAction(1, 'run')">1</button>
+            <button class="btn" onclick="window.handleAction(2, 'run')">2</button>
+            <button class="btn" onclick="window.handleAction(3, 'run')">3</button>
+            <button class="btn" onclick="window.handleAction(4, 'run')">4</button>
+            <button class="btn" onclick="window.handleAction(5, 'run')">5</button>
+            <button class="btn" onclick="window.handleAction(6, 'run')">6</button>
+            
+            <button class="btn" style="background:#0284c7" onclick="window.openDeclareModal()">1D</button>
+            <button class="btn" style="background:#475569" onclick="window.openByeModal()">BYE</button>
+            <button class="btn btn-blue" onclick="window.openExtraModal('wide')">WD</button>
+            <button class="btn btn-orange" onclick="window.openExtraModal('noball')">NB</button>
+
+            <button class="btn btn-red" id="wicketBtnLabel" onclick="window.openWicketModal()">WICKET / OUT (-5)</button>
+            
+            <div class="emergency-tools">
+                <button class="btn btn-util" onclick="window.manualSwap()">SWAP</button>
+                <button class="btn btn-util" onclick="window.undoAction()">UNDO</button>
+                <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
+                <button class="btn btn-purple" onclick="window.openImpactPlayerModal()">⚡ IMPACT</button>
+                <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SQUAD CHIP SELECTION -->
+    <div id="squadBuilderModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 440px;">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;" id="squadBuilderTitle">SELECT PLAYING SQUAD</h3>
+            
+            <div style="background:#0b1120; border: 1px solid #1e293b; padding:10px; border-radius:8px; margin-bottom:12px; text-align:center;">
+                <div style="font-size:0.8rem; color:#94a3b8;">Playing Squad Status</div>
+                <div style="font-size:1.3rem; font-weight:900; color:var(--green); margin:4px 0;" id="squadCounterDisplay">0 Selected</div>
+                <div style="font-size:0.75rem; color:#64748b;">Short squads (4-7 players) supported with automated Re-bat rules.</div>
+            </div>
+
+            <label style="font-size:0.8rem; color:#94a3b8; font-weight:bold;">Tap to Pick Playing Squad:</label>
+            <div class="chip-grid" id="squadChipContainer"></div>
+
+            <div style="margin-top:12px; border-top: 1px solid #334155; padding-top:10px;">
+                <label style="font-size:0.8rem; color:var(--purple); font-weight:bold;">Tap Unselected to Pick Impact Subs (Optional):</label>
+                <div class="chip-grid" id="impactChipContainer" style="max-height:100px;"></div>
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:6px;">
+                <input type="text" id="inlineNewPlayerName" class="input-field" style="padding:8px;" placeholder="Add unlisted player...">
+                <button class="btn btn-blue" style="padding:8px 12px; font-size:0.8rem; white-space:nowrap;" onclick="window.addPlayerToMasterPool()">+ Add</button>
+            </div>
+
+            <div style="display:flex; gap: 8px; margin-top:15px;">
+                <button class="btn btn-green" style="flex:1;" onclick="window.confirmSelectedSquad()">CONFIRM SQUAD</button>
+                <button class="btn" style="background:#334155; flex:1; font-size:0.85rem;" onclick="window.closeModal('squadBuilderModal')">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DECLARED RUNS (1D) -->
+    <div id="declareModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">DECLARED RUN (1D)</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">1 run base. Enter additional declared runs (ends stay fixed):</p>
+            <div class="input-group">
+                <label>Additional Declared Runs (0 for just 1D)</label>
+                <input type="number" id="declareAdditionalRunsInput" class="input-field" value="0" min="0" max="10">
+            </div>
+            <button class="btn btn-blue" style="width:100%;" onclick="window.confirmDeclareAction()">CONFIRM DECLARED RUN</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('declareModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- MODAL: IMPACT PLAYER -->
+    <div id="impactModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px; border-color: var(--purple);">
+            <h3 style="margin-top:0; color:var(--purple); text-align:center;">⚡ ACTIVATE IMPACT PLAYER</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Select the team making substitution (1 per team per match).</p>
+            
+            <div class="input-group">
+                <label>Substituting Team</label>
+                <select id="impactTeamSelect" class="input-field" onchange="window.updateImpactModalFields()">
+                    <option value="batting">Batting Side</option>
+                    <option value="bowling">Fielding Side</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Player Going OFF (Replaced)</label>
+                <select id="impactOutgoingSelect" class="input-field"></select>
+            </div>
+
+            <div class="input-group">
+                <label>Impact Player Coming IN</label>
+                <select id="impactIncomingSelect" class="input-field"></select>
+            </div>
+
+            <button class="btn btn-purple" style="width:100%;" onclick="window.confirmImpactSubstitution()">CONFIRM IMPACT SUB ⚡</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('impactModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- MODAL: BYES & LEG BYES -->
+    <div id="byeModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">RECORD BYE / LEG BYE</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Added to team extras, charged to neither batter nor bowler.</p>
+            
+            <div class="input-group">
+                <label>Extra Sub-Type</label>
+                <select id="byeTypeSelect" class="input-field">
+                    <option value="bye">Bye</option>
+                    <option value="leg_bye">Leg Bye</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Completed Runs</label>
+                <input type="number" id="byeRunsInput" class="input-field" value="1" min="1" max="10">
+            </div>
+
+            <button class="btn btn-blue" style="width:100%;" onclick="window.confirmByeAction()">CONFIRM EXTRA</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('byeModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- MODAL: DYNAMIC EXTRA RUNS (2 RUNS BASE) -->
+    <div id="extraModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--gold); text-align:center;" id="extraModalTitle">RECORD EXTRA (2 RUNS BASE)</h3>
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Penalty is 2 runs base. Enter additional completed runs:</p>
+            <div class="input-group">
+                <label>Additional Runs Completed by Running (0 if none)</label>
+                <input type="number" id="extraRunsInput" class="input-field" value="0" min="0" max="20">
+            </div>
+            <button class="btn btn-green" style="width:100%;" onclick="window.confirmExtraAction()">CONFIRM EXTRA (2 + ADDL)</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('extraModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- MODAL: NEXT OVER SETUP -->
+    <div id="bowlerModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
+            
+            <div id="pairChangeSection" class="hidden" style="background:#0b1120; border: 1px solid var(--gold); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="color:var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;" id="pairChangeText">PAIR ROTATION</div>
+                <div class="input-group">
+                    <label>New Striker</label>
+                    <select id="nextStrikerSelect" class="input-field" onchange="window.filterSecondaryBatter()"></select>
+                </div>
+                <div class="input-group">
+                    <label>New Non-Striker</label>
+                    <select id="nextNonStrikerSelect" class="input-field"></select>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label id="nextBowlerTeamLabel">Fielding Team Bowler</label>
+                <select id="nextBowlerSelect" class="input-field"></select>
+            </div>
+            
+            <button id="confirmOverBtn" class="btn btn-blue" style="width:100%; margin-top:10px;" onclick="window.confirmNextOver()">START NEXT OVER</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('bowlerModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- MODAL: CLASSIC INCOMING BATTER -->
+    <div id="newBatterModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 420px;">
+            <h3 style="margin-top:0; color:var(--gold); text-align:center;">🏏 INCOMING BATTER</h3>
+            <p style="font-size: 0.8rem; color:#94a3b8; text-align:center;">Select the next batter entering the crease.</p>
+            <div class="input-group">
+                <label>Available Batters</label>
+                <select id="incomingBatterSelect" class="input-field"></select>
+            </div>
+            <button class="btn btn-green" style="width:100%;" onclick="window.confirmNewBatter()">SEND TO CREASE</button>
+        </div>
+    </div>
+
+    <!-- MODAL: STRUCTURED DISMISSAL -->
+    <div id="wickModal" class="modal hidden">
+        <div class="view-card" style="border-color: var(--red); width: 100%; max-width: 420px;">
+            <h3 style="color: var(--red); margin-top:0; text-align:center;" id="wickModalTitle">RECORD DISMISSAL</h3>
+            
+            <div class="input-group">
+                <label>Dismissal Type</label>
+                <select id="wickType" class="input-field" onchange="window.onWickTypeChange()">
+                    <option value="Bowled">Bowled (Bowler +1 Wkt)</option>
+                    <option value="Caught">Caught (Bowler +1 Wkt, Record Fielder)</option>
+                    <option value="Caught & Bowled">Caught & Bowled (Bowler +1 Wkt & Catch)</option>
+                    <option value="Ball Out of Turf">Ball Out of Turf/Court (Bowler +1 Wkt)</option>
+                    <option value="Stumped">Stumped (Bowler +1 Wkt)</option>
+                    <option value="LBW">LBW (Bowler +1 Wkt)</option>
+                    <option value="Hit Wicket">Hit Wicket (Bowler +1 Wkt)</option>
+                    <option value="Run Out">Run Out (No Bowler Wkt)</option>
+                </select>
+            </div>
+
+            <div class="input-group hidden" id="catcherGroup">
+                <label id="fielderActionLabel">Fielder</label>
+                <select id="wickCatcher" class="input-field"></select>
+            </div>
+
+            <div class="input-group">
+                <label>Batter Dismissed</label>
+                <select id="wickBatter" class="input-field"></select>
+            </div>
+
+            <div class="input-group hidden" id="creaseOutcomeGroup">
+                <label>Crease / Strike Outcome</label>
+                <select id="wickCrease" class="input-field">
+                    <option value="no_swap">Stay at Ends</option>
+                    <option value="swap">Crossed Running (Strike Swaps)</option>
+                </select>
+            </div>
+
+            <button class="btn btn-red" style="width:100%; margin-top:10px; padding:12px 0;" onclick="window.confirmStructuredDismissal()">CONFIRM DISMISSAL</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('wickModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- MODAL: SCORECARD & MVP -->
+    <div id="scorecardModal" class="modal hidden">
+        <div class="view-card" style="max-width: 480px; max-height: 90vh; overflow-y: auto;">
+            <h3 style="margin-top:0; color:var(--gold); text-align:center; margin-bottom: 4px;">🏆 OFFICIAL MATCH SCORECARD</h3>
+            <div id="scWinnerBanner" style="text-align:center; font-size: 0.95rem; font-weight: bold; color: var(--green); margin-bottom: 8px;"></div>
+            <div id="scMVPBanner" style="background:#0b1120; border:1px solid var(--purple); padding:8px; border-radius:8px; margin-bottom:12px; text-align:center;"></div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: center;">
+                <button class="tab-btn active" id="tabInn1Btn" onclick="window.switchScorecardTab(1)">Innings 1</button>
+                <button class="tab-btn" id="tabInn2Btn" onclick="window.switchScorecardTab(2)">Innings 2</button>
+            </div>
+
+            <div id="scTabContent"></div>
+
+            <button class="btn btn-blue" style="width:100%; margin-top:15px;" onclick="window.startNewMatchFromScorecard()">START NEW MATCH</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('scorecardModal')">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- STANDARD SYNCHRONOUS JAVASCRIPT: INSTANT LOAD, ZERO LATENCY FREEZES -->
+    <script>
+        // --- 1. IMMEDIATE GLOBAL VIEW CONTROLLER ---
+        window.navigateView = function(viewId) {
+            ['viewHome', 'viewLogin', 'viewFixtures', 'viewTournament', 'viewToss', 'viewScorer', 'viewStandings'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            var target = document.getElementById(viewId);
+            if (target) target.classList.remove('hidden');
+        };
+
+        window.closeModal = function(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        };
+
+        function setText(id, text) {
+            var el = document.getElementById(id);
+            if (el) el.innerText = text;
+        }
+
+        // MOUNT HOME VIEW IMMEDIATELY
+        window.navigateView('viewHome');
+
+        // --- 2. FIREBASE INITIALIZATION ---
+        var firebaseConfig = {
+            apiKey: "AIzaSyAbjxVu29ub-BKCNm7tMk2nl0ibQHkm7iE",
+            authDomain: "cric8-league.firebaseapp.com",
+            projectId: "cric8-league",
+            appId: "1:623659944427:web:a4ad2da48833e6a4db31ae"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        var db = firebase.firestore();
+        var auth = firebase.auth();
+
+        // MATCH STATE REPOSITORY
+        var urlParams = new URLSearchParams(window.location.search);
+        var currentMatchId = urlParams.get('match') || localStorage.getItem('cric8_active_slot') || "pitch_1";
+        var matchDocRef = db.collection("matches").doc(currentMatchId);
+        var unsubscribeSnapshot = null;
+
+        var matchData = null;
+        var isScoringAuthorized = true;
+        var isTournamentMode = false;
+        var tossWinnerTeam = "";
+        var uploadedTeams = {};
+        var uploadedImpactSubs = {};
+        var activeAvailableBatters = [];
+        var activeScorecardTab = 1;
+        var activeStandingsTab = 'points';
+        var pendingExtraType = 'wide';
+
+        var currentEditingTeam = null;
+        var activeMasterRoster = [];
+        var selectedPlayingSquad = [];
+        var selectedImpactSubs = [];
+
+        var cachedMatchHistory = [];
+        var cachedFixtures = [];
+
+        // DETERMINISTIC OVER COMPLETION ENGINE
+        function isCurrentOverComplete(currOverArray, isPairs, completedOvers, totalOvers) {
+            if (!Array.isArray(currOverArray)) return false;
+            var isEighthOverActive = (completedOvers >= (totalOvers - 1));
+            if (isPairs && !isEighthOverActive) {
+                return currOverArray.length >= 6;
+            }
+            var legalCount = currOverArray.filter(function(b) {
+                var s = b.toString();
+                return !s.includes('Wd') && !s.includes('N');
+            }).length;
+            return legalCount >= 6;
+        }
+
+        function updateSlotBadge() {
+            var badge = document.getElementById('activeSlotTag');
+            if (badge) badge.innerText = currentMatchId.toUpperCase().replace('_', ' ');
+            var select = document.getElementById('matchSlotSelect');
+            if (select) {
+                if (['pitch_1', 'pitch_2', 'pitch_3', 'pitch_4'].includes(currentMatchId)) {
+                    select.value = currentMatchId;
+                    var group = document.getElementById('customSlotGroup');
+                    if (group) group.classList.add('hidden');
+                } else {
+                    select.value = 'custom_slot';
+                    var group = document.getElementById('customSlotGroup');
+                    if (group) group.classList.remove('hidden');
+                    var input = document.getElementById('customSlotInput');
+                    if (input) input.value = currentMatchId;
+                }
+            }
+        }
+
+        window.switchMatchSlot = function() {
+            var val = document.getElementById('matchSlotSelect').value;
+            if (val === 'custom_slot') {
+                document.getElementById('customSlotGroup').classList.remove('hidden');
+                var customVal = document.getElementById('customSlotInput').value.trim();
+                if (customVal) attachMatchListener(customVal);
+            } else {
+                document.getElementById('customSlotGroup').classList.add('hidden');
+                attachMatchListener(val);
+            }
+        };
+
+        var customSlotInputEl = document.getElementById('customSlotInput');
+        if (customSlotInputEl) {
+            customSlotInputEl.addEventListener('change', function(e) {
+                var val = e.target.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+                if (val) attachMatchListener(val);
+            });
+        }
+
+        function attachMatchListener(newId) {
+            currentMatchId = newId;
+            localStorage.setItem('cric8_active_slot', currentMatchId);
+            matchDocRef = db.collection("matches").doc(currentMatchId);
+            updateSlotBadge();
+
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+
+            try {
+                unsubscribeSnapshot = matchDocRef.onSnapshot(function(snap) {
+                    try {
+                        if (!snap.exists) {
+                            matchData = null;
+                            window.navigateView('viewHome');
+                            return;
+                        }
+                        matchData = snap.data();
+
+                        if (matchData.team1_squad && matchData.tA && matchData.tA.name) {
+                            uploadedTeams[matchData.tA.name] = matchData.team1_squad;
+                        }
+                        if (matchData.team2_squad && matchData.tB && matchData.tB.name) {
+                            uploadedTeams[matchData.tB.name] = matchData.team2_squad;
+                        }
+
+                        if (matchData.match_in_progress) {
+                            window.navigateView('viewScorer');
+                        } else {
+                            window.navigateView('viewHome');
+                        }
+                        updateUI();
+                    } catch (e) {
+                        console.error("Snapshot UI error:", e);
+                    }
+                }, function(err) {
+                    console.warn("Snapshot connection error:", err);
+                    window.navigateView('viewHome');
+                });
+            } catch (err) {
+                console.warn("attachMatchListener failed:", err);
+                window.navigateView('viewHome');
+            }
+        }
+
+        window.startHostFlow = function() {
+            isScoringAuthorized = true;
+            isTournamentMode = false;
+            setText('roleIndicator', 'MATCH HOST / SCORER');
+            setText('setupTitle', '⚡ HOST A QUICK MATCH');
+            loadTeamsFromDatabase().then(function() {
+                window.setupTournamentDropdowns();
+                window.navigateView('viewTournament');
+            });
+        };
+
+        window.openTournamentLogin = function() {
+            isTournamentMode = true;
+            window.navigateView('viewLogin');
+        };
+
+        window.handleLogin = function() {
+            var email = document.getElementById('loginEmail').value.trim();
+            var pass = document.getElementById('loginPass').value.trim();
+            if (!email || !pass) return alert("Please enter credentials.");
+            auth.signInWithEmailAndPassword(email, pass).catch(function(err) {
+                alert("Login Failed: " + err.message);
+            });
+        };
+
+        window.enterAsGuest = function() {
+            isScoringAuthorized = false;
+            setText('roleIndicator', 'SPECTATOR (READ ONLY)');
+            window.navigateView('viewScorer');
+        };
+
+        auth.onAuthStateChanged(function(user) {
+            if (user && isTournamentMode) {
+                isScoringAuthorized = true;
+                setText('roleIndicator', 'TOURNAMENT OFFICIAL');
+                setText('setupTitle', '🏆 TOURNAMENT FIXTURE');
+                loadTeamsFromDatabase().then(function() {
+                    window.setupTournamentDropdowns();
+                    if (matchData && matchData.match_in_progress) {
+                        window.navigateView('viewScorer');
+                    } else {
+                        window.navigateView('viewFixtures');
+                    }
+                });
+            }
+        });
+
+        function loadTeamsFromDatabase() {
+            return db.collection("teams").get().then(function(querySnap) {
+                uploadedTeams = {};
+                uploadedImpactSubs = {};
+                querySnap.forEach(function(docSnap) {
+                    var data = docSnap.data();
+                    var teamName = data.teamName || data.name || docSnap.id;
+                    var playerList = [];
+                    for (var key in data) {
+                        if (Array.isArray(data[key]) && key !== 'impactSubs') { playerList = data[key]; break; }
+                    }
+                    if (playerList.length === 0 && data.players) {
+                        playerList = Array.isArray(data.players) ? data.players : [data.players];
+                    }
+                    uploadedTeams[teamName] = playerList.map(function(p) { return typeof p === 'string' ? p.trim() : (p && p.name ? p.name : ''); }).filter(Boolean);
+                    uploadedImpactSubs[teamName] = Array.isArray(data.impactSubs) ? data.impactSubs : [];
+                });
+            }).catch(function(e) {
+                console.warn("Teams load fallback:", e);
+            });
+        }
+
+        // --- FIXTURES ENGINE ---
+        window.openFixturesView = function() {
+            window.navigateView('viewFixtures');
+            loadTeamsFromDatabase().then(function() {
+                window.loadFixturesList();
+            });
+        };
+
+        window.loadFixturesList = function() {
+            var container = document.getElementById('fixturesListContainer');
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Loading schedule...</div>';
+
+            db.collection("tournament_fixtures").get().then(function(querySnap) {
+                cachedFixtures = [];
+                querySnap.forEach(function(d) { cachedFixtures.push(Object.assign({ id: d.id }, d.data())); });
+                localStorage.setItem('cric8_fixtures_cache', JSON.stringify(cachedFixtures));
+                window.renderFixturesList();
+            }).catch(function(err) {
+                var localData = localStorage.getItem('cric8_fixtures_cache');
+                if (localData) {
+                    cachedFixtures = JSON.parse(localData);
+                    window.renderFixturesList();
+                } else {
+                    container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No fixtures available.</div>';
+                }
+            });
+        };
+
+        window.renderFixturesList = function() {
+            var container = document.getElementById('fixturesListContainer');
+            var filter = document.getElementById('fixtureTourneyFilter');
+            var tourney = filter ? filter.value : 'corporate';
+            var filtered = cachedFixtures.filter(function(f) { return f.tournament === tourney; });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No fixtures scheduled yet. Click Auto-Generate.</div>';
+                return;
+            }
+
+            var html = '';
+            filtered.forEach(function(f) {
+                var statusBadge = f.status === 'completed' 
+                    ? '<span style="color:var(--green); font-size:0.75rem; font-weight:bold;">COMPLETED</span>' 
+                    : '<button class="btn btn-green" style="padding:6px 10px; font-size:0.75rem;" onclick="window.loadFixtureToMatch(\'' + f.id + '\')">LOAD MATCH ⚡</button>';
+
+                html += '<div class="fixture-card">' +
+                    '<div>' +
+                    '<div class="fixture-teams">' + f.team1 + ' vs ' + f.team2 + '</div>' +
+                    '<div class="fixture-meta">' + f.pitch.toUpperCase().replace('_', ' ') + ' | ' + (f.format === 'pairs' ? 'Pairs' : 'Classic') + ' | ' + (f.overs || 8) + ' Overs</div>' +
+                    '</div>' +
+                    '<div>' + statusBadge + '</div>' +
+                    '</div>';
+            });
+            container.innerHTML = html;
+        };
+
+        window.autoGenerateRoundRobinFixtures = function() {
+            var tourney = document.getElementById('fixtureTourneyFilter').value || 'corporate';
+            var teamNames = Object.keys(uploadedTeams);
+
+            if (teamNames.length < 2) return alert("At least 2 registered teams are required.");
+            if (!confirm("Generate Round-Robin schedule for " + teamNames.length + " teams?")) return;
+
+            var pitches = ['pitch_1', 'pitch_2', 'pitch_3', 'pitch_4'];
+            var pitchIdx = 0;
+
+            for (var i = 0; i < teamNames.length; i++) {
+                for (var j = i + 1; j < teamNames.length; j++) {
+                    var fixture = {
+                        tournament: tourney,
+                        team1: teamNames[i],
+                        team2: teamNames[j],
+                        pitch: pitches[pitchIdx % pitches.length],
+                        format: tourney === 'corporate' ? 'pairs' : 'classic',
+                        overs: 8,
+                        status: 'scheduled',
+                        timestamp: new Date().toISOString()
+                    };
+                    pitchIdx++;
+                    db.collection("tournament_fixtures").add(fixture).catch(function(e) { console.warn(e); });
+                }
+            }
+            alert("✅ Fixtures generated!");
+            setTimeout(window.loadFixturesList, 800);
+        };
+
+        window.loadFixtureToMatch = function(fixtureId) {
+            var fixture = cachedFixtures.find(function(f) { return f.id === fixtureId; });
+            if (!fixture) return;
+
+            window.setupTournamentDropdowns(fixture.team1, fixture.team2);
+            document.getElementById('rulesFormatSelect').value = fixture.format || 'pairs';
+            document.getElementById('tourneySelect').value = fixture.tournament || 'corporate';
+            document.getElementById('matchOversInput').value = fixture.overs || 8;
+            document.getElementById('matchSlotSelect').value = fixture.pitch || 'pitch_1';
+
+            attachMatchListener(fixture.pitch || 'pitch_1');
+            window.navigateView('viewTournament');
+        };
+
+        // --- STANDINGS ENGINE ---
+        window.openStandingsView = function() {
+            window.navigateView('viewStandings');
+            window.loadTournamentStandings();
+        };
+
+        window.loadTournamentStandings = function() {
+            var container = document.getElementById('standingsTabContent');
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Loading records...</div>';
+
+            db.collection("match_history").get().then(function(querySnap) {
+                cachedMatchHistory = [];
+                querySnap.forEach(function(d) { cachedMatchHistory.push(d.data()); });
+                window.renderCurrentStandingsTab();
+            }).catch(function(err) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--red);">Error loading records.</div>';
+            });
+        };
+
+        window.switchStandingsTab = function(tab) {
+            activeStandingsTab = tab;
+            document.getElementById('tabPointsBtn').classList.toggle('active', tab === 'points');
+            document.getElementById('tabOrangeBtn').classList.toggle('active', tab === 'orange');
+            document.getElementById('tabPurpleBtn').classList.toggle('active', tab === 'purple');
+            document.getElementById('tabGloveBtn').classList.toggle('active', tab === 'glove');
+            window.renderCurrentStandingsTab();
+        };
+
+        window.renderCurrentStandingsTab = function() {
+            var container = document.getElementById('standingsTabContent');
+            var filter = document.getElementById('standingsTourneyFilter');
+            var selectedFilter = filter ? filter.value : 'all';
+            var matches = cachedMatchHistory.filter(function(m) { return selectedFilter === 'all' || m.tournament === selectedFilter; });
+
+            if (matches.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:25px; color:#64748b;">No completed matches found.</div>';
+                return;
+            }
+
+            if (activeStandingsTab === 'points') {
+                var tableData = {};
+                matches.forEach(function(m) {
+                    var tAName = (m.tA && m.tA.name) || "Team A";
+                    var tBName = (m.tB && m.tB.name) || "Team B";
+                    var tAScore = parseInt(m.tA && m.tA.score) || 0;
+                    var tBScore = parseInt(m.tB && m.tB.score) || 0;
+                    var tABalls = parseInt(m.tA && m.tA.balls) || 0;
+                    var tBBalls = parseInt(m.tB && m.tB.balls) || 0;
+
+                    if (!tableData[tAName]) tableData[tAName] = { p: 0, w: 0, l: 0, t: 0, pts: 0, runsFor: 0, ballsFor: 0, runsAgainst: 0, ballsAgainst: 0 };
+                    if (!tableData[tBName]) tableData[tBName] = { p: 0, w: 0, l: 0, t: 0, pts: 0, runsFor: 0, ballsFor: 0, runsAgainst: 0, ballsAgainst: 0 };
+
+                    tableData[tAName].p += 1; tableData[tBName].p += 1;
+                    tableData[tAName].runsFor += tAScore; tableData[tAName].ballsFor += tABalls;
+                    tableData[tAName].runsAgainst += tBScore; tableData[tAName].ballsAgainst += tBBalls;
+
+                    tableData[tBName].runsFor += tBScore; tableData[tBName].ballsFor += tBBalls;
+                    tableData[tBName].runsAgainst += tAScore; tableData[tBName].ballsAgainst += tABalls;
+
+                    if (tAScore > tBScore) { tableData[tAName].w += 1; tableData[tAName].pts += 2; tableData[tBName].l += 1; }
+                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tBName].l += 1; }
+                    else { tableData[tAName].t += 1; tableData[tBName].t += 1; tableData[tAName].pts += 1; tableData[tBName].pts += 1; }
+                });
+
+                var sortedTeams = Object.keys(tableData).map(function(name) {
+                    var t = tableData[name];
+                    var oversFor = t.ballsFor > 0 ? (t.ballsFor / 6) : 0;
+                    var oversAgainst = t.ballsAgainst > 0 ? (t.ballsAgainst / 6) : 0;
+                    var runRateFor = oversFor > 0 ? (t.runsFor / oversFor) : 0;
+                    var runRateAgainst = oversAgainst > 0 ? (t.runsAgainst / oversAgainst) : 0;
+                    return Object.assign({ name: name, nrr: runRateFor - runRateAgainst }, t);
+                }).sort(function(a, b) { return b.pts !== a.pts ? b.pts - a.pts : b.nrr - a.nrr; });
+
+                var html = '<table class="sc-table"><tr><th>Team</th><th>P</th><th>W</th><th>L</th><th>T</th><th>Pts</th><th>NRR</th></tr>';
+                sortedTeams.forEach(function(t, i) {
+                    var nrrStr = (t.nrr >= 0 ? "+" : "") + t.nrr.toFixed(3);
+                    html += '<tr><td><b>' + (i+1) + '. ' + t.name + '</b></td><td>' + t.p + '</td><td>' + t.w + '</td><td>' + t.l + '</td><td>' + t.t + '</td><td><b style="color:var(--gold);">' + t.pts + '</b></td><td>' + nrrStr + '</td></tr>';
+                });
+                html += '</table>';
+                container.innerHTML = html;
+            } else if (activeStandingsTab === 'orange') {
+                var batters = {};
+                matches.forEach(function(m) {
+                    [m.inn1_scorecard, m.inn2_scorecard].forEach(function(sc) {
+                        if (sc && sc.batters) {
+                            for (var name in sc.batters) {
+                                var stats = sc.batters[name];
+                                if (!batters[name]) batters[name] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
+                                batters[name].runs += (stats.runs || 0);
+                                batters[name].balls += (stats.balls || 0);
+                                batters[name].fours += (stats.fours || 0);
+                                batters[name].sixes += (stats.sixes || 0);
+                            }
+                        }
+                    });
+                });
+                var sorted = Object.keys(batters).map(function(name) { return Object.assign({ name: name }, batters[name]); }).sort(function(a, b) { return b.runs - a.runs; });
+                var htmlB = '<table class="sc-table"><tr><th>Batter</th><th>Runs</th><th>Balls</th><th>4s</th><th>6s</th><th>SR</th></tr>';
+                sorted.slice(0, 10).forEach(function(b) {
+                    var sr = b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(1) : "0.0";
+                    htmlB += '<tr><td><b>' + b.name + '</b></td><td><b style="color:var(--orange);">' + b.runs + '</b></td><td>' + b.balls + '</td><td>' + b.fours + '</td><td>' + b.sixes + '</td><td>' + sr + '</td></tr>';
+                });
+                htmlB += '</table>';
+                container.innerHTML = htmlB;
+            } else if (activeStandingsTab === 'purple') {
+                var bowlers = {};
+                matches.forEach(function(m) {
+                    [m.inn1_scorecard, m.inn2_scorecard].forEach(function(sc) {
+                        if (sc && sc.bowlers) {
+                            for (var name in sc.bowlers) {
+                                var stats = sc.bowlers[name];
+                                if (!bowlers[name]) bowlers[name] = { balls: 0, runs: 0, wkts: 0 };
+                                bowlers[name].balls += (stats.balls || 0);
+                                bowlers[name].runs += (stats.runs || 0);
+                                bowlers[name].wkts += (stats.wkts || 0);
+                            }
+                        }
+                    });
+                });
+                var sortedBowl = Object.keys(bowlers).map(function(name) { return Object.assign({ name: name }, bowlers[name]); }).sort(function(a, b) { return b.wkts - a.wkts; });
+                var htmlP = '<table class="sc-table"><tr><th>Bowler</th><th>Wkts</th><th>Overs</th><th>Runs</th><th>Econ</th></tr>';
+                sortedBowl.slice(0, 10).forEach(function(b) {
+                    var overs = Math.floor(b.balls / 6) + "." + (b.balls % 6);
+                    var econ = b.balls > 0 ? ((b.runs / b.balls) * 6).toFixed(1) : "0.0";
+                    htmlP += '<tr><td><b>' + b.name + '</b></td><td><b style="color:var(--purple);">' + b.wkts + '</b></td><td>' + overs + '</td><td>' + b.runs + '</td><td>' + econ + '</td></tr>';
+                });
+                htmlP += '</table>';
+                container.innerHTML = htmlP;
+            } else if (activeStandingsTab === 'glove') {
+                var fielders = {};
+                matches.forEach(function(m) {
+                    [m.inn1_scorecard, m.inn2_scorecard].forEach(function(sc) {
+                        if (sc && sc.fielders) {
+                            for (var name in sc.fielders) {
+                                var stats = sc.fielders[name];
+                                if (!fielders[name]) fielders[name] = { catches: 0, runOuts: 0, total: 0 };
+                                var c = stats.catches || 0, ro = stats.runOuts || 0;
+                                fielders[name].catches += c; fielders[name].runOuts += ro; fielders[name].total += (c + ro);
+                            }
+                        }
+                    });
+                });
+                var sortedField = Object.keys(fielders).map(function(name) { return Object.assign({ name: name }, fielders[name]); }).sort(function(a, b) { return b.total - a.total; });
+                var htmlG = '<table class="sc-table"><tr><th>Fielder</th><th>Catches</th><th>Run Outs</th><th>Total</th></tr>';
+                sortedField.slice(0, 10).forEach(function(f) {
+                    htmlG += '<tr><td><b>' + f.name + '</b></td><td>' + f.catches + '</td><td>' + f.runOuts + '</td><td><b style="color:var(--gold);">' + f.total + '</b></td></tr>';
+                });
+                htmlG += '</table>';
+                container.innerHTML = htmlG;
+            }
+        };
+
+        // --- SQUAD SETUP ---
+        window.setupTournamentDropdowns = function(selectedT1, selectedT2) {
+            var t1 = document.getElementById('selectTeam1');
+            var t2 = document.getElementById('selectTeam2');
+            t1.innerHTML = ''; t2.innerHTML = '';
+            
+            var teamNames = Object.keys(uploadedTeams);
+            if (teamNames.length === 0) teamNames.push("Team 1", "Team 2");
+
+            teamNames.forEach(function(name) {
+                t1.add(new Option(name, name));
+                t2.add(new Option(name, name));
+            });
+
+            t1.add(new Option("➕ Add New Custom Team...", "__add_new_team__"));
+            t2.add(new Option("➕ Add New Custom Team...", "__add_new_team__"));
+
+            if (selectedT1 && uploadedTeams[selectedT1]) t1.value = selectedT1;
+            else t1.selectedIndex = 0;
+
+            if (selectedT2 && uploadedTeams[selectedT2]) t2.value = selectedT2;
+            else t2.selectedIndex = teamNames.length > 1 ? 1 : 0;
+        };
+
+        window.onTeamSelectChange = function(selectId) {
+            var sel = document.getElementById(selectId);
+            if (sel.value === "__add_new_team__") {
+                var customTeamName = prompt("Enter Custom Team Name (e.g., Nahda Warriors):");
+                if (customTeamName && customTeamName.trim()) {
+                    var cleanName = customTeamName.trim();
+                    if (!uploadedTeams[cleanName]) {
+                        uploadedTeams[cleanName] = [];
+                        uploadedImpactSubs[cleanName] = [];
+                    }
+                    var otherId = selectId === 'selectTeam1' ? 'selectTeam2' : 'selectTeam1';
+                    var otherVal = document.getElementById(otherId).value;
+                    window.setupTournamentDropdowns(selectId === 'selectTeam1' ? cleanName : otherVal, selectId === 'selectTeam2' ? cleanName : otherVal);
+                    window.openSquadBuilderForTeam(cleanName);
+                } else {
+                    sel.selectedIndex = 0;
+                }
+            }
+        };
+
+        window.getRequiredPlayerCount = function() {
+            var input = document.getElementById('playersPerTeamInput');
+            return input ? (parseInt(input.value) || 8) : 8;
+        };
+
+        window.openSquadEditor = function(selectId) {
+            var sel = document.getElementById(selectId);
+            var teamName = sel ? sel.value : null;
+            if (!teamName || teamName === '__add_new_team__') return alert("Select or add a team first.");
+            window.openSquadBuilderForTeam(teamName);
+        };
+
+        window.openSquadBuilderForTeam = function(teamName) {
+            currentEditingTeam = teamName;
+            var req = window.getRequiredPlayerCount();
+            setText('squadBuilderTitle', 'SQUAD: ' + teamName.toUpperCase());
+            
+            var existingPlaying = uploadedTeams[teamName] || [];
+            var existingImpact = uploadedImpactSubs[teamName] || [];
+            activeMasterRoster = Array.from(new Set(existingPlaying.concat(existingImpact)));
+            selectedPlayingSquad = existingPlaying.slice(0, req);
+            selectedImpactSubs = existingImpact.filter(function(p) { return !selectedPlayingSquad.includes(p); });
+
+            window.renderSquadChips();
+            document.getElementById('squadBuilderModal').classList.remove('hidden');
+        };
+
+        window.renderSquadChips = function() {
+            var req = window.getRequiredPlayerCount();
+            var container = document.getElementById('squadChipContainer');
+            var impactContainer = document.getElementById('impactChipContainer');
+            container.innerHTML = ''; impactContainer.innerHTML = '';
+
+            var counter = document.getElementById('squadCounterDisplay');
+            counter.innerText = selectedPlayingSquad.length + " Selected (Max " + req + ")";
+            counter.style.color = (selectedPlayingSquad.length >= 4) ? 'var(--green)' : 'var(--gold)';
+
+            if (activeMasterRoster.length === 0) {
+                container.innerHTML = '<div style="font-size:0.8rem; color:#64748b; padding:10px;">No players registered yet.</div>';
+            }
+
+            activeMasterRoster.forEach(function(player) {
+                var isSelected = selectedPlayingSquad.includes(player);
+                var isImpact = selectedImpactSubs.includes(player);
+
+                var chip = document.createElement('div');
+                chip.className = 'player-chip' + (isSelected ? ' selected' : '');
+                chip.innerHTML = (isSelected ? '✓ ' : '') + player;
+                chip.onclick = function() { window.togglePlayerSelection(player); };
+                container.appendChild(chip);
+
+                if (!isSelected) {
+                    var impChip = document.createElement('div');
+                    impChip.className = 'player-chip' + (isImpact ? ' impact' : '');
+                    impChip.innerHTML = (isImpact ? '⚡ ' : '') + player;
+                    impChip.onclick = function() { window.toggleImpactSelection(player); };
+                    impactContainer.appendChild(impChip);
+                }
+            });
+        };
+
+        window.togglePlayerSelection = function(player) {
+            var req = window.getRequiredPlayerCount();
+            var idx = selectedPlayingSquad.indexOf(player);
+            if (idx !== -1) {
+                selectedPlayingSquad.splice(idx, 1);
+            } else {
+                if (selectedPlayingSquad.length >= req) return alert("Maximum " + req + " players allowed.");
+                selectedPlayingSquad.push(player);
+                var impIdx = selectedImpactSubs.indexOf(player);
+                if (impIdx !== -1) selectedImpactSubs.splice(impIdx, 1);
+            }
+            window.renderSquadChips();
+        };
+
+        window.toggleImpactSelection = function(player) {
+            var idx = selectedImpactSubs.indexOf(player);
+            if (idx !== -1) selectedImpactSubs.splice(idx, 1);
+            else {
+                if (selectedImpactSubs.length >= 4) return alert("Maximum 4 Impact Substitutes.");
+                selectedImpactSubs.push(player);
+            }
+            window.renderSquadChips();
+        };
+
+        window.addPlayerToMasterPool = function() {
+            var input = document.getElementById('inlineNewPlayerName');
+            var name = input ? input.value.trim() : '';
+            if (!name) return;
+            if (!activeMasterRoster.includes(name)) {
+                activeMasterRoster.push(name);
+                if (selectedPlayingSquad.length < window.getRequiredPlayerCount()) selectedPlayingSquad.push(name);
+                input.value = '';
+                window.renderSquadChips();
+            }
+        };
+
+        // FLEXIBLE SQUAD SAVE: Supports short squads (4 to req players)
+        window.confirmSelectedSquad = function() {
+            var req = window.getRequiredPlayerCount();
+            if (selectedPlayingSquad.length < 4 || selectedPlayingSquad.length > req) {
+                return alert("Please select between 4 and " + req + " players.");
+            }
+
+            uploadedTeams[currentEditingTeam] = selectedPlayingSquad.slice();
+            uploadedImpactSubs[currentEditingTeam] = selectedImpactSubs.slice();
+
+            window.closeModal('squadBuilderModal');
+            if (selectedPlayingSquad.length < req) {
+                alert("⚠️ Short squad confirmed: " + selectedPlayingSquad.length + " players selected. Automated Re-bat / 2nd Over rules active.");
+            } else {
+                alert("✅ Squad saved (" + selectedPlayingSquad.length + " players).");
+            }
+        };
+
+        window.getCurrentBattingTeamName = function() {
+            var t1 = document.getElementById('selectTeam1').value;
+            var t2 = document.getElementById('selectTeam2').value;
+            var decision = document.getElementById('setupDecision').value || 'bat';
+            if (!tossWinnerTeam) return t1;
+            return (tossWinnerTeam === t1) ? (decision === 'bat' ? t1 : t2) : (decision === 'bat' ? t2 : t1);
+        };
+
+        window.getCurrentBowlingTeamName = function() {
+            var t1 = document.getElementById('selectTeam1').value;
+            var t2 = document.getElementById('selectTeam2').value;
+            var decision = document.getElementById('setupDecision').value || 'bat';
+            if (!tossWinnerTeam) return t2;
+            return (tossWinnerTeam === t1) ? (decision === 'bat' ? t2 : t1) : (decision === 'bat' ? t1 : t2);
+        };
+
+        window.goToTossScreen = function() {
+            var t1 = document.getElementById('selectTeam1').value;
+            var t2 = document.getElementById('selectTeam2').value;
+            var req = window.getRequiredPlayerCount();
+
+            if (t1 === t2) return alert("Select two different teams.");
+
+            var t1Count = uploadedTeams[t1] ? uploadedTeams[t1].length : 0;
+            var t2Count = uploadedTeams[t2] ? uploadedTeams[t2].length : 0;
+
+            if (t1Count < 4 || t1Count > req) {
+                alert('Team 1 ("' + t1 + '") must have between 4 and ' + req + ' squad players.');
+                return window.openSquadBuilderForTeam(t1);
+            }
+            if (t2Count < 4 || t2Count > req) {
+                alert('Team 2 ("' + t2 + '") must have between 4 and ' + req + ' squad players.');
+                return window.openSquadBuilderForTeam(t2);
+            }
+
+            document.getElementById('coin').className = 'coin';
+            document.getElementById('tossResultBox').classList.add('hidden');
+            window.navigateView('viewToss');
+        };
+
+        window.flipCoin = function() {
+            var t1 = document.getElementById('selectTeam1').value;
+            var t2 = document.getElementById('selectTeam2').value;
+            var coin = document.getElementById('coin');
+            var flipBtn = document.getElementById('flipBtn');
+            flipBtn.disabled = true;
+
+            coin.className = 'coin';
+            var isHeads = Math.random() < 0.5;
+
+            setTimeout(function() { coin.classList.add(isHeads ? 'animate-heads' : 'animate-tails'); }, 50);
+
+            setTimeout(function() {
+                tossWinnerTeam = isHeads ? t1 : t2;
+                setText('tossResultText', '🎉 ' + tossWinnerTeam + ' won the toss (' + (isHeads ? 'HEADS' : 'TAILS') + ')!');
+                setText('tossWinnerName', tossWinnerTeam);
+                document.getElementById('tossResultBox').classList.remove('hidden');
+                flipBtn.disabled = false;
+                window.updateLineupDropdowns();
+            }, 2100);
+        };
+
+        window.updateLineupDropdowns = function() {
+            var battingTeam = window.getCurrentBattingTeamName();
+            var bowlingTeam = window.getCurrentBowlingTeamName();
+
+            var batRoster = uploadedTeams[battingTeam] || [];
+            var bowlRoster = uploadedTeams[bowlingTeam] || [];
+
+            var sSelect = document.getElementById('setupStriker');
+            var nsSelect = document.getElementById('setupNonStriker');
+            var bSelect = document.getElementById('setupBowler');
+
+            sSelect.innerHTML = ''; nsSelect.innerHTML = ''; bSelect.innerHTML = '';
+
+            batRoster.forEach(function(p, idx) {
+                sSelect.add(new Option(p, p));
+                var opt = new Option(p, p);
+                if (idx === 1) opt.selected = true;
+                nsSelect.add(opt);
+            });
+            bowlRoster.forEach(function(p) { bSelect.add(new Option(p, p)); });
+
+            setText('strikerLabel', 'Opening Striker (' + battingTeam + ')');
+            setText('nonStrikerLabel', 'Opening Non-Striker (' + battingTeam + ')');
+            setText('bowlerLabel', 'Opening Bowler (' + bowlingTeam + ')');
+        };
+
+        window.startMatch = function() {
+            var t1 = document.getElementById('selectTeam1').value;
+            var t2 = document.getElementById('selectTeam2').value;
+            var tourney = document.getElementById('tourneySelect').value;
+            var rulesFormat = document.getElementById('rulesFormatSelect').value;
+            var totalOvers = parseInt(document.getElementById('matchOversInput').value) || 8;
+            var playersPerTeam = window.getRequiredPlayerCount();
+            var decision = document.getElementById('setupDecision').value;
+            var sName = document.getElementById('setupStriker').value;
+            var nsName = document.getElementById('setupNonStriker').value;
+            var bName = document.getElementById('setupBowler').value;
+
+            if (sName === nsName) return alert("Striker and Non-Striker must be different players.");
+
+            var newMatchData = {
+                match_in_progress: true,
+                match_status: "in_progress",
+                rulesFormat: rulesFormat,
+                totalOvers: totalOvers,
+                playersPerTeam: playersPerTeam,
+                tournament: tourney,
+                matchId: currentMatchId,
+                inn: 1,
+                tossWinner: (tossWinnerTeam === t1) ? 'tA' : 'tB',
+                tossDecision: decision,
+                crr_bat_name: sName, crr_bat_runs: 0, crr_bat_balls: 0,
+                non_bat_name: nsName, non_bat_runs: 0, non_bat_balls: 0,
+                crr_bowl: bName,
+                curr_over: [],
+                consecutive_dots: 0,
+                used_batsmen: [sName, nsName],
+                used_bowlers: [bName],
+                ball_timeline: [],
+                team1_squad: uploadedTeams[t1] || [],
+                team2_squad: uploadedTeams[t2] || [],
+                impactUsed: { tA: false, tB: false },
+                impactSubsBench: { tA: uploadedImpactSubs[t1] || [], tB: uploadedImpactSubs[t2] || [] },
+                inn1_scorecard: { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [], rebat_players: [], double_over_bowlers: [] },
+                inn2_scorecard: { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [], rebat_players: [], double_over_bowlers: [] },
+                tA: { name: t1, score: 0, balls: 0, wkts: 0 },
+                tB: { name: t2, score: 0, balls: 0, wkts: 0 },
+                last_state: null
+            };
+
+            matchDocRef.set(newMatchData).then(function() {
+                window.navigateView('viewScorer');
+            });
+        };
+
+        // --- SCORER CONSOLE ---
+        function updateUI() {
+            if (!matchData) return;
+            var d = matchData;
+
+            if (d.match_status === "completed") {
+                renderScorecardModal(d);
+                return;
+            }
+
+            var tA = d.tA || { name: "Team 1", score: 0, balls: 0, wkts: 0 };
+            var tB = d.tB || { name: "Team 2", score: 0, balls: 0, wkts: 0 };
+            
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+
+            var team = isTeamABatting ? tA : tB;
+            var opp = isTeamABatting ? tB : tA;
+
+            setText('teamNameDisp', team.name + " (Inn " + (d.inn || 1) + ")");
+            setText('bowlNameDisp', "Bowler: " + (d.crr_bowl || 'TBD'));
+
+            var isPairs = (d.rulesFormat === 'pairs');
+            var wickBtn = document.getElementById('wicketBtnLabel');
+            if (wickBtn) wickBtn.innerText = isPairs ? "WICKET / OUT (-5)" : "WICKET / OUT";
+
+            var r1 = parseInt(d.crr_bat_runs) || 0;
+            var r2 = parseInt(d.non_bat_runs) || 0;
+            var bat1El = document.getElementById('bat1');
+            var bat2El = document.getElementById('bat2');
+            
+            if (bat1El) {
+                bat1El.innerText = (d.crr_bat_name || 'Striker') + "* (" + r1 + ") ✏️";
+                bat1El.style.color = (isPairs && r1 < 0) ? 'var(--red)' : 'var(--gold)';
+            }
+            if (bat2El) {
+                bat2El.innerText = (d.non_bat_name || 'Non-Striker') + " (" + r2 + ") ✏️";
+                bat2El.style.color = (isPairs && r2 < 0) ? 'var(--red)' : '#64748b';
+            }
+
+            var currentScore = team.score !== undefined ? team.score : 0;
+            var scoreEl = document.getElementById('mainScore');
+            if (scoreEl) {
+                scoreEl.innerText = currentScore;
+                scoreEl.style.color = (isPairs && currentScore < 0) ? 'var(--red)' : 'var(--blue)';
+            }
+
+            var balls = team.balls || 0;
+            var totalOvers = d.totalOvers || 8;
+            var completedOvers = Math.floor(balls / 6);
+            setText('stats', "Overs: " + completedOvers + "." + (balls % 6) + " / " + totalOvers + ".0 | Wkts: " + (team.wkts || 0));
+
+            var formatBadge = document.getElementById('formatBadgeDisp');
+            if (formatBadge) {
+                if (isPairs) {
+                    var currentPair = Math.min(Math.floor(completedOvers / 2) + 1, Math.ceil(totalOvers / 2));
+                    var pairStart = (currentPair - 1) * 2 + 1;
+                    formatBadge.innerText = "Pair " + currentPair + " (Overs " + pairStart + "-" + (pairStart+1) + ")";
+                } else {
+                    formatBadge.innerText = "Classic Format";
+                }
+            }
+
+            var targetBox = document.getElementById('targetBox');
+            if (targetBox) {
+                if (d.inn === 2) {
+                    targetBox.classList.remove('hidden');
+                    var target = (parseInt(opp.score) || 0) + 1;
+                    var diff = target - currentScore;
+                    var ballsLeft = (totalOvers * 6) - balls;
+                    targetBox.innerHTML = "Target: " + target + " | Need " + diff + " runs from " + ballsLeft + " balls";
+                } else {
+                    targetBox.classList.add('hidden');
+                }
+            }
+
+            var tracker = document.getElementById('tracker');
+            if (tracker) {
+                tracker.innerHTML = (d.curr_over || []).map(function(b) {
+                    var cls = 'bg-white';
+                    if (b === 'W' || b.toString().includes('3D')) cls = 'bg-red';
+                    if (b.toString().includes('N') || b.toString().includes('Wd')) cls = 'bg-yellow';
+                    return '<div class="ball ' + cls + '">' + b + '</div>';
+                }).join('');
+            }
+
+            var isOverComplete = isCurrentOverComplete(d.curr_over, isPairs, completedOvers, totalOvers);
+            var isCurrentInningsComplete = (completedOvers >= totalOvers && !isOverComplete);
+
+            var nextBtn = document.getElementById('nextOverBtn');
+            if (nextBtn) {
+                if (isCurrentInningsComplete) {
+                    nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED: START INNINGS 2 🔄" : "MATCH FINISHED: VIEW SCORECARD 🏆";
+                    nextBtn.classList.remove('hidden');
+                } else if (isOverComplete) {
+                    nextBtn.innerText = "OVER " + completedOvers + " FINISHED: TAP TO START OVER " + (completedOvers + 1) + " ⚡";
+                    nextBtn.classList.remove('hidden');
+                } else {
+                    nextBtn.classList.add('hidden');
+                }
+            }
+            
+            var controls = document.getElementById('mainControls');
+            if (controls) {
+                if (!isScoringAuthorized) {
+                    controls.style.display = "none";
+                } else {
+                    controls.style.display = "grid";
+                    var shouldLock = isOverComplete || isCurrentInningsComplete;
+                    controls.style.opacity = shouldLock ? "0.2" : "1";
+                    controls.style.pointerEvents = shouldLock ? "none" : "auto";
+                }
+            }
+        }
+
+        window.handleOverTransition = function() {
+            var d = matchData || {};
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            var currentBattingTeam = isTeamABatting ? d.tA : d.tB;
+
+            var currentBalls = currentBattingTeam ? (currentBattingTeam.balls || 0) : 0;
+            var totalOvers = d.totalOvers || 8;
+
+            if (currentBalls >= totalOvers * 6) {
+                evaluateMatchFlow(d, null, null, false);
+            } else {
+                window.openNextOverModal();
+            }
+        };
+
+        // --- OPEN NEXT OVER MODAL: STRICT 1ST-ROUND PRIORITY & CONTROLLED RE-BATS ---
+        window.openNextOverModal = function() {
+            if (!isScoringAuthorized) return;
+            var d = matchData || {};
+            var team1Name = d.tA ? d.tA.name : "Team 1";
+            var team2Name = d.tB ? d.tB.name : "Team 2";
+
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+
+            var battingTeamName = isTeamABatting ? team1Name : team2Name;
+            var fieldingTeamName = isTeamABatting ? team2Name : team1Name;
+
+            var currentBalls = (isTeamABatting ? d.tA.balls : d.tB.balls) || 0;
+            var completedOvers = Math.floor(currentBalls / 6);
+            var isPairs = (d.rulesFormat === 'pairs');
+            var isPairRotationDue = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
+
+            var pairSection = document.getElementById('pairChangeSection');
+
+            var scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
+            var currentScorecard = d[scKey] || {};
+            var rebatList = Array.isArray(currentScorecard.rebat_players) ? currentScorecard.rebat_players : [];
+
+            // 1. STRICT 1ST-ROUND PRIORITY FOR BATTERS
+            if (isPairRotationDue && completedOvers < (d.totalOvers || 8)) {
+                if (pairSection) pairSection.classList.remove('hidden');
+                var nextPairNum = Math.floor(completedOvers / 2) + 1;
+                setText('pairChangeText', "PAIR " + nextPairNum + " ROTATION (" + battingTeamName + ")");
+
+                var fullBatRoster = uploadedTeams[battingTeamName] || (isTeamABatting ? d.team1_squad : d.team2_squad) || [];
+                var usedBatters = Array.isArray(d.used_batsmen) ? d.used_batsmen : [];
+
+                // Fresh players who have NOT batted yet
+                var freshBatters = fullBatRoster.filter(function(p) { return !usedBatters.includes(p); });
+
+                var availableBatters = [];
+
+                if (freshBatters.length >= 2) {
+                    // Fresh players available: strictly show fresh players only
+                    availableBatters = freshBatters;
+                } else if (freshBatters.length === 1) {
+                    // Exactly 1 fresh player left: must pick that player + 1 re-bat player
+                    var eligibleRebats = fullBatRoster.filter(function(p) {
+                        return p !== d.crr_bat_name && p !== d.non_bat_name && !rebatList.includes(p);
+                    });
+                    availableBatters = freshBatters.concat(eligibleRebats);
+                } else {
+                    // All players have batted: unlock re-bat pool (exclude current crease pair & those who already re-batted)
+                    var eligibleRebatsAll = fullBatRoster.filter(function(p) {
+                        return p !== d.crr_bat_name && p !== d.non_bat_name && !rebatList.includes(p);
+                    });
+                    if (eligibleRebatsAll.length < 2) {
+                        eligibleRebatsAll = fullBatRoster.filter(function(p) {
+                            return p !== d.crr_bat_name && p !== d.non_bat_name;
+                        });
+                    }
+                    availableBatters = eligibleRebatsAll;
+                }
+
+                activeAvailableBatters = availableBatters;
+
+                var sSel = document.getElementById('nextStrikerSelect');
+                if (sSel) {
+                    sSel.innerHTML = '';
+                    activeAvailableBatters.forEach(function(p) {
+                        var hasBatted = usedBatters.includes(p);
+                        var label = hasBatted ? (p + " (Re-bat / 2nd Round)") : p;
+                        sSel.add(new Option(label, p));
+                    });
+                }
+                window.filterSecondaryBatter();
+            } else {
+                if (pairSection) pairSection.classList.add('hidden');
+            }
+
+            // 2. BOWLER ROTATION (PREVENTS BACK-TO-BACK & BALANCES 2ND OVERS)
+            var bowlTeamKey = isTeamABatting ? 'tB' : 'tA';
+            var fullFieldingRoster = uploadedTeams[fieldingTeamName] || (bowlTeamKey === 'tA' ? d.team1_squad : d.team2_squad) || [];
+
+            var lastBowler = d.crr_bowl;
+            var nonConsecutiveRoster = fullFieldingRoster.filter(function(p) { return p !== lastBowler; });
+            if (nonConsecutiveRoster.length === 0) nonConsecutiveRoster = fullFieldingRoster.slice();
+
+            var bowlerStats = (currentScorecard && currentScorecard.bowlers) ? currentScorecard.bowlers : {};
+            var usedBowlers = Array.isArray(d.used_bowlers) ? d.used_bowlers : [];
+
+            var unbowledList = nonConsecutiveRoster.filter(function(p) { return !usedBowlers.includes(p); });
+
+            var finalEligibleBowlers = [];
+            if (unbowledList.length > 0) {
+                // Priority: bowlers who haven't bowled yet
+                finalEligibleBowlers = unbowledList.map(function(p) {
+                    return { name: p, label: p, overs: 0 };
+                });
+            } else {
+                // Short squad: all players bowled once, unlock 2nd overs
+                finalEligibleBowlers = nonConsecutiveRoster.map(function(p) {
+                    var ballsBowled = (bowlerStats[p] && bowlerStats[p].balls) ? bowlerStats[p].balls : 0;
+                    var oversCompleted = Math.floor(ballsBowled / 6);
+                    return {
+                        name: p,
+                        label: p + " (" + (oversCompleted + 1) + "nd Over)",
+                        overs: oversCompleted
+                    };
+                }).sort(function(a, b) { return a.overs - b.overs; });
+            }
+
+            var bSel = document.getElementById('nextBowlerSelect');
+            if (bSel) {
+                bSel.innerHTML = '';
+                finalEligibleBowlers.forEach(function(b) { bSel.add(new Option(b.label, b.name)); });
+                bSel.add(new Option("➕ Add Unlisted Bowler...", "__add_custom_bowler__"));
+            }
+
+            setText('nextBowlerTeamLabel', "Choose Bowler (" + fieldingTeamName + ") - Over " + (completedOvers + 1) + " of " + (d.totalOvers || 8));
+            document.getElementById('bowlerModal').classList.remove('hidden');
+        };
+
+        window.filterSecondaryBatter = function() {
+            var sSel = document.getElementById('nextStrikerSelect');
+            var nsSel = document.getElementById('nextNonStrikerSelect');
+            if (!sSel || !nsSel) return;
+            var primary = sSel.value;
+            var usedBatters = Array.isArray(matchData ? matchData.used_batsmen : null) ? matchData.used_batsmen : [];
+            nsSel.innerHTML = '';
+            activeAvailableBatters.filter(function(p) { return p !== primary; }).forEach(function(p) {
+                var hasBatted = usedBatters.includes(p);
+                var label = hasBatted ? (p + " (Re-bat / 2nd Round)") : p;
+                nsSel.add(new Option(label, p));
+            });
+        };
+
+        window.confirmNextOver = function() {
+            var nextBowl = document.getElementById('nextBowlerSelect').value;
+            if (!nextBowl) return alert("Select a bowler.");
+
+            if (nextBowl === '__add_custom_bowler__') {
+                var customName = prompt("Enter Bowler Name:");
+                if (!customName || !customName.trim()) return;
+                nextBowl = customName.trim();
+            }
+
+            window.closeModal('bowlerModal');
+            var controls = document.getElementById('mainControls');
+            if (controls) {
+                controls.style.opacity = "1";
+                controls.style.pointerEvents = "auto";
+            }
+            document.getElementById('nextOverBtn').classList.add('hidden');
+
+            var d = JSON.parse(JSON.stringify(matchData || {}));
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+
+            var currentBalls = (isTeamABatting ? d.tA.balls : d.tB.balls) || 0;
+            var completedOvers = Math.floor(currentBalls / 6);
+            var isPairs = (d.rulesFormat === 'pairs');
+            var pairSec = document.getElementById('pairChangeSection');
+            var isPairSectionVisible = pairSec ? !pairSec.classList.contains('hidden') : false;
+
+            var scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
+            if (!d[scKey]) d[scKey] = { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [], rebat_players: [], double_over_bowlers: [] };
+            if (!d[scKey].rebat_players) d[scKey].rebat_players = [];
+            if (!d[scKey].double_over_bowlers) d[scKey].double_over_bowlers = [];
+
+            d.crr_bowl = nextBowl;
+            d.curr_over = [];
+            d.consecutive_dots = 0;
+
+            if (!Array.isArray(d.used_bowlers)) d.used_bowlers = [];
+
+            // Track double over bowler strictly on this innings scorecard
+            if (d.used_bowlers.includes(nextBowl) && !d[scKey].double_over_bowlers.includes(nextBowl)) {
+                d[scKey].double_over_bowlers.push(nextBowl);
+            }
+            d.used_bowlers.push(nextBowl);
+
+            if (isPairs && isPairSectionVisible && completedOvers < (d.totalOvers || 8)) {
+                var sSel = document.getElementById('nextStrikerSelect');
+                var nsSel = document.getElementById('nextNonStrikerSelect');
+                var newS = sSel ? sSel.value : '';
+                var newNS = nsSel ? nsSel.value : '';
+
+                var batterStats = d[scKey].batters || {};
+
+                if (!Array.isArray(d.used_batsmen)) d.used_batsmen = [];
+
+                // Track re-bat status strictly on this innings scorecard
+                if (d.used_batsmen.includes(newS) && !d[scKey].rebat_players.includes(newS)) d[scKey].rebat_players.push(newS);
+                if (d.used_batsmen.includes(newNS) && !d[scKey].rebat_players.includes(newNS)) d[scKey].rebat_players.push(newNS);
+
+                d.crr_bat_name = newS;
+                d.crr_bat_runs = (batterStats[newS] && batterStats[newS].runs) ? batterStats[newS].runs : 0;
+                d.crr_bat_balls = (batterStats[newS] && batterStats[newS].balls) ? batterStats[newS].balls : 0;
+
+                d.non_bat_name = newNS;
+                d.non_bat_runs = (batterStats[newNS] && batterStats[newNS].runs) ? batterStats[newNS].runs : 0;
+                d.non_bat_balls = (batterStats[newNS] && batterStats[newNS].balls) ? batterStats[newNS].balls : 0;
+
+                d.used_batsmen.push(newS, newNS);
+            } else {
+                var tempName = d.crr_bat_name;
+                var tempRuns = parseInt(d.crr_bat_runs) || 0;
+                var tempBalls = parseInt(d.crr_bat_balls) || 0;
+                d.crr_bat_name = d.non_bat_name;
+                d.crr_bat_runs = parseInt(d.non_bat_runs) || 0;
+                d.crr_bat_balls = parseInt(d.non_bat_balls) || 0;
+                d.non_bat_name = tempName;
+                d.non_bat_runs = tempRuns;
+                d.non_bat_balls = tempBalls;
+            }
+
+            var cleanCopy = Object.assign({}, matchData);
+            delete cleanCopy.last_state;
+            d.last_state = JSON.stringify(cleanCopy);
+
+            matchData = d;
+            updateUI();
+            matchDocRef.update(d).catch(function(e) { console.error(e); });
+        };
+
+        // --- SCORING ACTIONS WITH SAFE BOWLER BALL TRACKING ---
+        window.handleAction = function(val, type) {
+            if (!isScoringAuthorized || !matchData) return;
+            var d = JSON.parse(JSON.stringify(matchData));
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            var teamKey = isTeamABatting ? 'tA' : 'tB';
+            var oppKey = isTeamABatting ? 'tB' : 'tA';
+            var isPairs = (d.rulesFormat === 'pairs');
+
+            var snapshotClean = Object.assign({}, matchData);
+            delete snapshotClean.last_state;
+            d.last_state = JSON.stringify(snapshotClean);
+
+            d.crr_bat_runs = parseInt(d.crr_bat_runs) || 0;
+            d.non_bat_runs = parseInt(d.non_bat_runs) || 0;
+            d.crr_bat_balls = parseInt(d.crr_bat_balls) || 0;
+            if (typeof d.consecutive_dots !== 'number') d.consecutive_dots = 0;
+            if (!Array.isArray(d.curr_over)) d.curr_over = [];
+            if (!Array.isArray(d.ball_timeline)) d.ball_timeline = [];
+
+            var scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
+            if (!d[scKey]) d[scKey] = { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [], rebat_players: [], double_over_bowlers: [] };
+            if (!d[scKey].fielders) d[scKey].fielders = {};
+
+            var striker = d.crr_bat_name;
+            var bowler = d.crr_bowl;
+
+            if (!d[scKey].batters[striker]) d[scKey].batters[striker] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
+            if (!d[scKey].bowlers[bowler]) d[scKey].bowlers[bowler] = { balls: 0, runs: 0, maidens: 0, wkts: 0 };
+
+            var currentBalls = parseInt(d[teamKey].balls) || 0;
+            var completedOvers = Math.floor(currentBalls / 6);
+            
+            var isFinalOverActive = (completedOvers >= ((d.totalOvers || 8) - 1));
+            var extraCountsAsDelivery = isPairs && !isFinalOverActive;
+
+            var ballEvent = '0';
+
+            if (type === 'wide') {
+                var totalRuns = val + 2;
+                d[teamKey].score += totalRuns;
+                d[scKey].bowlers[bowler].runs += totalRuns;
+                d[scKey].extras += totalRuns;
+                d.consecutive_dots = 0;
+
+                // IN PAIRS: BOTH TEAM AND BOWLER GET +1 BALL (PREVENTS 0.5 OVERS)
+                if (extraCountsAsDelivery) {
+                    d[teamKey].balls = currentBalls + 1;
+                    d[scKey].bowlers[bowler].balls = (d[scKey].bowlers[bowler].balls || 0) + 1;
+                }
+
+                if (val % 2 !== 0) {
+                    var tName = d.crr_bat_name, tR = d.crr_bat_runs, tB = d.crr_bat_balls;
+                    d.crr_bat_name = d.non_bat_name; d.crr_bat_runs = d.non_bat_runs; d.crr_bat_balls = d.non_bat_balls;
+                    d.non_bat_name = tName; d.non_bat_runs = tR; d.non_bat_balls = tB;
+                }
+                ballEvent = val > 0 ? ('Wd+' + val) : 'Wd';
+                d.curr_over.push(ballEvent);
+
+            } else if (type === 'noball') {
+                var totalRunsNB = val + 2;
+                d[teamKey].score += totalRunsNB;
+                d.crr_bat_runs += val;
+                d[scKey].batters[striker].runs += val;
+                d[scKey].bowlers[bowler].runs += totalRunsNB;
+                d[scKey].extras += 2;
+                d.consecutive_dots = 0;
+
+                d.crr_bat_balls += 1;
+                d[scKey].batters[striker].balls += 1;
+
+                // IN PAIRS: BOTH TEAM AND BOWLER GET +1 BALL
+                if (extraCountsAsDelivery) {
+                    d[teamKey].balls = currentBalls + 1;
+                    d[scKey].bowlers[bowler].balls = (d[scKey].bowlers[bowler].balls || 0) + 1;
+                }
+
+                if (val % 2 !== 0) {
+                    var tNameNB = d.crr_bat_name, tRNB = d.crr_bat_runs, tBNB = d.crr_bat_balls;
+                    d.crr_bat_name = d.non_bat_name; d.crr_bat_runs = d.non_bat_runs; d.crr_bat_balls = d.non_bat_balls;
+                    d.non_bat_name = tNameNB; d.non_bat_runs = tRNB; d.non_bat_balls = tBNB;
+                }
+                ballEvent = val > 0 ? ('N+' + val) : 'N';
+                d.curr_over.push(ballEvent);
+
+            } else if (type === 'bye' || type === 'leg_bye') {
+                d[teamKey].score += val;
+                d[teamKey].balls = currentBalls + 1;
+                d.crr_bat_balls += 1;
+                d[scKey].batters[striker].balls += 1;
+                d[scKey].bowlers[bowler].balls += 1;
+                d[scKey].extras += val;
+                d.consecutive_dots = 0;
+
+                if (val % 2 !== 0) {
+                    var tNameB = d.crr_bat_name, tRB = d.crr_bat_runs, tBB = d.crr_bat_balls;
+                    d.crr_bat_name = d.non_bat_name; d.crr_bat_runs = d.non_bat_runs; d.crr_bat_balls = d.non_bat_balls;
+                    d.non_bat_name = tNameB; d.non_bat_runs = tRB; d.non_bat_balls = tBB;
+                }
+                ballEvent = type === 'bye' ? (val + 'B') : (val + 'LB');
+                d.curr_over.push(ballEvent);
+
+            } else if (type === 'declare') {
+                var totalRunsD = val + 1;
+                d[teamKey].score += totalRunsD;
+                d[teamKey].balls = currentBalls + 1;
+                d.crr_bat_balls += 1;
+                d.crr_bat_runs += totalRunsD;
+                d[scKey].batters[striker].runs += totalRunsD;
+                d[scKey].batters[striker].balls += 1;
+                d[scKey].bowlers[bowler].balls += 1;
+                d[scKey].bowlers[bowler].runs += totalRunsD;
+                d.consecutive_dots = 0;
+                ballEvent = val > 0 ? ('1D+' + val) : '1D';
+                d.curr_over.push(ballEvent);
+
+            } else {
+                d[teamKey].score += val;
+                d[teamKey].balls = currentBalls + 1;
+                d.crr_bat_balls += 1;
+                d[scKey].bowlers[bowler].balls += 1;
+                d[scKey].bowlers[bowler].runs += val;
+
+                if (type === 'run') {
+                    d.crr_bat_runs += val;
+                    d[scKey].batters[striker].runs += val;
+                    d[scKey].batters[striker].balls += 1;
+                    if (val === 4) d[scKey].batters[striker].fours += 1;
+                    if (val === 6) d[scKey].batters[striker].sixes += 1;
+                    
+                    if (val === 0) {
+                        d.consecutive_dots += 1;
+                        if (isPairs && d.consecutive_dots === 3) {
+                            d[teamKey].score -= 5;
+                            d.crr_bat_runs -= 5;
+                            d[scKey].batters[striker].runs -= 5;
+                            ballEvent = "3D(-5)";
+                            d.curr_over.push(ballEvent);
+                            d.consecutive_dots = 0;
+                        } else {
+                            ballEvent = "0";
+                            d.curr_over.push(0);
+                        }
+                    } else {
+                        d.consecutive_dots = 0;
+                        ballEvent = val.toString();
+                        d.curr_over.push(val);
+                    }
+
+                    if ([1, 3, 5].includes(val)) {
+                        var tNameR = d.crr_bat_name, tRR = d.crr_bat_runs, tBR = d.crr_bat_balls;
+                        d.crr_bat_name = d.non_bat_name; d.crr_bat_runs = d.non_bat_runs; d.crr_bat_balls = d.non_bat_balls;
+                        d.non_bat_name = tNameR; d.non_bat_runs = tRR; d.non_bat_balls = tBR;
+                    }
+                }
+            }
+
+            d[scKey].totalScore = d[teamKey].score;
+            d[scKey].totalBalls = d[teamKey].balls;
+
+            d.ball_timeline.push({
+                inn: d.inn,
+                over: Math.floor(currentBalls / 6) + 1,
+                ball: (currentBalls % 6) + 1,
+                bowler: bowler,
+                striker: striker,
+                event: ballEvent,
+                score: d[teamKey].score
+            });
+
+            matchData = d;
+            updateUI();
+            evaluateMatchFlow(d, teamKey, oppKey);
+        };
+
+        // --- DISMISSALS & MODALS ---
+        window.openDeclareModal = function() {
+            if (!isScoringAuthorized) return;
+            var input = document.getElementById('declareAdditionalRunsInput');
+            if (input) input.value = "0";
+            document.getElementById('declareModal').classList.remove('hidden');
+        };
+
+        window.confirmDeclareAction = function() {
+            var input = document.getElementById('declareAdditionalRunsInput');
+            var additional = input ? (parseInt(input.value) || 0) : 0;
+            window.closeModal('declareModal');
+            window.handleAction(additional, 'declare');
+        };
+
+        window.openByeModal = function() {
+            if (!isScoringAuthorized) return;
+            var input = document.getElementById('byeRunsInput');
+            if (input) input.value = "1";
+            document.getElementById('byeTypeSelect').value = "bye";
+            document.getElementById('byeModal').classList.remove('hidden');
+        };
+
+        window.confirmByeAction = function() {
+            var input = document.getElementById('byeRunsInput');
+            var byeRuns = input ? (parseInt(input.value) || 1) : 1;
+            var subType = document.getElementById('byeTypeSelect').value || 'bye';
+            window.closeModal('byeModal');
+            window.handleAction(byeRuns, subType);
+        };
+
+        window.openExtraModal = function(type) {
+            if (!isScoringAuthorized) return;
+            pendingExtraType = type;
+            setText('extraModalTitle', type === 'wide' ? 'RECORD WIDE (2 RUNS BASE)' : 'RECORD NO-BALL (2 RUNS BASE)');
+            var input = document.getElementById('extraRunsInput');
+            if (input) input.value = "0";
+            document.getElementById('extraModal').classList.remove('hidden');
+        };
+
+        window.confirmExtraAction = function() {
+            var input = document.getElementById('extraRunsInput');
+            var extraRuns = input ? (parseInt(input.value) || 0) : 0;
+            window.closeModal('extraModal');
+            window.handleAction(extraRuns, pendingExtraType);
+        };
+
+        window.openWicketModal = function() {
+            if (!isScoringAuthorized) return;
+            var isPairs = (matchData && matchData.rulesFormat === 'pairs');
+            setText('wickModalTitle', isPairs ? 'RECORD DISMISSAL (-5)' : 'RECORD OUT / WICKET');
+            document.getElementById('wickType').value = 'Bowled';
+            populateCatcherDropdown();
+            window.onWickTypeChange();
+            document.getElementById('wickModal').classList.remove('hidden');
+        };
+
+        function populateCatcherDropdown() {
+            var d = matchData || {};
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            var fieldingTeamName = isTeamABatting ? (d.tB && d.tB.name ? d.tB.name : "Team 2") : (d.tA && d.tA.name ? d.tA.name : "Team 1");
+            var roster = uploadedTeams[fieldingTeamName] || (isTeamABatting ? d.team2_squad : d.team1_squad) || [];
+
+            var cSel = document.getElementById('wickCatcher');
+            if (cSel) {
+                cSel.innerHTML = '';
+                roster.forEach(function(p) { cSel.add(new Option(p, p)); });
+            }
+        }
+
+        window.onWickTypeChange = function() {
+            var wType = document.getElementById('wickType').value || 'Bowled';
+            var creaseGroup = document.getElementById('creaseOutcomeGroup');
+            var creaseSelect = document.getElementById('wickCrease');
+            var catcherGroup = document.getElementById('catcherGroup');
+            var fielderActionLabel = document.getElementById('fielderActionLabel');
+            var bSel = document.getElementById('wickBatter');
+            var sName = matchData ? matchData.crr_bat_name : "Striker";
+            var nsName = matchData ? matchData.non_bat_name : "Non-Striker";
+
+            bSel.innerHTML = '';
+            if (wType === 'Run Out') {
+                bSel.add(new Option('Striker: ' + sName, 'striker'));
+                bSel.add(new Option('Non-Striker: ' + nsName, 'non_striker'));
+                bSel.disabled = false;
+                if (creaseGroup) creaseGroup.classList.remove('hidden');
+            } else {
+                bSel.add(new Option('Striker: ' + sName, 'striker'));
+                bSel.value = 'striker';
+                bSel.disabled = true;
+                if (creaseSelect) creaseSelect.value = 'no_swap';
+                if (creaseGroup) creaseGroup.classList.add('hidden');
+            }
+
+            if (wType === 'Caught') {
+                if (fielderActionLabel) fielderActionLabel.innerText = "Catch Taken By (Fielder)";
+                if (catcherGroup) catcherGroup.classList.remove('hidden');
+            } else if (wType === 'Run Out') {
+                if (fielderActionLabel) fielderActionLabel.innerText = "Run Out Executed By (Fielder)";
+                if (catcherGroup) catcherGroup.classList.remove('hidden');
+            } else {
+                if (catcherGroup) catcherGroup.classList.add('hidden');
+            }
+        };
+
+        window.confirmStructuredDismissal = function() {
+            try {
+                var d = JSON.parse(JSON.stringify(matchData || {}));
+                var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+                if (d.inn === 2) isTeamABatting = !isTeamABatting;
+                var teamKey = isTeamABatting ? 'tA' : 'tB';
+                var oppKey = isTeamABatting ? 'tB' : 'tA';
+                var isPairs = (d.rulesFormat === 'pairs');
+
+                var snapshotClean = Object.assign({}, matchData);
+                delete snapshotClean.last_state;
+                d.last_state = JSON.stringify(snapshotClean);
+
+                var wType = document.getElementById('wickType').value || 'Bowled';
+                var dismissedRole = document.getElementById('wickBatter').value || 'striker';
+                var creaseOutcome = document.getElementById('wickCrease').value || 'no_swap';
+                var dismissedName = (dismissedRole === 'striker' ? d.crr_bat_name : d.non_bat_name) || "Batter";
+                var currentBowler = d.crr_bowl || "TBD";
+                var fielderName = document.getElementById('wickCatcher').value || "Fielder";
+
+                d[teamKey].wkts = (parseInt(d[teamKey].wkts) || 0) + 1;
+                d[teamKey].balls = (parseInt(d[teamKey].balls) || 0) + 1;
+                d.consecutive_dots = 0;
+
+                if (!Array.isArray(d.curr_over)) d.curr_over = [];
+                d.curr_over.push('W');
+
+                var scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
+                if (!d[scKey].batters[dismissedName]) d[scKey].batters[dismissedName] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
+                if (!d[scKey].bowlers[currentBowler]) d[scKey].bowlers[currentBowler] = { balls: 0, runs: 0, maidens: 0, wkts: 0 };
+                if (!d[scKey].fielders) d[scKey].fielders = {};
+
+                d[scKey].bowlers[currentBowler].balls += 1;
+                d[scKey].batters[dismissedName].balls += 1;
+                d[scKey].batters[dismissedName].dismissals += 1;
+
+                if (wType !== 'Run Out') d[scKey].bowlers[currentBowler].wkts += 1;
+
+                if (wType === 'Caught') {
+                    if (!d[scKey].fielders[fielderName]) d[scKey].fielders[fielderName] = { catches: 0, runOuts: 0 };
+                    d[scKey].fielders[fielderName].catches += 1;
+                } else if (wType === 'Caught & Bowled') {
+                    if (!d[scKey].fielders[currentBowler]) d[scKey].fielders[currentBowler] = { catches: 0, runOuts: 0 };
+                    d[scKey].fielders[currentBowler].catches += 1;
+                } else if (wType === 'Run Out') {
+                    if (!d[scKey].fielders[fielderName]) d[scKey].fielders[fielderName] = { catches: 0, runOuts: 0 };
+                    d[scKey].fielders[fielderName].runOuts += 1;
+                }
+
+                var dismissalDesc = wType;
+                if (wType === 'Caught') dismissalDesc = 'c ' + fielderName + ' b ' + currentBowler;
+                else if (wType === 'Caught & Bowled') dismissalDesc = 'c&b ' + currentBowler;
+                else if (wType === 'Bowled') dismissalDesc = 'b ' + currentBowler;
+                else if (wType === 'Run Out') dismissalDesc = 'run out (' + fielderName + ')';
+
+                var overNotation = Math.floor(d[teamKey].balls / 6) + "." + (d[teamKey].balls % 6);
+                d[scKey].fow.push({
+                    wkt: d[teamKey].wkts,
+                    score: d[teamKey].score,
+                    player: dismissedName + " (" + dismissalDesc + ")",
+                    over: overNotation
+                });
+
+                if (isPairs) {
+                    d[teamKey].score = (parseInt(d[teamKey].score) || 0) - 5;
+                    if (dismissedRole === 'striker') d.crr_bat_runs -= 5;
+                    else d.non_bat_runs -= 5;
+                    d[scKey].batters[dismissedName].runs -= 5;
+
+                    if (creaseOutcome === 'swap') {
+                        var tempN = d.crr_bat_name, tempR = d.crr_bat_runs, tempB = d.crr_bat_balls;
+                        d.crr_bat_name = d.non_bat_name; d.crr_bat_runs = d.non_bat_runs; d.crr_bat_balls = d.non_bat_balls;
+                        d.non_bat_name = tempN; d.non_bat_runs = tempR; d.non_bat_balls = tempB;
+                    }
+
+                    d[scKey].totalScore = d[teamKey].score;
+                    d[scKey].totalBalls = d[teamKey].balls;
+                    d[scKey].totalWkts = d[teamKey].wkts;
+
+                    window.closeModal('wickModal');
+                    matchData = d;
+                    updateUI();
+                    evaluateMatchFlow(d, teamKey, oppKey);
+                } else {
+                    d[scKey].totalScore = d[teamKey].score;
+                    d[scKey].totalBalls = d[teamKey].balls;
+                    d[scKey].totalWkts = d[teamKey].wkts;
+
+                    window.closeModal('wickModal');
+                    matchData = d;
+                    updateUI();
+                    matchDocRef.update(d);
+                }
+            } catch (e) {
+                alert("Dismissal Error: " + e.message);
+            }
+        };
+
+        // --- MATCH MVP & FLOW EVALUATION ---
+        function calculateMatchMVP(d) {
+            var playerScores = {};
+            [d.inn1_scorecard, d.inn2_scorecard].forEach(function(sc) {
+                if (!sc) return;
+                for (var name in sc.batters) {
+                    var stats = sc.batters[name];
+                    if (!playerScores[name]) playerScores[name] = { pts: 0, runs: 0, wkts: 0, catches: 0, ro: 0 };
+                    playerScores[name].runs += stats.runs;
+                    playerScores[name].pts += stats.runs + (stats.fours * 1) + (stats.sixes * 2) - (stats.dismissals * 5);
+                }
+                for (var bName in sc.bowlers) {
+                    var bStats = sc.bowlers[bName];
+                    if (!playerScores[bName]) playerScores[bName] = { pts: 0, runs: 0, wkts: 0, catches: 0, ro: 0 };
+                    playerScores[bName].wkts += bStats.wkts;
+                    playerScores[bName].pts += (bStats.wkts * 20);
+                }
+                for (var fName in sc.fielders) {
+                    var fStats = sc.fielders[fName];
+                    if (!playerScores[fName]) playerScores[fName] = { pts: 0, runs: 0, wkts: 0, catches: 0, ro: 0 };
+                    playerScores[fName].catches += (fStats.catches || 0);
+                    playerScores[fName].ro += (fStats.runOuts || 0);
+                    playerScores[fName].pts += (fStats.catches || 0) * 10 + (fStats.runOuts || 0) * 15;
+                }
+            });
+
+            var bestPlayer = "TBD";
+            var maxPts = -999;
+            for (var pName in playerScores) {
+                var pData = playerScores[pName];
+                if (pData.pts > maxPts) {
+                    maxPts = pData.pts;
+                    bestPlayer = pName + " (" + pData.runs + " runs, " + pData.wkts + " wkts, " + (pData.catches + pData.ro) + " dismissals)";
+                }
+            }
+            return bestPlayer;
+        }
+
+        function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut) {
+            var maxBalls = (d.totalOvers || 8) * 6;
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            
+            var batKey = isTeamABatting ? 'tA' : 'tB';
+            var bowlKey = isTeamABatting ? 'tB' : 'tA';
+            var isPairs = (d.rulesFormat === 'pairs');
+
+            var currentBalls = d[batKey] ? (d[batKey].balls || 0) : 0;
+            var currentScore = d[batKey] ? (d[batKey].score || 0) : 0;
+            var oppScore = d[bowlKey] ? (d[bowlKey].score || 0) : 0;
+            var target = oppScore + 1;
+
+            if (d.inn === 1) {
+                if (currentBalls >= maxBalls || forceAllOut) {
+                    alert("Innings 1 Complete! Target: " + (currentScore + 1) + " runs.");
+                    d.inn = 2;
+                    d.curr_over = [];
+                    d.consecutive_dots = 0;
+                    d.crr_bat_runs = 0;
+                    d.crr_bat_balls = 0;
+                    d.non_bat_runs = 0;
+                    d.non_bat_balls = 0;
+
+                    // RESET INNINGS 1 TRACKERS SO INNINGS 2 SQUAD STARTS FRESH
+                    d.used_batsmen = [];
+                    d.used_bowlers = [];
+
+                    var isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
+                    var nextBatTeam = isNextTeamABatting ? d.tA.name : d.tB.name;
+                    var nextBowlTeam = isNextTeamABatting ? d.tB.name : d.tA.name;
+
+                    var batRoster = uploadedTeams[nextBatTeam] || (isNextTeamABatting ? d.team1_squad : d.team2_squad) || ["Player 1", "Player 2"];
+                    var bowlRoster = uploadedTeams[nextBowlTeam] || (isNextTeamABatting ? d.team2_squad : d.team1_squad) || ["Bowler 1"];
+
+                    d.crr_bat_name = batRoster[0] || "Striker";
+                    d.non_bat_name = batRoster[1] || "Non-Striker";
+                    d.crr_bowl = bowlRoster[0] || "Bowler";
+                    d.used_batsmen = [d.crr_bat_name, d.non_bat_name];
+                    d.used_bowlers = [d.crr_bowl];
+                }
+            } else if (d.inn === 2) {
+                var matchOver = false;
+                var winnerText = "";
+
+                if (!isPairs && currentScore >= target) {
+                    matchOver = true;
+                    winnerText = "🎉 " + d[batKey].name + " WON by chasing the target!";
+                } else if (currentBalls >= maxBalls || forceAllOut) {
+                    matchOver = true;
+                    if (currentScore === oppScore) {
+                        winnerText = "🤝 MATCH TIED! Both teams scored " + currentScore + " runs.";
+                    } else if (currentScore > oppScore) {
+                        var margin = currentScore - oppScore;
+                        winnerText = "🎉 " + d[batKey].name + " WON by " + margin + " runs!";
+                    } else {
+                        var marginL = oppScore - currentScore;
+                        winnerText = "🎉 " + d[bowlKey].name + " WON by " + marginL + " runs!";
+                    }
+                }
+
+                if (matchOver) {
+                    d.match_status = "completed";
+                    d.match_in_progress = false;
+                    d.winner = winnerText;
+                    d.mvp = calculateMatchMVP(d);
+                    d.timestamp = new Date().toISOString();
+
+                    db.collection("match_history").add(Object.assign({ matchId: currentMatchId }, d)).catch(function(e) { console.warn(e); });
+                }
+            }
+
+            matchData = d;
+            updateUI();
+            matchDocRef.update(d).catch(function(e) { console.error(e); });
+        }
+
+        function renderScorecardModal(d) {
+            setText('scWinnerBanner', d.winner || "Match Completed");
+            setText('scMVPBanner', "🌟 PLAYER OF THE MATCH (MVP): " + (d.mvp || calculateMatchMVP(d)));
+            window.switchScorecardTab(1);
+            document.getElementById('scorecardModal').classList.remove('hidden');
+        }
+
+        // SCORECARD TAB WITH ACCURATE PER-INNINGS BADGES
+        window.switchScorecardTab = function(tabNum) {
+            activeScorecardTab = tabNum;
+            document.getElementById('tabInn1Btn').classList.toggle('active', tabNum === 1);
+            document.getElementById('tabInn2Btn').classList.toggle('active', tabNum === 2);
+
+            var d = matchData || {};
+            var sc = tabNum === 1 ? d.inn1_scorecard : d.inn2_scorecard;
+            var container = document.getElementById('scTabContent');
+
+            if (!sc) {
+                container.innerHTML = '<div style="text-align:center; padding: 20px; color:#64748b;">No innings data recorded.</div>';
+                return;
+            }
+
+            var rebatList = (sc && Array.isArray(sc.rebat_players)) ? sc.rebat_players : [];
+            var doubleOverList = (sc && Array.isArray(sc.double_over_bowlers)) ? sc.double_over_bowlers : [];
+
+            var html = '<div style="font-size:0.85rem; color:var(--gold); font-weight:bold; margin-bottom: 6px;">' +
+                'Total: ' + (sc.totalScore || 0) + ' / ' + (sc.totalWkts || 0) + ' (' + Math.floor((sc.totalBalls||0)/6) + '.' + ((sc.totalBalls||0)%6) + ' Overs) | Extras: ' + (sc.extras || 0) +
+                '</div>' +
+                '<div style="color:var(--blue); font-weight:bold; font-size: 0.8rem; margin-top: 8px;">BATTING</div>' +
+                '<table class="sc-table"><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
+
+            for (var name in sc.batters) {
+                var stats = sc.batters[name];
+                var sr = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : "0.0";
+                // Identified directly per-innings or if balls faced > 8 (which only happens across 2 pair stints)
+                var isRebat = rebatList.includes(name) || (stats.balls > 8);
+                var badgeHtml = isRebat ? '<span class="repeat-badge">2x</span>' : '';
+                html += '<tr><td><b>' + name + '</b>' + badgeHtml + '</td><td>' + stats.runs + '</td><td>' + stats.balls + '</td><td>' + stats.fours + '</td><td>' + stats.sixes + '</td><td>' + sr + '</td></tr>';
+            }
+
+            html += '</table><div style="color:var(--blue); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">BOWLING</div>' +
+                '<table class="sc-table"><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr>';
+
+            for (var bName in sc.bowlers) {
+                var bStats = sc.bowlers[bName];
+                var overs = Math.floor(bStats.balls / 6) + "." + (bStats.balls % 6);
+                var econ = bStats.balls > 0 ? ((bStats.runs / bStats.balls) * 6).toFixed(1) : "0.0";
+                var isDoubleOver = doubleOverList.includes(bName) || Math.floor(bStats.balls / 6) >= 2;
+                var bowlerBadgeHtml = isDoubleOver ? '<span class="bowler-badge">2 Ov</span>' : '';
+                html += '<tr><td><b>' + bName + '</b>' + bowlerBadgeHtml + '</td><td>' + overs + '</td><td>' + bStats.maidens + '</td><td>' + bStats.runs + '</td><td>' + bStats.wkts + '</td><td>' + econ + '</td></tr>';
+            }
+
+            html += '</table>';
+
+            if (sc.fielders && Object.keys(sc.fielders).length > 0) {
+                html += '<div style="color:var(--gold); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FIELDING (AWARDS)</div><table class="sc-table"><tr><th>Fielder</th><th>Catches</th><th>Run Outs</th></tr>';
+                for (var fName in sc.fielders) {
+                    var fStats = sc.fielders[fName];
+                    if ((fStats.catches || 0) > 0 || (fStats.runOuts || 0) > 0) {
+                        html += '<tr><td><b>' + fName + '</b></td><td>' + (fStats.catches || 0) + '</td><td>' + (fStats.runOuts || 0) + '</td></tr>';
+                    }
+                }
+                html += '</table>';
+            }
+
+            if (sc.fow && sc.fow.length > 0) {
+                html += '<div style="color:var(--blue); font-weight:bold; font-size: 0.8rem; margin-top: 15px;">FALL OF WICKETS</div>' +
+                    '<div style="font-size:0.75rem; color:#94a3b8; margin-top: 4px;">' +
+                    sc.fow.map(function(f) { return f.score + '/' + f.wkt + ' (' + f.player + ', ' + f.over + ' ov)'; }).join(' | ') +
+                    '</div>';
+            }
+
+            container.innerHTML = html;
+        };
+
+        window.startNewMatchFromScorecard = function() {
+            window.closeModal('scorecardModal');
+            window.abortMatch();
+        };
+
+        window.manualSwap = function() {
+            var d = JSON.parse(JSON.stringify(matchData));
+            var tName = d.crr_bat_name, tR = d.crr_bat_runs, tB = d.crr_bat_balls;
+            d.crr_bat_name = d.non_bat_name; d.crr_bat_runs = d.non_bat_runs; d.crr_bat_balls = d.non_bat_balls;
+            d.non_bat_name = tName; d.non_bat_runs = tR; d.non_bat_balls = tB;
+            matchData = d;
+            updateUI();
+            matchDocRef.update(d);
+        };
+
+        window.undoAction = function() {
+            if (!matchData || !matchData.last_state) return alert("Nothing to undo!");
+            var restored = JSON.parse(matchData.last_state);
+            restored.last_state = null;
+            matchData = restored;
+            updateUI();
+            matchDocRef.set(restored);
+        };
+
+        window.abortMatch = function() {
+            if (!confirm("ABORT MATCH? Current match will reset.")) return;
+            window.navigateView('viewHome');
+            var resetState = {
+                match_in_progress: false,
+                match_status: "not_started",
+                inn: 1,
+                tournament: "friendly",
+                rulesFormat: "pairs",
+                totalOvers: 8,
+                playersPerTeam: 8,
+                tossWinner: 'tA',
+                tossDecision: 'bat',
+                crr_bat_name: "Striker", crr_bat_runs: 0, crr_bat_balls: 0,
+                non_bat_name: "Non-Striker", non_bat_runs: 0, non_bat_balls: 0,
+                crr_bowl: "TBD", curr_over: [],
+                consecutive_dots: 0,
+                used_batsmen: [], used_bowlers: [],
+                ball_timeline: [],
+                impactUsed: { tA: false, tB: false },
+                impactSubsBench: { tA: [], tB: [] },
+                inn1_scorecard: null, inn2_scorecard: null,
+                tA: { name: "Team 1", score: 0, balls: 0, wkts: 0 },
+                tB: { name: "Team 2", score: 0, balls: 0, wkts: 0 },
+                last_state: null
+            };
+            matchDocRef.set(resetState);
+        };
+
+        window.walkoverMatch = function() {
+            var winner = prompt("Enter Walkover Winner Team Name:");
+            if (!winner) return;
+            db.collection("match_history").add(Object.assign({
+                matchId: currentMatchId, match_status: "Walkover", winner: winner, timestamp: new Date().toISOString()
+            }, matchData)).then(function() {
+                window.abortMatch();
+            });
+        };
+
+        window.editStriker = function() {
+            if (!isScoringAuthorized) return;
+            var name = prompt("Enter Striker Name:", matchData ? matchData.crr_bat_name : "");
+            if (name) {
+                matchData.crr_bat_name = name;
+                updateUI();
+                matchDocRef.update({ crr_bat_name: name });
+            }
+        };
+
+        window.editNonStriker = function() {
+            if (!isScoringAuthorized) return;
+            var name = prompt("Enter Non-Striker Name:", matchData ? matchData.non_bat_name : "");
+            if (name) {
+                matchData.non_bat_name = name;
+                updateUI();
+                matchDocRef.update({ non_bat_name: name });
+            }
+        };
+
+        // RUN INITIAL MOUNT
+        updateSlotBadge();
+        attachMatchListener(currentMatchId);
+    </script>
+</body>
+</html>
