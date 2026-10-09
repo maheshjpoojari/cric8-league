@@ -426,7 +426,7 @@
         </div>
     </div>
 
-    <!-- MODAL: NEXT OVER SETUP (ALL SQUAD PLAYERS AVAILABLE IN SHORT SQUAD) -->
+    <!-- MODAL: NEXT OVER SETUP (ALL SQUAD PLAYERS ACCESSIBLE FOR 2ND PERFORMANCE) -->
     <div id="bowlerModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
@@ -543,6 +543,19 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
+        // NAVIGATION ENGINE DEFINED IMMEDIATELY BEFORE ANY FIREBASE CALLS
+        window.navigateView = (viewId) => {
+            ['viewHome', 'viewLogin', 'viewFixtures', 'viewTournament', 'viewToss', 'viewScorer', 'viewStandings'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            const target = document.getElementById(viewId);
+            if (target) target.classList.remove('hidden');
+        };
+
+        // GUARANTEE INITIAL UI IS ACTIVE AND VISIBLE
+        window.navigateView('viewHome');
+
         const urlParams = new URLSearchParams(window.location.search);
         let currentMatchId = urlParams.get('match') || localStorage.getItem('cric8_active_slot') || "pitch_1";
         let matchDocRef = doc(db, "matches", currentMatchId);
@@ -629,46 +642,42 @@
 
             if (unsubscribeSnapshot) unsubscribeSnapshot();
             
-            unsubscribeSnapshot = onSnapshot(matchDocRef, snap => {
-                try {
-                    if (!snap.exists()) {
-                        matchData = null;
-                        window.navigateView('viewHome');
-                        return;
-                    }
-                    matchData = snap.data();
+            try {
+                unsubscribeSnapshot = onSnapshot(matchDocRef, snap => {
+                    try {
+                        if (!snap.exists()) {
+                            matchData = null;
+                            window.navigateView('viewHome');
+                            return;
+                        }
+                        matchData = snap.data();
 
-                    // Sync squad rosters into local memory
-                    if (matchData.team1_squad && matchData.tA?.name) {
-                        uploadedTeams[matchData.tA.name] = matchData.team1_squad;
-                    }
-                    if (matchData.team2_squad && matchData.tB?.name) {
-                        uploadedTeams[matchData.tB.name] = matchData.team2_squad;
-                    }
+                        // Sync squad rosters into local memory
+                        if (matchData.team1_squad && matchData.tA?.name) {
+                            uploadedTeams[matchData.tA.name] = matchData.team1_squad;
+                        }
+                        if (matchData.team2_squad && matchData.tB?.name) {
+                            uploadedTeams[matchData.tB.name] = matchData.team2_squad;
+                        }
 
-                    if (matchData.match_in_progress) {
-                        window.navigateView('viewScorer');
-                    } else {
-                        window.navigateView('viewHome');
+                        if (matchData.match_in_progress) {
+                            window.navigateView('viewScorer');
+                        } else {
+                            window.navigateView('viewHome');
+                        }
+                        updateUI();
+                    } catch (e) {
+                        console.error("Snapshot error:", e);
                     }
-                    updateUI();
-                } catch (e) {
-                    console.error("Snapshot error:", e);
-                }
-            }, (error) => {
-                console.warn("Snapshot connection error:", error);
+                }, (error) => {
+                    console.warn("Snapshot connection error:", error);
+                    window.navigateView('viewHome');
+                });
+            } catch (err) {
+                console.warn("Snapshot attach failure:", err);
                 window.navigateView('viewHome');
-            });
+            }
         }
-
-        window.navigateView = (viewId) => {
-            ['viewHome', 'viewLogin', 'viewFixtures', 'viewTournament', 'viewToss', 'viewScorer', 'viewStandings'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
-            const target = document.getElementById(viewId);
-            if (target) target.classList.remove('hidden');
-        };
 
         function setText(id, text) {
             const el = document.getElementById(id);
@@ -912,7 +921,7 @@
                     tableData[tBName].runsAgainst += tAScore; tableData[tBName].ballsAgainst += tABalls;
 
                     if (tAScore > tBScore) { tableData[tAName].w += 1; tableData[tAName].pts += 2; tableData[tBName].l += 1; }
-                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tBName].l += 1; }
+                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tAName].l += 1; }
                     else { tableData[tAName].t += 1; tableData[tBName].t += 1; tableData[tAName].pts += 1; tableData[tBName].pts += 1; }
                 });
 
@@ -1277,8 +1286,8 @@
                 consecutive_dots: 0,
                 used_batsmen: [sName, nsName],
                 used_bowlers: [bName],
-                rebat_players: [], // Tracks players who took a second batting shift
-                double_over_bowlers: [], // Tracks bowlers who bowled twice
+                rebat_players: [],
+                double_over_bowlers: [],
                 ball_timeline: [],
                 team1_squad: uploadedTeams[t1] || [],
                 team2_squad: uploadedTeams[t2] || [],
@@ -2216,7 +2225,6 @@
 
             for (const [name, stats] of Object.entries(sc.batters || {})) {
                 const sr = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : "0.0";
-                // VISUAL BADGE IDENTIFICATION AT A GLANCE
                 const isRebat = rebatList.includes(name);
                 const badgeHtml = isRebat ? `<span class="repeat-badge">2x</span>` : ``;
 
@@ -2232,7 +2240,6 @@
             for (const [name, stats] of Object.entries(sc.bowlers || {})) {
                 const overs = `${Math.floor(stats.balls / 6)}.${stats.balls % 6}`;
                 const econ = stats.balls > 0 ? ((stats.runs / stats.balls) * 6).toFixed(1) : "0.0";
-                // VISUAL BADGE IDENTIFICATION AT A GLANCE
                 const isDoubleOver = doubleOverList.includes(name) || Math.floor(stats.balls / 6) >= 2;
                 const bowlerBadgeHtml = isDoubleOver ? `<span class="bowler-badge">2 Ov</span>` : ``;
 
@@ -2355,7 +2362,7 @@
 
         window.closeModal = (id) => document.getElementById(id)?.classList.add('hidden');
 
-        // Initial setup
+        // Immediate view mounting
         updateSlotBadge();
         attachMatchListener(currentMatchId);
     </script>
