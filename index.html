@@ -82,7 +82,7 @@
     <!-- VIEW 1: HOME HUB -->
     <div id="viewHome" class="app-view">
         <div class="view-card" style="text-align: center;">
-            <h2 class="view-title" style="margin-bottom:8px;">🏏 CUSTOM CRIC-8 ARENA</h2>
+            <h2 class="view-title" style="margin-bottom:8px;">🏏 CRIC-8 ARENA</h2>
             <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:20px;">Host a match directly, manage fixtures, or view standings</p>
 
             <button class="btn btn-green" style="width:100%; margin-bottom:12px;" onclick="window.startHostFlow()">⚡ SCORE A QUICK MATCH (HOST)</button>
@@ -430,7 +430,7 @@
         </div>
     </div>
 
-    <!-- MODAL: NEXT OVER SETUP (ALL SQUAD PLAYERS ACCESSIBLE FOR 2ND PERFORMANCE) -->
+    <!-- MODAL: NEXT OVER SETUP (WITH STRICT PRIORITY FOR FRESH BATTERS & BALANCED BOWLERS) -->
     <div id="bowlerModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
             <h3 style="margin-top:0; color:var(--blue); text-align:center;">NEXT OVER SETUP</h3>
@@ -921,7 +921,7 @@
                     tableData[tBName].runsAgainst += tAScore; tableData[tBName].ballsAgainst += tABalls;
 
                     if (tAScore > tBScore) { tableData[tAName].w += 1; tableData[tAName].pts += 2; tableData[tBName].l += 1; }
-                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tBName].l += 1; }
+                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tAName].l += 1; }
                     else { tableData[tAName].t += 1; tableData[tBName].t += 1; tableData[tAName].pts += 1; tableData[tBName].pts += 1; }
                 });
 
@@ -1154,6 +1154,7 @@
             }
         };
 
+        // FLEXIBLE SQUAD SAVE: Supports short squads (4 to req players)
         window.confirmSelectedSquad = function() {
             var req = window.getRequiredPlayerCount();
             if (selectedPlayingSquad.length < 4 || selectedPlayingSquad.length > req) {
@@ -1441,6 +1442,7 @@
             }
         };
 
+        // --- OPEN NEXT OVER MODAL: STRICT 1ST-ROUND PRIORITY & CONTROLLED RE-BATS ---
         window.openNextOverModal = function() {
             if (!isScoringAuthorized) return;
             var d = matchData || {};
@@ -1460,7 +1462,7 @@
 
             var pairSection = document.getElementById('pairChangeSection');
 
-            // 1. ALL SQUAD PLAYERS AVAILABLE FOR BATTERS
+            // 1. STRICT 1ST-ROUND PRIORITY FOR BATTERS
             if (isPairRotationDue && completedOvers < (d.totalOvers || 8)) {
                 if (pairSection) pairSection.classList.remove('hidden');
                 var nextPairNum = Math.floor(completedOvers / 2) + 1;
@@ -1468,9 +1470,34 @@
 
                 var fullBatRoster = uploadedTeams[battingTeamName] || (isTeamABatting ? d.team1_squad : d.team2_squad) || [];
                 var usedBatters = Array.isArray(d.used_batsmen) ? d.used_batsmen : [];
+                var rebatList = Array.isArray(d.rebat_players) ? d.rebat_players : [];
 
-                var availableBatters = fullBatRoster.filter(function(p) { return p !== d.crr_bat_name && p !== d.non_bat_name; });
-                if (availableBatters.length < 2) availableBatters = fullBatRoster.slice();
+                // Fresh players who have NOT batted yet
+                var freshBatters = fullBatRoster.filter(function(p) { return !usedBatters.includes(p); });
+
+                var availableBatters = [];
+
+                if (freshBatters.length >= 2) {
+                    // Fresh players available: strictly show fresh players only
+                    availableBatters = freshBatters;
+                } else if (freshBatters.length === 1) {
+                    // Exactly 1 fresh player left: must pick that player + 1 re-bat player
+                    var eligibleRebats = fullBatRoster.filter(function(p) {
+                        return p !== d.crr_bat_name && p !== d.non_bat_name && !rebatList.includes(p);
+                    });
+                    availableBatters = freshBatters.concat(eligibleRebats);
+                } else {
+                    // All players have batted: unlock re-bat pool (exclude current crease pair & those who already re-batted)
+                    var eligibleRebatsAll = fullBatRoster.filter(function(p) {
+                        return p !== d.crr_bat_name && p !== d.non_bat_name && !rebatList.includes(p);
+                    });
+                    if (eligibleRebatsAll.length < 2) {
+                        eligibleRebatsAll = fullBatRoster.filter(function(p) {
+                            return p !== d.crr_bat_name && p !== d.non_bat_name;
+                        });
+                    }
+                    availableBatters = eligibleRebatsAll;
+                }
 
                 activeAvailableBatters = availableBatters;
 
@@ -1488,7 +1515,7 @@
                 if (pairSection) pairSection.classList.add('hidden');
             }
 
-            // 2. ALL SQUAD PLAYERS AVAILABLE FOR BOWLERS
+            // 2. BOWLER ROTATION (PREVENTS BACK-TO-BACK & BALANCES 2ND OVERS)
             var bowlTeamKey = isTeamABatting ? 'tB' : 'tA';
             var fullFieldingRoster = uploadedTeams[fieldingTeamName] || (bowlTeamKey === 'tA' ? d.team1_squad : d.team2_squad) || [];
 
@@ -1498,13 +1525,28 @@
 
             var scKey = d.inn === 1 ? 'inn1_scorecard' : 'inn2_scorecard';
             var bowlerStats = (d[scKey] && d[scKey].bowlers) ? d[scKey].bowlers : {};
+            var usedBowlers = Array.isArray(d.used_bowlers) ? d.used_bowlers : [];
 
-            var finalEligibleBowlers = nonConsecutiveRoster.map(function(p) {
-                var ballsBowled = (bowlerStats[p] && bowlerStats[p].balls) ? bowlerStats[p].balls : 0;
-                var oversCompleted = Math.floor(ballsBowled / 6);
-                var label = oversCompleted > 0 ? (p + " (2nd Over)") : (p + " (1st Over)");
-                return { name: p, label: label, overs: oversCompleted };
-            }).sort(function(a, b) { return a.overs - b.overs; });
+            var unbowledList = nonConsecutiveRoster.filter(function(p) { return !usedBowlers.includes(p); });
+
+            var finalEligibleBowlers = [];
+            if (unbowledList.length > 0) {
+                // Priority: bowlers who haven't bowled yet
+                finalEligibleBowlers = unbowledList.map(function(p) {
+                    return { name: p, label: p, overs: 0 };
+                });
+            } else {
+                // Short squad: all players bowled once, unlock 2nd overs
+                finalEligibleBowlers = nonConsecutiveRoster.map(function(p) {
+                    var ballsBowled = (bowlerStats[p] && bowlerStats[p].balls) ? bowlerStats[p].balls : 0;
+                    var oversCompleted = Math.floor(ballsBowled / 6);
+                    return {
+                        name: p,
+                        label: p + " (" + (oversCompleted + 1) + "nd Over)",
+                        overs: oversCompleted
+                    };
+                }).sort(function(a, b) { return a.overs - b.overs; });
+            }
 
             var bSel = document.getElementById('nextBowlerSelect');
             if (bSel) {
@@ -2059,6 +2101,12 @@
                     d.non_bat_runs = 0;
                     d.non_bat_balls = 0;
 
+                    // RESET INNINGS 1 TRACKERS SO INNINGS 2 SQUAD STARTS FRESH
+                    d.used_batsmen = [];
+                    d.used_bowlers = [];
+                    d.rebat_players = [];
+                    d.double_over_bowlers = [];
+
                     var isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
                     var nextBatTeam = isNextTeamABatting ? d.tA.name : d.tB.name;
                     var nextBowlTeam = isNextTeamABatting ? d.tB.name : d.tA.name;
@@ -2115,6 +2163,7 @@
             document.getElementById('scorecardModal').classList.remove('hidden');
         }
 
+        // SCORECARD TAB WITH IDENTIFICATION BADGES FOR 2ND ROUND PERFORMERS
         window.switchScorecardTab = function(tabNum) {
             activeScorecardTab = tabNum;
             document.getElementById('tabInn1Btn').classList.toggle('active', tabNum === 1);
