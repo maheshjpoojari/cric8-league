@@ -216,6 +216,7 @@
                 <label style="color: var(--gold);">⚡ SCORING RULES FORMAT</label>
                 <select id="rulesFormatSelect" class="input-field">
                     <option value="pairs">Custom Cric-8 Pairs (All 8 Overs Played, -5 Penalty)</option>
+                    <option value="pairs_practice">Cric-8 Pairs Practice (All Overs Re-bowl Extras, 6 Legal Balls/Over, -5 Penalty)</option>
                     <option value="classic">Classic Standard Cricket (Chased = Match Ends, Standard Dismissal)</option>
                 </select>
             </div>
@@ -707,8 +708,21 @@
         var cachedMatchHistory = [];
         var cachedFixtures = [];
 
-        function isCurrentOverComplete(currOverArray, isPairs, completedOvers, totalOvers) {
+        // DETERMINISTIC OVER LOGIC (UPDATED WITH PAIRS PRACTICE FORMAT)
+        function isCurrentOverComplete(currOverArray, rulesFormat, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return false;
+            
+            // Practice Pairs Format: All overs 1 to 8 require exactly 6 legal deliveries
+            if (rulesFormat === 'pairs_practice') {
+                var legalDeliveries = currOverArray.filter(function(b) {
+                    var s = b.toString();
+                    return !s.includes('Wd') && !s.includes('N');
+                }).length;
+                return legalDeliveries >= 6;
+            }
+
+            // Tournament Pairs Format: Overs 1-7 capped at 6 deliveries total; Over 8 requires 6 legal balls
+            var isPairs = (rulesFormat === 'pairs');
             var isEighthOverActive = (completedOvers >= (totalOvers - 1));
             if (isPairs && !isEighthOverActive) {
                 return currOverArray.length >= 6;
@@ -925,7 +939,7 @@
                 html += '<div class="fixture-card">' +
                     '<div>' +
                     '<div class="fixture-teams">' + f.team1 + ' vs ' + f.team2 + '</div>' +
-                    '<div class="fixture-meta">' + f.pitch.toUpperCase().replace('_', ' ') + ' | ' + (f.format === 'pairs' ? 'Pairs' : 'Classic') + ' | ' + (f.overs || 8) + ' Overs</div>' +
+                    '<div class="fixture-meta">' + f.pitch.toUpperCase().replace('_', ' ') + ' | ' + (f.format === 'classic' ? 'Classic' : 'Pairs') + ' | ' + (f.overs || 8) + ' Overs</div>' +
                     '</div>' +
                     '<div>' + statusBadge + '</div>' +
                     '</div>';
@@ -950,7 +964,7 @@
                         team1: teamNames[i],
                         team2: teamNames[j],
                         pitch: pitches[pitchIdx % pitches.length],
-                        format: tourney === 'corporate' ? 'pairs' : 'classic',
+                        format: 'pairs',
                         overs: 8,
                         status: 'scheduled',
                         timestamp: new Date().toISOString()
@@ -1526,7 +1540,7 @@
             setText('teamNameDisp', team.name + " (Inn " + (d.inn || 1) + ")");
             setText('bowlNameDisp', "Bowler: " + (d.crr_bowl || 'TBD'));
 
-            var isPairs = (d.rulesFormat === 'pairs');
+            var isPairs = (d.rulesFormat === 'pairs' || d.rulesFormat === 'pairs_practice');
             var wickBtn = document.getElementById('wicketBtnLabel');
             if (wickBtn) wickBtn.innerText = isPairs ? "WICKET / OUT (-5)" : "WICKET / OUT";
 
@@ -1558,7 +1572,11 @@
 
             var formatBadge = document.getElementById('formatBadgeDisp');
             if (formatBadge) {
-                if (isPairs) {
+                if (d.rulesFormat === 'pairs_practice') {
+                    var currentPairP = Math.min(Math.floor(completedOvers / 2) + 1, Math.ceil(totalOvers / 2));
+                    var pairStartP = (currentPairP - 1) * 2 + 1;
+                    formatBadge.innerText = "Pairs Practice (Overs " + pairStartP + "-" + (pairStartP+1) + ", Re-bowl Extras)";
+                } else if (d.rulesFormat === 'pairs') {
                     var currentPair = Math.min(Math.floor(completedOvers / 2) + 1, Math.ceil(totalOvers / 2));
                     var pairStart = (currentPair - 1) * 2 + 1;
                     formatBadge.innerText = "Pair " + currentPair + " (Overs " + pairStart + "-" + (pairStart+1) + ")";
@@ -1590,7 +1608,7 @@
                 }).join('');
             }
 
-            var isOverComplete = isCurrentOverComplete(d.curr_over, isPairs, completedOvers, totalOvers);
+            var isOverComplete = isCurrentOverComplete(d.curr_over, d.rulesFormat, completedOvers, totalOvers);
             var isCurrentInningsComplete = (completedOvers >= totalOvers && !isOverComplete);
 
             var nextBtn = document.getElementById('nextOverBtn');
@@ -1633,7 +1651,6 @@
             } else {
                 if (impactBtn) impactBtn.classList.remove('hidden');
 
-                // ACTIVE ONLY AFTER OVER 7 FINISHES (BEFORE OVER 8 STARTS IN INNINGS 1)
                 var isOver7Finished = (d.inn === 1) && (completedOvers === (totalOvers - 1));
                 var bothTeamsUsed = d.impactUsed && d.impactUsed.tA && d.impactUsed.tB;
 
@@ -1697,7 +1714,7 @@
 
             var currentBalls = (isTeamABatting ? d.tA.balls : d.tB.balls) || 0;
             var completedOvers = Math.floor(currentBalls / 6);
-            var isPairs = (d.rulesFormat === 'pairs');
+            var isPairs = (d.rulesFormat === 'pairs' || d.rulesFormat === 'pairs_practice');
             var isPairRotationDue = isPairs && (completedOvers > 0) && (completedOvers % 2 === 0);
 
             var pairSection = document.getElementById('pairChangeSection');
@@ -1837,7 +1854,7 @@
 
             var currentBalls = (isTeamABatting ? d.tA.balls : d.tB.balls) || 0;
             var completedOvers = Math.floor(currentBalls / 6);
-            var isPairs = (d.rulesFormat === 'pairs');
+            var isPairs = (d.rulesFormat === 'pairs' || d.rulesFormat === 'pairs_practice');
             var pairSec = document.getElementById('pairChangeSection');
             var isPairSectionVisible = pairSec ? !pairSec.classList.contains('hidden') : false;
 
@@ -1900,6 +1917,7 @@
             matchDocRef.update(d).catch(function(e) { console.error(e); });
         };
 
+        // --- SCORING ACTIONS WITH PAIRS PRACTICE LEGAL DELIVERY CONTROL ---
         window.handleAction = function(val, type) {
             if (!isScoringAuthorized || !matchData) return;
             var d = JSON.parse(JSON.stringify(matchData));
@@ -1907,7 +1925,7 @@
             if (d.inn === 2) isTeamABatting = !isTeamABatting;
             var teamKey = isTeamABatting ? 'tA' : 'tB';
             var oppKey = isTeamABatting ? 'tB' : 'tA';
-            var isPairs = (d.rulesFormat === 'pairs');
+            var isPairs = (d.rulesFormat === 'pairs' || d.rulesFormat === 'pairs_practice');
 
             var snapshotClean = Object.assign({}, matchData);
             delete snapshotClean.last_state;
@@ -1933,8 +1951,11 @@
             var currentBalls = parseInt(d[teamKey].balls) || 0;
             var completedOvers = Math.floor(currentBalls / 6);
             
+            // DELIVERY COUNT LOGIC:
+            // In pairs_practice: EXTRAS NEVER COUNT AS LEGAL BALLS (ALWAYS RE-BOWLED)
+            // In standard pairs: Overs 1-7 extras count as delivery; Over 8 must be legal
             var isFinalOverActive = (completedOvers >= ((d.totalOvers || 8) - 1));
-            var extraCountsAsDelivery = isPairs && !isFinalOverActive;
+            var extraCountsAsDelivery = (d.rulesFormat === 'pairs') && !isFinalOverActive;
 
             var ballEvent = '0';
 
@@ -2121,7 +2142,7 @@
 
         window.openWicketModal = function() {
             if (!isScoringAuthorized) return;
-            var isPairs = (matchData && matchData.rulesFormat === 'pairs');
+            var isPairs = (matchData && (matchData.rulesFormat === 'pairs' || matchData.rulesFormat === 'pairs_practice'));
             setText('wickModalTitle', isPairs ? 'RECORD DISMISSAL (-5)' : 'RECORD OUT / WICKET');
             document.getElementById('wickType').value = 'Bowled';
             populateCatcherDropdown();
@@ -2185,7 +2206,7 @@
                 if (d.inn === 2) isTeamABatting = !isTeamABatting;
                 var teamKey = isTeamABatting ? 'tA' : 'tB';
                 var oppKey = isTeamABatting ? 'tB' : 'tA';
-                var isPairs = (d.rulesFormat === 'pairs');
+                var isPairs = (d.rulesFormat === 'pairs' || d.rulesFormat === 'pairs_practice');
 
                 var snapshotClean = Object.assign({}, matchData);
                 delete snapshotClean.last_state;
@@ -2395,7 +2416,7 @@
             
             var batKey = isTeamABatting ? 'tA' : 'tB';
             var bowlKey = isTeamABatting ? 'tB' : 'tA';
-            var isPairs = (d.rulesFormat === 'pairs');
+            var isPairs = (d.rulesFormat === 'pairs' || d.rulesFormat === 'pairs_practice');
 
             var currentBalls = d[batKey] ? (d[batKey].balls || 0) : 0;
             var currentScore = d[batKey] ? (d[batKey].score || 0) : 0;
@@ -2405,7 +2426,6 @@
             if (d.inn === 1) {
                 if (currentBalls >= maxBalls || forceAllOut) {
                     var targetRuns = currentScore + 1;
-                    // PAUSE AND PROMPT REFEREE VIA MODAL INSTEAD OF AUTO-STARTING
                     openInningsBreakModal(targetRuns);
                     return;
                 }
@@ -2450,7 +2470,6 @@
             if (!isScoringAuthorized || !matchData) return;
             var d = matchData;
 
-            // RULE 1: SHORT SQUAD MATCHES HAVE NO IMPACT OPTION
             var reqCount = d.playersPerTeam || 8;
             var t1Count = (d.team1_squad || []).length;
             var t2Count = (d.team2_squad || []).length;
@@ -2458,7 +2477,6 @@
                 return alert("⚠️ Impact Player is disabled for Short-Squad matches. Teams play under automated Re-bat rules.");
             }
 
-            // RULE 2: ACTIVE ONLY AFTER OVER 7 IS FINISHED AND BEFORE OVER 8 OF INNINGS 1 BEGINS
             var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
             var battingTeam = isTeamABatting ? d.tA : d.tB;
             var currentBalls = (battingTeam && battingTeam.balls) ? battingTeam.balls : 0;
