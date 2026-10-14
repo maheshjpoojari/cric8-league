@@ -400,7 +400,7 @@
         <div class="view-card" style="width: 100%; max-width: 420px; border-color: var(--purple);">
             <h3 style="margin-top:0; color:var(--purple); text-align:center;">⚡ ACTIVATE IMPACT PLAYER</h3>
             <p style="font-size:0.78rem; color:#94a3b8; text-align:center; margin-bottom:12px;">
-                Rule: Must be announced after Over 7 is finished, before Over 8 begins.
+                Rule: Allowed after Over 7 is finished, before Over 8 begins in 1st innings.
             </p>
             
             <div class="input-group">
@@ -417,11 +417,12 @@
             </div>
 
             <div class="input-group">
-                <label>Impact Player Coming IN (Bench Sub)</label>
+                <label>Impact Player Coming IN (Bench Only)</label>
                 <select id="impactIncomingSelect" class="input-field"></select>
             </div>
 
             <button class="btn btn-purple" style="width:100%;" onclick="window.confirmImpactSubstitution()">CONFIRM IMPACT SUB ⚡</button>
+            <button class="btn" style="width:100%; margin-top:8px; background:#475569; font-size:0.85rem;" onclick="window.skipImpactPlayerForTeam()">CONTINUE WITH SQUAD (SKIP IMPACT) ⏭️</button>
             <button class="btn" style="width:100%; margin-top:8px; background:#334155; font-size:0.8rem;" onclick="window.closeModal('impactModal')">CANCEL</button>
         </div>
     </div>
@@ -1229,7 +1230,9 @@
             var existingImpact = uploadedImpactSubs[teamName] || [];
             activeMasterRoster = Array.from(new Set(existingPlaying.concat(existingImpact)));
             selectedPlayingSquad = existingPlaying.slice(0, req);
-            selectedImpactSubs = existingImpact.filter(function(p) { return !selectedPlayingSquad.includes(p); });
+            
+            // Automatically assign any unselected roster players to bench reserve
+            selectedImpactSubs = activeMasterRoster.filter(function(p) { return !selectedPlayingSquad.includes(p); });
 
             window.renderSquadChips();
             document.getElementById('squadBuilderModal').classList.remove('hidden');
@@ -1274,6 +1277,7 @@
             var idx = selectedPlayingSquad.indexOf(player);
             if (idx !== -1) {
                 selectedPlayingSquad.splice(idx, 1);
+                if (!selectedImpactSubs.includes(player)) selectedImpactSubs.push(player);
             } else {
                 if (selectedPlayingSquad.length >= req) return alert("Maximum " + req + " players allowed.");
                 selectedPlayingSquad.push(player);
@@ -1299,7 +1303,11 @@
             if (!name) return;
             if (!activeMasterRoster.includes(name)) {
                 activeMasterRoster.push(name);
-                if (selectedPlayingSquad.length < window.getRequiredPlayerCount()) selectedPlayingSquad.push(name);
+                if (selectedPlayingSquad.length < window.getRequiredPlayerCount()) {
+                    selectedPlayingSquad.push(name);
+                } else {
+                    selectedImpactSubs.push(name);
+                }
                 input.value = '';
                 window.renderSquadChips();
             }
@@ -1312,13 +1320,15 @@
             }
 
             uploadedTeams[currentEditingTeam] = selectedPlayingSquad.slice();
-            uploadedImpactSubs[currentEditingTeam] = selectedImpactSubs.slice();
+            // Automatically capture all unselected players into bench reserves
+            var benchPlayers = activeMasterRoster.filter(function(p) { return !selectedPlayingSquad.includes(p); });
+            uploadedImpactSubs[currentEditingTeam] = benchPlayers.slice();
 
             window.closeModal('squadBuilderModal');
             if (selectedPlayingSquad.length < req) {
                 alert("⚠️ Short squad confirmed: " + selectedPlayingSquad.length + " players selected. Automated Re-bat rules active. Impact substitution disabled.");
             } else {
-                alert("✅ Squad saved (" + selectedPlayingSquad.length + " players).");
+                alert("✅ Squad saved (" + selectedPlayingSquad.length + " playing, " + benchPlayers.length + " bench reserves).");
             }
         };
 
@@ -1588,7 +1598,7 @@
                     impactBtn.classList.remove('hidden');
 
                     // RULE 2: ACTIVE ONLY AFTER OVER 7 FINISHES (BEFORE OVER 8 STARTS IN INNINGS 1)
-                    // (i.e. completedOvers is exactly 7 in Innings 1)
+                    // completedOvers must be exactly 7 (i.e. Over 7 complete, awaiting Over 8)
                     var isOver7Finished = (d.inn === 1) && (completedOvers === (totalOvers - 1));
                     var bothTeamsUsed = d.impactUsed && d.impactUsed.tA && d.impactUsed.tB;
 
@@ -1610,7 +1620,7 @@
                         } else if (!isOver7Finished) {
                             impactBtn.title = "Impact player inactive until Over 7 is completed";
                         } else {
-                            impactBtn.title = "Impact substitution already used";
+                            impactBtn.title = "Impact substitution already used / skipped";
                         }
                     }
                 }
@@ -2359,7 +2369,6 @@
             var completedOvers = Math.floor(currentBalls / 6);
             var totalOvers = d.totalOvers || 8;
 
-            // Strict check: Must be Innings 1 and exactly after Over 7 finishes
             if (d.inn !== 1 || completedOvers !== (totalOvers - 1)) {
                 return alert("⚠️ Impact Player can only be declared after Over 7 is completed, before Over 8 begins in the 1st innings.");
             }
@@ -2383,20 +2392,34 @@
             outSel.innerHTML = ''; inSel.innerHTML = '';
 
             if (d.impactUsed && d.impactUsed[chosenTeamKey]) {
-                outSel.add(new Option("Impact sub already used by " + chosenTeamName, ''));
-                inSel.add(new Option("Completed", ''));
+                outSel.add(new Option("Impact option already used/skipped by " + chosenTeamName, ''));
+                inSel.add(new Option("No action available", ''));
                 return;
             }
 
-            var teamRoster = uploadedTeams[chosenTeamName] || (chosenTeamKey === 'tA' ? d.team1_squad : d.team2_squad) || [];
-            teamRoster = Array.from(new Set(teamRoster));
-            teamRoster.forEach(function(p) { outSel.add(new Option(p, p)); });
+            // Active playing squad
+            var playingSquad = (chosenTeamKey === 'tA' ? d.team1_squad : d.team2_squad) || uploadedTeams[chosenTeamName] || [];
+            playingSquad = Array.from(new Set(playingSquad));
+            playingSquad.forEach(function(p) { outSel.add(new Option(p, p)); });
 
-            var benchList = (d.impactSubsBench && d.impactSubsBench[chosenTeamKey]) || uploadedImpactSubs[chosenTeamName] || [];
-            benchList = Array.from(new Set(benchList)).filter(function(p) { return !teamRoster.includes(p); });
+            // Master team roster
+            var fullTeamPool = uploadedTeams[chosenTeamName] || [];
+            if (d.impactSubsBench && d.impactSubsBench[chosenTeamKey]) {
+                fullTeamPool = fullTeamPool.concat(d.impactSubsBench[chosenTeamKey]);
+            }
+            if (uploadedImpactSubs[chosenTeamName]) {
+                fullTeamPool = fullTeamPool.concat(uploadedImpactSubs[chosenTeamName]);
+            }
 
-            if (benchList.length > 0) {
-                benchList.forEach(function(p) { inSel.add(new Option(p, p)); });
+            // PURE BENCH RESERVES ONLY: Players NOT in the playing squad
+            var trueBenchList = Array.from(new Set(fullTeamPool)).filter(function(p) {
+                return !playingSquad.includes(p);
+            });
+
+            if (trueBenchList.length > 0) {
+                trueBenchList.forEach(function(p) { inSel.add(new Option(p, p)); });
+            } else {
+                inSel.add(new Option("No bench subs registered", "__none__"));
             }
             inSel.add(new Option("➕ Enter Bench Sub Name...", "__add_custom_sub__"));
         };
@@ -2412,14 +2435,18 @@
             var teamName = d[targetTeamKey] ? d[targetTeamKey].name : null;
 
             if (d.impactUsed && d.impactUsed[targetTeamKey]) {
-                return alert("Impact substitution has already been used by " + teamName + ".");
+                return alert("Impact substitution has already been used or skipped by " + teamName + ".");
             }
 
             var outgoing = document.getElementById('impactOutgoingSelect').value;
             var incoming = document.getElementById('impactIncomingSelect').value;
 
+            if (incoming === '__none__') {
+                return alert("No bench substitute available. Please select 'Enter Bench Sub Name...' or click 'CONTINUE WITH SQUAD (SKIP IMPACT)'.");
+            }
+
             if (incoming === '__add_custom_sub__') {
-                var enteredName = prompt("Enter Name of Impact Player Coming IN:");
+                var enteredName = prompt("Enter Name of Bench Player Coming IN:");
                 if (!enteredName || !enteredName.trim()) return;
                 incoming = enteredName.trim();
             }
@@ -2427,6 +2454,13 @@
             if (!outgoing || !incoming) return alert("Select outgoing and incoming players.");
 
             var incomingTag = incoming + " ⚡(IP)";
+
+            // Replace in active squad
+            var squadArrayKey = targetTeamKey === 'tA' ? 'team1_squad' : 'team2_squad';
+            if (d[squadArrayKey]) {
+                var sIdx = d[squadArrayKey].indexOf(outgoing);
+                if (sIdx !== -1) d[squadArrayKey][sIdx] = incomingTag;
+            }
 
             if (uploadedTeams[teamName]) {
                 var idx = uploadedTeams[teamName].indexOf(outgoing);
@@ -2451,6 +2485,31 @@
             updateUI();
             matchDocRef.update(d);
             alert("⚡ " + outgoing + " substituted by " + incomingTag);
+        };
+
+        // NEW: SKIP IMPACT PLAYER OPTION (CONTINUE WITH SQUAD)
+        window.skipImpactPlayerForTeam = function() {
+            var d = JSON.parse(JSON.stringify(matchData || {}));
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            var currentBatKey = (d.inn === 1 ? isTeamABatting : !isTeamABatting) ? 'tA' : 'tB';
+            var currentBowlKey = currentBatKey === 'tA' ? 'tB' : 'tA';
+
+            var teamType = document.getElementById('impactTeamSelect').value || 'batting';
+            var targetTeamKey = teamType === 'batting' ? currentBatKey : currentBowlKey;
+            var teamName = d[targetTeamKey] ? d[targetTeamKey].name : "Selected Team";
+
+            if (!confirm("Confirm skipping Impact Player for " + teamName + "? The team will continue playing with their original squad.")) {
+                return;
+            }
+
+            if (!d.impactUsed) d.impactUsed = {};
+            d.impactUsed[targetTeamKey] = true; // Mark as resolved/locked
+
+            window.closeModal('impactModal');
+            matchData = d;
+            updateUI();
+            matchDocRef.update(d);
+            alert("✅ " + teamName + " skipped Impact Player and will continue with their current squad.");
         };
 
         window.saveMatchToArchive = function() {
