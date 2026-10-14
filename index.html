@@ -49,6 +49,9 @@
         
         .next-over-btn { color: var(--gold); font-weight: bold; margin-top: 15px; cursor: pointer; animation: blink 1s infinite; text-decoration: underline; }
         @keyframes blink { 50% { opacity: 0.3; } }
+
+        .impact-banner { background: rgba(168, 85, 247, 0.2); border: 1px solid var(--purple); color: #e9d5ff; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; font-weight: bold; text-align: center; animation: pulse 1.5s infinite; cursor: pointer; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); background: rgba(168, 85, 247, 0.35); } }
         
         .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .emergency-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px; }
@@ -314,6 +317,11 @@
             <div id="bat2" class="bat-card" onclick="window.editNonStriker()">P2 (0) ✏️</div>
         </div>
 
+        <!-- FLASHING IMPACT NOTIFICATION BANNER -->
+        <div id="impactFlashBanner" class="impact-banner hidden" onclick="window.openImpactPlayerModal()">
+            ⚡ IMPACT PLAYER WINDOW OPEN! (Tap to Declare or Skip Before Over 8 Starts)
+        </div>
+
         <div class="score-card">
             <div id="targetBox" class="hidden" style="color: var(--gold); font-weight: bold; margin-bottom: 8px;"></div>
             <div id="mainScore" class="main-score">0</div>
@@ -347,6 +355,35 @@
             <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
             <button id="impactPlayerBtn" class="btn btn-purple" onclick="window.openImpactPlayerModal()">⚡ IMPACT</button>
             <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH</button>
+        </div>
+    </div>
+
+    <!-- MODAL: INNINGS 2 BREAK & OPENING LINEUP SETUP -->
+    <div id="inn2BreakModal" class="modal hidden">
+        <div class="view-card" style="width: 100%; max-width: 440px; border-color: var(--gold);">
+            <h3 style="margin-top:0; color:var(--gold); text-align:center;">🔄 INNINGS BREAK</h3>
+            <div id="inn2TargetBanner" style="background:#0b1120; border:1px solid #334155; padding:10px; border-radius:8px; text-align:center; margin-bottom:15px; font-weight:bold; color:var(--blue);"></div>
+
+            <p style="font-size:0.8rem; color:#94a3b8; text-align:center; margin-bottom:12px;">
+                Select opening batters and bowler to begin Innings 2.
+            </p>
+
+            <div class="input-group">
+                <label id="inn2StrikerLabel">Opening Striker</label>
+                <select id="inn2StrikerSelect" class="input-field" onchange="window.filterInn2SecondaryBatter()"></select>
+            </div>
+
+            <div class="input-group">
+                <label id="inn2NonStrikerLabel">Opening Non-Striker</label>
+                <select id="inn2NonStrikerSelect" class="input-field"></select>
+            </div>
+
+            <div class="input-group">
+                <label id="inn2BowlerLabel">Opening Bowler</label>
+                <select id="inn2BowlerSelect" class="input-field"></select>
+            </div>
+
+            <button class="btn btn-green" style="width:100%; margin-top:10px;" onclick="window.confirmInnings2Start()">START 2ND INNINGS 🚀</button>
         </div>
     </div>
 
@@ -594,7 +631,7 @@
         };
 
         function anyModalOpen() {
-            var modalIds = ['scorecardModal', 'bowlerModal', 'wickModal', 'impactModal', 'declareModal', 'byeModal', 'extraModal', 'squadBuilderModal', 'newBatterModal'];
+            var modalIds = ['scorecardModal', 'bowlerModal', 'wickModal', 'impactModal', 'declareModal', 'byeModal', 'extraModal', 'squadBuilderModal', 'newBatterModal', 'inn2BreakModal'];
             for (var i = 0; i < modalIds.length; i++) {
                 var el = document.getElementById(modalIds[i]);
                 if (el && !el.classList.contains('hidden')) return modalIds[i];
@@ -994,7 +1031,7 @@
                     tableData[tBName].runsAgainst += tAScore; tableData[tBName].ballsAgainst += tABalls;
 
                     if (tAScore > tBScore) { tableData[tAName].w += 1; tableData[tAName].pts += 2; tableData[tBName].l += 1; }
-                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tBName].l += 1; }
+                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tAName].l += 1; }
                     else { tableData[tAName].t += 1; tableData[tBName].t += 1; tableData[tAName].pts += 1; tableData[tBName].pts += 1; }
                 });
 
@@ -1231,7 +1268,6 @@
             activeMasterRoster = Array.from(new Set(existingPlaying.concat(existingImpact)));
             selectedPlayingSquad = existingPlaying.slice(0, req);
             
-            // Automatically assign any unselected roster players to bench reserve
             selectedImpactSubs = activeMasterRoster.filter(function(p) { return !selectedPlayingSquad.includes(p); });
 
             window.renderSquadChips();
@@ -1320,7 +1356,6 @@
             }
 
             uploadedTeams[currentEditingTeam] = selectedPlayingSquad.slice();
-            // Automatically capture all unselected players into bench reserves
             var benchPlayers = activeMasterRoster.filter(function(p) { return !selectedPlayingSquad.includes(p); });
             uploadedImpactSubs[currentEditingTeam] = benchPlayers.slice();
 
@@ -1469,7 +1504,7 @@
             });
         };
 
-        // --- SCORER CONSOLE WITH DYNAMIC IMPACT BUTTON ENFORCEMENT ---
+        // --- SCORER CONSOLE WITH DYNAMIC IMPACT BUTTON & BANNER ENFORCEMENT ---
         function updateUI() {
             if (!matchData) return;
             var d = matchData;
@@ -1561,7 +1596,7 @@
             var nextBtn = document.getElementById('nextOverBtn');
             if (nextBtn) {
                 if (isCurrentInningsComplete) {
-                    nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED: START INNINGS 2 🔄" : "MATCH FINISHED: VIEW SCORECARD 🏆";
+                    nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED: TAP FOR 2ND INNINGS SETUP 🔄" : "MATCH FINISHED: VIEW SCORECARD 🏆";
                     nextBtn.classList.remove('hidden');
                 } else if (isOverComplete) {
                     nextBtn.innerText = "OVER " + completedOvers + " FINISHED: TAP TO START OVER " + (completedOvers + 1) + " ⚡";
@@ -1583,33 +1618,37 @@
                 }
             }
 
-            // --- STRICT IMPACT BUTTON LIFECYCLE MANAGEMENT ---
+            // --- STRICT IMPACT BUTTON & BANNER LIFECYCLE MANAGEMENT ---
             var impactBtn = document.getElementById('impactPlayerBtn');
-            if (impactBtn) {
-                var reqCount = d.playersPerTeam || 8;
-                var t1Count = (d.team1_squad || []).length;
-                var t2Count = (d.team2_squad || []).length;
-                var isShortSquadMatch = (t1Count < reqCount) || (t2Count < reqCount);
+            var impactBanner = document.getElementById('impactFlashBanner');
 
-                // RULE 1: SHORT SQUAD MATCHES HAVE NO IMPACT OPTION
-                if (isShortSquadMatch) {
-                    impactBtn.classList.add('hidden');
-                } else {
-                    impactBtn.classList.remove('hidden');
+            var reqCount = d.playersPerTeam || 8;
+            var t1Count = (d.team1_squad || []).length;
+            var t2Count = (d.team2_squad || []).length;
+            var isShortSquadMatch = (t1Count < reqCount) || (t2Count < reqCount);
 
-                    // RULE 2: ACTIVE ONLY AFTER OVER 7 FINISHES (BEFORE OVER 8 STARTS IN INNINGS 1)
-                    // completedOvers must be exactly 7 (i.e. Over 7 complete, awaiting Over 8)
-                    var isOver7Finished = (d.inn === 1) && (completedOvers === (totalOvers - 1));
-                    var bothTeamsUsed = d.impactUsed && d.impactUsed.tA && d.impactUsed.tB;
+            if (isShortSquadMatch) {
+                if (impactBtn) impactBtn.classList.add('hidden');
+                if (impactBanner) impactBanner.classList.add('hidden');
+            } else {
+                if (impactBtn) impactBtn.classList.remove('hidden');
 
-                    if (isOver7Finished && !bothTeamsUsed) {
+                // ACTIVE ONLY AFTER OVER 7 FINISHES (BEFORE OVER 8 STARTS IN INNINGS 1)
+                var isOver7Finished = (d.inn === 1) && (completedOvers === (totalOvers - 1));
+                var bothTeamsUsed = d.impactUsed && d.impactUsed.tA && d.impactUsed.tB;
+
+                if (isOver7Finished && !bothTeamsUsed) {
+                    if (impactBtn) {
                         impactBtn.disabled = false;
                         impactBtn.classList.remove('btn-disabled');
                         impactBtn.style.background = "var(--purple)";
                         impactBtn.style.opacity = "1";
                         impactBtn.style.pointerEvents = "auto";
                         impactBtn.title = "Activate Impact Player (Announce before Over 8 starts)";
-                    } else {
+                    }
+                    if (impactBanner) impactBanner.classList.remove('hidden');
+                } else {
+                    if (impactBtn) {
                         impactBtn.disabled = true;
                         impactBtn.classList.add('btn-disabled');
                         impactBtn.style.background = "#334155";
@@ -1623,6 +1662,7 @@
                             impactBtn.title = "Impact substitution already used / skipped";
                         }
                     }
+                    if (impactBanner) impactBanner.classList.add('hidden');
                 }
             }
         }
@@ -2272,6 +2312,82 @@
             return bestPlayer;
         }
 
+        // --- PAUSE MATCH & OPEN INNINGS BREAK MODAL FOR REFEREE SELECTION ---
+        function openInningsBreakModal(targetScore) {
+            var d = matchData || {};
+            var isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
+            var nextBatTeam = isNextTeamABatting ? d.tA.name : d.tB.name;
+            var nextBowlTeam = isNextTeamABatting ? d.tB.name : d.tA.name;
+
+            var batRoster = uploadedTeams[nextBatTeam] || (isNextTeamABatting ? d.team1_squad : d.team2_squad) || [];
+            var bowlRoster = uploadedTeams[nextBowlTeam] || (isNextTeamABatting ? d.team2_squad : d.team1_squad) || [];
+
+            batRoster = Array.from(new Set(batRoster));
+            bowlRoster = Array.from(new Set(bowlRoster));
+
+            setText('inn2TargetBanner', "🎯 Target: " + targetScore + " runs needed from " + ((d.totalOvers || 8) * 6) + " balls");
+            setText('inn2StrikerLabel', "Opening Striker (" + nextBatTeam + ")");
+            setText('inn2NonStrikerLabel', "Opening Non-Striker (" + nextBatTeam + ")");
+            setText('inn2BowlerLabel', "Opening Bowler (" + nextBowlTeam + ")");
+
+            var sSel = document.getElementById('inn2StrikerSelect');
+            var bSel = document.getElementById('inn2BowlerSelect');
+            sSel.innerHTML = ''; bSel.innerHTML = '';
+
+            batRoster.forEach(function(p) { sSel.add(new Option(p, p)); });
+            bowlRoster.forEach(function(p) { bSel.add(new Option(p, p)); });
+
+            window.filterInn2SecondaryBatter();
+            document.getElementById('inn2BreakModal').classList.remove('hidden');
+        }
+
+        window.filterInn2SecondaryBatter = function() {
+            var d = matchData || {};
+            var isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
+            var nextBatTeam = isNextTeamABatting ? d.tA.name : d.tB.name;
+            var batRoster = uploadedTeams[nextBatTeam] || (isNextTeamABatting ? d.team1_squad : d.team2_squad) || [];
+            batRoster = Array.from(new Set(batRoster));
+
+            var sVal = document.getElementById('inn2StrikerSelect').value;
+            var nsSel = document.getElementById('inn2NonStrikerSelect');
+            nsSel.innerHTML = '';
+
+            batRoster.filter(function(p) { return p !== sVal; }).forEach(function(p) {
+                nsSel.add(new Option(p, p));
+            });
+        };
+
+        window.confirmInnings2Start = function() {
+            var sName = document.getElementById('inn2StrikerSelect').value;
+            var nsName = document.getElementById('inn2NonStrikerSelect').value;
+            var bName = document.getElementById('inn2BowlerSelect').value;
+
+            if (!sName || !nsName || !bName) return alert("Select opening batters and bowler.");
+            if (sName === nsName) return alert("Striker and Non-Striker must be different players.");
+
+            window.closeModal('inn2BreakModal');
+
+            var d = JSON.parse(JSON.stringify(matchData || {}));
+            d.inn = 2;
+            d.curr_over = [];
+            d.consecutive_dots = 0;
+            d.crr_bat_runs = 0;
+            d.crr_bat_balls = 0;
+            d.non_bat_runs = 0;
+            d.non_bat_balls = 0;
+
+            d.crr_bat_name = sName;
+            d.non_bat_name = nsName;
+            d.crr_bowl = bName;
+
+            d.used_batsmen = [sName, nsName];
+            d.used_bowlers = [bName];
+
+            matchData = d;
+            updateUI();
+            matchDocRef.update(d).catch(function(e) { console.error(e); });
+        };
+
         function evaluateMatchFlow(d, currentTeamKey, oppTeamKey, forceAllOut) {
             var maxBalls = (d.totalOvers || 8) * 6;
             var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -2288,30 +2404,10 @@
 
             if (d.inn === 1) {
                 if (currentBalls >= maxBalls || forceAllOut) {
-                    alert("Innings 1 Complete! Target: " + (currentScore + 1) + " runs.");
-                    d.inn = 2;
-                    d.curr_over = [];
-                    d.consecutive_dots = 0;
-                    d.crr_bat_runs = 0;
-                    d.crr_bat_balls = 0;
-                    d.non_bat_runs = 0;
-                    d.non_bat_balls = 0;
-
-                    d.used_batsmen = [];
-                    d.used_bowlers = [];
-
-                    var isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
-                    var nextBatTeam = isNextTeamABatting ? d.tA.name : d.tB.name;
-                    var nextBowlTeam = isNextTeamABatting ? d.tB.name : d.tA.name;
-
-                    var batRoster = uploadedTeams[nextBatTeam] || (isNextTeamABatting ? d.team1_squad : d.team2_squad) || ["Player 1", "Player 2"];
-                    var bowlRoster = uploadedTeams[nextBowlTeam] || (isNextTeamABatting ? d.team2_squad : d.team1_squad) || ["Bowler 1"];
-
-                    d.crr_bat_name = batRoster[0] || "Striker";
-                    d.non_bat_name = batRoster[1] || "Non-Striker";
-                    d.crr_bowl = bowlRoster[0] || "Bowler";
-                    d.used_batsmen = [d.crr_bat_name, d.non_bat_name];
-                    d.used_bowlers = [d.crr_bowl];
+                    var targetRuns = currentScore + 1;
+                    // PAUSE AND PROMPT REFEREE VIA MODAL INSTEAD OF AUTO-STARTING
+                    openInningsBreakModal(targetRuns);
+                    return;
                 }
             } else if (d.inn === 2) {
                 var matchOver = false;
@@ -2397,12 +2493,10 @@
                 return;
             }
 
-            // Active playing squad
             var playingSquad = (chosenTeamKey === 'tA' ? d.team1_squad : d.team2_squad) || uploadedTeams[chosenTeamName] || [];
             playingSquad = Array.from(new Set(playingSquad));
             playingSquad.forEach(function(p) { outSel.add(new Option(p, p)); });
 
-            // Master team roster
             var fullTeamPool = uploadedTeams[chosenTeamName] || [];
             if (d.impactSubsBench && d.impactSubsBench[chosenTeamKey]) {
                 fullTeamPool = fullTeamPool.concat(d.impactSubsBench[chosenTeamKey]);
@@ -2411,7 +2505,6 @@
                 fullTeamPool = fullTeamPool.concat(uploadedImpactSubs[chosenTeamName]);
             }
 
-            // PURE BENCH RESERVES ONLY: Players NOT in the playing squad
             var trueBenchList = Array.from(new Set(fullTeamPool)).filter(function(p) {
                 return !playingSquad.includes(p);
             });
@@ -2455,7 +2548,6 @@
 
             var incomingTag = incoming + " ⚡(IP)";
 
-            // Replace in active squad
             var squadArrayKey = targetTeamKey === 'tA' ? 'team1_squad' : 'team2_squad';
             if (d[squadArrayKey]) {
                 var sIdx = d[squadArrayKey].indexOf(outgoing);
@@ -2487,7 +2579,6 @@
             alert("⚡ " + outgoing + " substituted by " + incomingTag);
         };
 
-        // NEW: SKIP IMPACT PLAYER OPTION (CONTINUE WITH SQUAD)
         window.skipImpactPlayerForTeam = function() {
             var d = JSON.parse(JSON.stringify(matchData || {}));
             var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
@@ -2503,7 +2594,7 @@
             }
 
             if (!d.impactUsed) d.impactUsed = {};
-            d.impactUsed[targetTeamKey] = true; // Mark as resolved/locked
+            d.impactUsed[targetTeamKey] = true;
 
             window.closeModal('impactModal');
             matchData = d;
