@@ -26,7 +26,7 @@
         .btn { border: none; background: #1e293b; color: #fff; padding: 14px 0; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; text-align: center; }
         .btn-blue { background: #0ea5e9; } .btn-orange { background: #f97316; } .btn-red { background: var(--red); }
         .btn-green { background: var(--green); } .btn-purple { background: var(--purple); } .btn-util { background: #334155; font-size: 0.75rem; padding: 10px; }
-        .btn-disabled { opacity: 0.3 !important; cursor: not-allowed !important; pointer-events: none !important; }
+        .btn-disabled, button:disabled { opacity: 0.25 !important; cursor: not-allowed !important; pointer-events: none !important; }
 
         .coin-wrapper { perspective: 800px; display: flex; justify-content: center; margin: 15px 0; }
         .coin { width: 80px; height: 80px; position: relative; transform-style: preserve-3d; transition: transform 2s ease-out; }
@@ -400,7 +400,7 @@
         <div class="view-card" style="width: 100%; max-width: 420px; border-color: var(--purple);">
             <h3 style="margin-top:0; color:var(--purple); text-align:center;">⚡ ACTIVATE IMPACT PLAYER</h3>
             <p style="font-size:0.78rem; color:#94a3b8; text-align:center; margin-bottom:12px;">
-                Rule: Must be announced before Over 8 of the 1st innings.
+                Rule: Must be announced after Over 7 is finished, before Over 8 begins.
             </p>
             
             <div class="input-group">
@@ -1587,18 +1587,31 @@
                 } else {
                     impactBtn.classList.remove('hidden');
 
-                    // RULE 2: MUST BE ANNOUNCED BEFORE OVER 8 OF INNINGS 1
-                    var isWindowOpen = (d.inn === 1) && (completedOvers < (totalOvers - 1));
+                    // RULE 2: ACTIVE ONLY AFTER OVER 7 FINISHES (BEFORE OVER 8 STARTS IN INNINGS 1)
+                    // (i.e. completedOvers is exactly 7 in Innings 1)
+                    var isOver7Finished = (d.inn === 1) && (completedOvers === (totalOvers - 1));
                     var bothTeamsUsed = d.impactUsed && d.impactUsed.tA && d.impactUsed.tB;
 
-                    if (!isWindowOpen || bothTeamsUsed) {
-                        impactBtn.classList.add('btn-disabled');
-                        impactBtn.style.background = "#334155";
-                        impactBtn.title = isWindowOpen ? "Impact substitution completed" : "Announcement window closed (Must announce before Over 8)";
-                    } else {
+                    if (isOver7Finished && !bothTeamsUsed) {
+                        impactBtn.disabled = false;
                         impactBtn.classList.remove('btn-disabled');
                         impactBtn.style.background = "var(--purple)";
-                        impactBtn.title = "Activate Impact Player (Allowed until Over 7 ends)";
+                        impactBtn.style.opacity = "1";
+                        impactBtn.style.pointerEvents = "auto";
+                        impactBtn.title = "Activate Impact Player (Announce before Over 8 starts)";
+                    } else {
+                        impactBtn.disabled = true;
+                        impactBtn.classList.add('btn-disabled');
+                        impactBtn.style.background = "#334155";
+                        impactBtn.style.opacity = "0.25";
+                        impactBtn.style.pointerEvents = "none";
+                        if (d.inn > 1 || completedOvers >= totalOvers) {
+                            impactBtn.title = "Impact player window closed";
+                        } else if (!isOver7Finished) {
+                            impactBtn.title = "Impact player inactive until Over 7 is completed";
+                        } else {
+                            impactBtn.title = "Impact substitution already used";
+                        }
                     }
                 }
             }
@@ -2331,7 +2344,7 @@
             if (!isScoringAuthorized || !matchData) return;
             var d = matchData;
 
-            // RULE: SHORT SQUAD MATCHES HAVE NO IMPACT OPTION
+            // RULE 1: SHORT SQUAD MATCHES HAVE NO IMPACT OPTION
             var reqCount = d.playersPerTeam || 8;
             var t1Count = (d.team1_squad || []).length;
             var t2Count = (d.team2_squad || []).length;
@@ -2339,11 +2352,16 @@
                 return alert("⚠️ Impact Player is disabled for Short-Squad matches. Teams play under automated Re-bat rules.");
             }
 
-            // RULE: MUST BE ANNOUNCED BEFORE OVER 8 OF INNINGS 1
-            var completedOvers = Math.floor(((d.tossWinner === 'tA' ? d.tA?.balls : d.tB?.balls) || 0) / 6);
-            var isWindowOpen = (d.inn === 1) && (completedOvers < ((d.totalOvers || 8) - 1));
-            if (!isWindowOpen) {
-                return alert("⚠️ Impact Player announcement window closed. Impact players must be declared before Over 8 of the 1st innings.");
+            // RULE 2: ACTIVE ONLY AFTER OVER 7 IS FINISHED AND BEFORE OVER 8 OF INNINGS 1 BEGINS
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            var battingTeam = isTeamABatting ? d.tA : d.tB;
+            var currentBalls = (battingTeam && battingTeam.balls) ? battingTeam.balls : 0;
+            var completedOvers = Math.floor(currentBalls / 6);
+            var totalOvers = d.totalOvers || 8;
+
+            // Strict check: Must be Innings 1 and exactly after Over 7 finishes
+            if (d.inn !== 1 || completedOvers !== (totalOvers - 1)) {
+                return alert("⚠️ Impact Player can only be declared after Over 7 is completed, before Over 8 begins in the 1st innings.");
             }
 
             window.updateImpactModalFields();
@@ -2380,7 +2398,6 @@
             if (benchList.length > 0) {
                 benchList.forEach(function(p) { inSel.add(new Option(p, p)); });
             }
-            // Always allow on-pitch addition of sub if none were pre-registered
             inSel.add(new Option("➕ Enter Bench Sub Name...", "__add_custom_sub__"));
         };
 
