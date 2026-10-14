@@ -1528,6 +1528,64 @@
             });
         };
 
+        // --- HOISTED GLOBALLY: MATCH EVALUATION & FLOW CONTROLLER ---
+        window.evaluateMatchFlow = function(d, currentTeamKey, oppTeamKey, forceAllOut) {
+            var maxBalls = (d.totalOvers || 8) * 6;
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            
+            var batKey = isTeamABatting ? 'tA' : 'tB';
+            var bowlKey = isTeamABatting ? 'tB' : 'tA';
+            var isPairs = (d.rulesFormat === 'pairs' || d.rulesFormat === 'pairs_practice');
+
+            var currentBalls = d[batKey] ? (d[batKey].balls || 0) : 0;
+            var currentScore = d[batKey] ? (d[batKey].score || 0) : 0;
+            var oppScore = d[bowlKey] ? (d[bowlKey].score || 0) : 0;
+            var target = oppScore + 1;
+
+            if (d.inn === 1) {
+                if (currentBalls >= maxBalls || forceAllOut) {
+                    var targetRuns = currentScore + 1;
+                    openInningsBreakModal(targetRuns);
+                    return;
+                }
+            } else if (d.inn === 2) {
+                var matchOver = false;
+                var winnerText = "";
+
+                if (!isPairs && currentScore >= target) {
+                    matchOver = true;
+                    winnerText = "🎉 " + d[batKey].name + " WON by chasing the target!";
+                } else if (currentBalls >= maxBalls || forceAllOut) {
+                    matchOver = true;
+                    if (currentScore === oppScore) {
+                        winnerText = "🤝 MATCH TIED! Both teams scored " + currentScore + " runs.";
+                    } else if (currentScore > oppScore) {
+                        var margin = currentScore - oppScore;
+                        winnerText = "🎉 " + d[batKey].name + " WON by " + margin + " runs!";
+                    } else {
+                        var marginL = oppScore - currentScore;
+                        winnerText = "🎉 " + d[bowlKey].name + " WON by " + marginL + " runs!";
+                    }
+                }
+
+                if (matchOver) {
+                    d.match_status = "completed";
+                    d.match_in_progress = false;
+                    d.winner = winnerText;
+                    d.mvp = calculateMatchMVP(d);
+                    d.timestamp = new Date().toISOString();
+
+                    db.collection("match_history").add(Object.assign({ matchId: currentMatchId }, d)).catch(function(e) { console.warn(e); });
+                }
+            }
+
+            matchData = d;
+            updateUI();
+            matchDocRef.update(d).catch(function(e) { console.error(e); });
+        };
+        var evaluateMatchFlow = window.evaluateMatchFlow;
+
         // --- BATTING POWERPLAY CONTROLLER ---
         window.toggleBattingPowerplay = function() {
             if (!isScoringAuthorized || !matchData) return;
@@ -1544,17 +1602,14 @@
             var completedOvers = Math.floor(currentBalls / 6);
             var totalOvers = d.totalOvers || 8;
 
-            // RULE 1: POWERPLAY CANNOT BE TAKEN IN OVER 8
             if (completedOvers >= (totalOvers - 1)) {
                 return alert("⚠️ Batting Powerplay cannot be taken in the 8th over.");
             }
 
-            // RULE 2: 1 POWERPLAY PER TEAM PER INNINGS
             if (d.powerplayUsed[batKey] && !d.powerplayActive) {
                 return alert("⚠️ " + batName + " has already used their Batting Powerplay for this innings.");
             }
 
-            // TOGGLE POWERPLAY
             if (d.powerplayActive) {
                 if (confirm("Deactivate Batting Powerplay for this over?")) {
                     d.powerplayActive = false;
@@ -1626,7 +1681,6 @@
             var completedOvers = Math.floor(balls / 6);
             setText('stats', "Overs: " + completedOvers + "." + (balls % 6) + " / " + totalOvers + ".0 | Wkts: " + (team.wkts || 0));
 
-            // BADGE & POWERPLAY PROMPT
             var formatBadge = document.getElementById('formatBadgeDisp');
             if (formatBadge) {
                 var ppTag = d.powerplayActive ? " ⚡[PP OVER]" : "";
@@ -1643,7 +1697,6 @@
                 }
             }
 
-            // BATTING POWERPLAY FLASHING BANNER & BUTTON CONTROLS
             var ppBanner = document.getElementById('powerplayBanner');
             var ppBtn = document.getElementById('powerplayBtn');
             if (ppBanner) {
@@ -1726,7 +1779,6 @@
                 }
             }
 
-            // STRICT IMPACT BUTTON & BANNER LIFECYCLE MANAGEMENT
             var impactBtn = document.getElementById('impactPlayerBtn');
             var impactBanner = document.getElementById('impactFlashBanner');
 
@@ -2178,7 +2230,7 @@
 
             matchData = d;
             updateUI();
-            evaluateMatchFlow(d, teamKey, oppKey);
+            window.evaluateMatchFlow(d, teamKey, oppKey);
         };
 
         window.openDeclareModal = function() {
@@ -2323,7 +2375,6 @@
                 if (!d[scKey].bowlers) d[scKey].bowlers = {};
                 if (!d[scKey].fielders) d[scKey].fielders = {};
 
-                // PREVENTS "CANNOT READ PROPERTIES OF UNDEFINED (READING 'BALLS')"
                 if (!d[scKey].batters[dismissedName]) {
                     d[scKey].batters[dismissedName] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
                 }
@@ -2388,7 +2439,7 @@
                     window.closeModal('wickModal');
                     matchData = d;
                     updateUI();
-                    evaluateMatchFlow(d, teamKey, oppKey);
+                    window.evaluateMatchFlow(d, teamKey, oppKey);
                 } else {
                     d[scKey].totalScore = d[teamKey].score;
                     d[scKey].totalBalls = d[teamKey].balls;
