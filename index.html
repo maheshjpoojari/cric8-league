@@ -51,7 +51,8 @@
         @keyframes blink { 50% { opacity: 0.3; } }
 
         .impact-banner { background: rgba(168, 85, 247, 0.2); border: 1px solid var(--purple); color: #e9d5ff; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; font-weight: bold; text-align: center; animation: pulse 1.5s infinite; cursor: pointer; }
-        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); background: rgba(168, 85, 247, 0.35); } }
+        .powerplay-banner { background: rgba(251, 191, 36, 0.25); border: 2px solid var(--gold); color: var(--gold); padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.82rem; font-weight: 900; text-align: center; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
         
         .admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .emergency-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px; }
@@ -318,6 +319,11 @@
             <div id="bat2" class="bat-card" onclick="window.editNonStriker()">P2 (0) ✏️</div>
         </div>
 
+        <!-- LIVE FLASHING BATTING POWERPLAY BANNER -->
+        <div id="powerplayBanner" class="powerplay-banner hidden">
+            ⚡ BATTING POWERPLAY ACTIVE: Max 2 Fielders on Boundary!
+        </div>
+
         <!-- FLASHING IMPACT NOTIFICATION BANNER -->
         <div id="impactFlashBanner" class="impact-banner hidden" onclick="window.openImpactPlayerModal()">
             ⚡ IMPACT PLAYER WINDOW OPEN! (Tap to Declare or Skip Before Over 8 Starts)
@@ -354,8 +360,9 @@
             <button class="btn btn-util" onclick="window.manualSwap()">SWAP</button>
             <button class="btn btn-util" onclick="window.undoAction()">UNDO</button>
             <button class="btn btn-util" style="color: var(--gold);" onclick="window.walkoverMatch()">WALKOVER</button>
+            <button id="powerplayBtn" class="btn btn-orange" style="font-size:0.75rem;" onclick="window.toggleBattingPowerplay()">⚡ POWERPLAY</button>
             <button id="impactPlayerBtn" class="btn btn-purple" onclick="window.openImpactPlayerModal()">⚡ IMPACT</button>
-            <button class="btn btn-util" style="color: var(--red); grid-column: span 2;" onclick="window.abortMatch()">ABORT MATCH</button>
+            <button class="btn btn-util" style="color: var(--red);" onclick="window.abortMatch()">ABORT</button>
         </div>
     </div>
 
@@ -489,10 +496,13 @@
         </div>
     </div>
 
-    <!-- MODAL: DYNAMIC EXTRA RUNS (2 RUNS BASE) -->
+    <!-- MODAL: DYNAMIC EXTRA RUNS (2 RUNS BASE + NO BALL BOUNDARY VIOLATION) -->
     <div id="extraModal" class="modal hidden">
         <div class="view-card" style="width: 100%; max-width: 420px;">
             <h3 style="margin-top:0; color:var(--gold); text-align:center;" id="extraModalTitle">RECORD EXTRA (2 RUNS BASE)</h3>
+            <div id="nbViolationNotice" class="hidden" style="background:rgba(239, 68, 68, 0.2); border:1px solid var(--red); color:#fca5a5; padding:8px; border-radius:6px; font-size:0.75rem; font-weight:bold; margin-bottom:10px; text-align:center;">
+                ⚠️ POWERPLAY FIELDING VIOLATION: More than 2 fielders outside boundary line. Results in standard No-Ball (+2 Runs & Re-bowl).
+            </div>
             <p style="font-size:0.8rem; color:#94a3b8; text-align:center;">Penalty is 2 runs base. Enter additional completed runs:</p>
             <div class="input-group">
                 <label>Additional Runs Completed by Running (0 if none)</label>
@@ -708,11 +718,9 @@
         var cachedMatchHistory = [];
         var cachedFixtures = [];
 
-        // DETERMINISTIC OVER LOGIC (UPDATED WITH PAIRS PRACTICE FORMAT)
         function isCurrentOverComplete(currOverArray, rulesFormat, completedOvers, totalOvers) {
             if (!Array.isArray(currOverArray)) return false;
             
-            // Practice Pairs Format: All overs 1 to 8 require exactly 6 legal deliveries
             if (rulesFormat === 'pairs_practice') {
                 var legalDeliveries = currOverArray.filter(function(b) {
                     var s = b.toString();
@@ -721,7 +729,6 @@
                 return legalDeliveries >= 6;
             }
 
-            // Tournament Pairs Format: Overs 1-7 capped at 6 deliveries total; Over 8 requires 6 legal balls
             var isPairs = (rulesFormat === 'pairs');
             var isEighthOverActive = (completedOvers >= (totalOvers - 1));
             if (isPairs && !isEighthOverActive) {
@@ -1045,7 +1052,7 @@
                     tableData[tBName].runsAgainst += tAScore; tableData[tBName].ballsAgainst += tABalls;
 
                     if (tAScore > tBScore) { tableData[tAName].w += 1; tableData[tAName].pts += 2; tableData[tBName].l += 1; }
-                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tAName].l += 1; }
+                    else if (tBScore > tAScore) { tableData[tBName].w += 1; tableData[tBName].pts += 2; tableData[tBName].l += 1; }
                     else { tableData[tAName].t += 1; tableData[tBName].t += 1; tableData[tAName].pts += 1; tableData[tBName].pts += 1; }
                 });
 
@@ -1128,7 +1135,7 @@
                     });
                 });
                 var sortedField = Object.keys(fielders).map(function(name) { return Object.assign({ name: name }, fielders[name]); }).sort(function(a, b) { return b.total - a.total; });
-                var htmlG = '<table class="sc-table"><tr><th>Fielder</th><th>Catches</th><th>Run Outs</th><th>Total</th></tr>';
+                var htmlG = '<table class="sc-table"><tr><th>Fielder</th><th>Catches</th><th>Run Outs</th></tr>';
                 sortedField.slice(0, 10).forEach(function(f) {
                     htmlG += '<tr><td><b>' + f.name + '</b></td><td>' + f.catches + '</td><td>' + f.runOuts + '</td><td><b style="color:var(--gold);">' + f.total + '</b></td></tr>';
                 });
@@ -1506,6 +1513,10 @@
                 team2_squad: uploadedTeams[t2] || [],
                 impactUsed: { tA: false, tB: false },
                 impactSubsBench: { tA: uploadedImpactSubs[t1] || [], tB: uploadedImpactSubs[t2] || [] },
+                // BATTING POWERPLAY STATE TRACKERS
+                powerplayActive: false,
+                powerplayUsed: { tA: false, tB: false },
+                powerplayOverNominated: { tA: null, tB: null },
                 inn1_scorecard: { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [], rebat_players: [], double_over_bowlers: [] },
                 inn2_scorecard: { batters: {}, bowlers: {}, fielders: {}, extras: 0, totalScore: 0, totalWkts: 0, totalBalls: 0, fow: [], rebat_players: [], double_over_bowlers: [] },
                 tA: { name: t1, score: 0, balls: 0, wkts: 0 },
@@ -1518,7 +1529,52 @@
             });
         };
 
-        // --- SCORER CONSOLE WITH DYNAMIC IMPACT BUTTON & BANNER ENFORCEMENT ---
+        // --- BATTING POWERPLAY CONTROLLER ---
+        window.toggleBattingPowerplay = function() {
+            if (!isScoringAuthorized || !matchData) return;
+            var d = JSON.parse(JSON.stringify(matchData));
+            var isTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bat') : (d.tossDecision === 'bowl');
+            if (d.inn === 2) isTeamABatting = !isTeamABatting;
+            var batKey = isTeamABatting ? 'tA' : 'tB';
+            var batName = d[batKey] ? d[batKey].name : "Batting Team";
+
+            if (!d.powerplayUsed) d.powerplayUsed = { tA: false, tB: false };
+            if (!d.powerplayOverNominated) d.powerplayOverNominated = { tA: null, tB: null };
+
+            var currentBalls = d[batKey] ? (d[batKey].balls || 0) : 0;
+            var completedOvers = Math.floor(currentBalls / 6);
+            var totalOvers = d.totalOvers || 8;
+
+            // RULE 1: POWERPLAY CANNOT BE TAKEN IN OVER 8
+            if (completedOvers >= (totalOvers - 1)) {
+                return alert("⚠️ Batting Powerplay cannot be taken in the 8th over.");
+            }
+
+            // RULE 2: 1 POWERPLAY PER TEAM PER INNINGS
+            if (d.powerplayUsed[batKey] && !d.powerplayActive) {
+                return alert("⚠️ " + batName + " has already used their Batting Powerplay for this innings.");
+            }
+
+            // TOGGLE POWERPLAY
+            if (d.powerplayActive) {
+                if (confirm("Deactivate Batting Powerplay for this over?")) {
+                    d.powerplayActive = false;
+                    d.powerplayOverNominated[batKey] = null;
+                }
+            } else {
+                if (confirm("Activate Batting Powerplay for " + batName + " during Over " + (completedOvers + 1) + "?\n\nRule: Maximum 2 fielders allowed on boundary line!")) {
+                    d.powerplayActive = true;
+                    d.powerplayUsed[batKey] = true;
+                    d.powerplayOverNominated[batKey] = completedOvers + 1;
+                }
+            }
+
+            matchData = d;
+            updateUI();
+            matchDocRef.update(d);
+        };
+
+        // --- SCORER CONSOLE WITH DYNAMIC POWERPLAY & IMPACT DISPLAY ---
         function updateUI() {
             if (!matchData) return;
             var d = matchData;
@@ -1536,6 +1592,7 @@
 
             var team = isTeamABatting ? tA : tB;
             var opp = isTeamABatting ? tB : tA;
+            var batKey = isTeamABatting ? 'tA' : 'tB';
 
             setText('teamNameDisp', team.name + " (Inn " + (d.inn || 1) + ")");
             setText('bowlNameDisp', "Bowler: " + (d.crr_bowl || 'TBD'));
@@ -1570,18 +1627,52 @@
             var completedOvers = Math.floor(balls / 6);
             setText('stats', "Overs: " + completedOvers + "." + (balls % 6) + " / " + totalOvers + ".0 | Wkts: " + (team.wkts || 0));
 
+            // BADGE & POWERPLAY PROMPT
             var formatBadge = document.getElementById('formatBadgeDisp');
             if (formatBadge) {
+                var ppTag = d.powerplayActive ? " ⚡[PP OVER]" : "";
                 if (d.rulesFormat === 'pairs_practice') {
                     var currentPairP = Math.min(Math.floor(completedOvers / 2) + 1, Math.ceil(totalOvers / 2));
                     var pairStartP = (currentPairP - 1) * 2 + 1;
-                    formatBadge.innerText = "Pairs Practice (Overs " + pairStartP + "-" + (pairStartP+1) + ", Re-bowl Extras)";
+                    formatBadge.innerText = "Pairs Practice (Overs " + pairStartP + "-" + (pairStartP+1) + ")" + ppTag;
                 } else if (d.rulesFormat === 'pairs') {
                     var currentPair = Math.min(Math.floor(completedOvers / 2) + 1, Math.ceil(totalOvers / 2));
                     var pairStart = (currentPair - 1) * 2 + 1;
-                    formatBadge.innerText = "Pair " + currentPair + " (Overs " + pairStart + "-" + (pairStart+1) + ")";
+                    formatBadge.innerText = "Pair " + currentPair + " (Overs " + pairStart + "-" + (pairStart+1) + ")" + ppTag;
                 } else {
-                    formatBadge.innerText = "Classic Format";
+                    formatBadge.innerText = "Classic Format" + ppTag;
+                }
+            }
+
+            // BATTING POWERPLAY FLASHING BANNER & BUTTON CONTROLS
+            var ppBanner = document.getElementById('powerplayBanner');
+            var ppBtn = document.getElementById('powerplayBtn');
+            if (ppBanner) {
+                if (d.powerplayActive) ppBanner.classList.remove('hidden');
+                else ppBanner.classList.add('hidden');
+            }
+            if (ppBtn) {
+                var isPowerplayEligible = (completedOvers < (totalOvers - 1)); // Cannot be 8th over
+                var isAlreadyUsed = d.powerplayUsed && d.powerplayUsed[batKey] && !d.powerplayActive;
+
+                if (d.powerplayActive) {
+                    ppBtn.disabled = false;
+                    ppBtn.classList.remove('btn-disabled');
+                    ppBtn.style.background = "var(--gold)";
+                    ppBtn.style.color = "#000";
+                    ppBtn.innerText = "⚡ PP ACTIVE";
+                } else if (isAlreadyUsed || !isPowerplayEligible) {
+                    ppBtn.disabled = true;
+                    ppBtn.classList.add('btn-disabled');
+                    ppBtn.style.background = "#334155";
+                    ppBtn.style.color = "#94a3b8";
+                    ppBtn.innerText = isAlreadyUsed ? "PP USED" : "NO PP OV 8";
+                } else {
+                    ppBtn.disabled = false;
+                    ppBtn.classList.remove('btn-disabled');
+                    ppBtn.style.background = "#f97316";
+                    ppBtn.style.color = "#fff";
+                    ppBtn.innerText = "⚡ POWERPLAY";
                 }
             }
 
@@ -1636,7 +1727,7 @@
                 }
             }
 
-            // --- STRICT IMPACT BUTTON & BANNER LIFECYCLE MANAGEMENT ---
+            // STRICT IMPACT BUTTON & BANNER LIFECYCLE MANAGEMENT
             var impactBtn = document.getElementById('impactPlayerBtn');
             var impactBanner = document.getElementById('impactFlashBanner');
 
@@ -1671,13 +1762,6 @@
                         impactBtn.style.background = "#334155";
                         impactBtn.style.opacity = "0.25";
                         impactBtn.style.pointerEvents = "none";
-                        if (d.inn > 1 || completedOvers >= totalOvers) {
-                            impactBtn.title = "Impact player window closed";
-                        } else if (!isOver7Finished) {
-                            impactBtn.title = "Impact player inactive until Over 7 is completed";
-                        } else {
-                            impactBtn.title = "Impact substitution already used / skipped";
-                        }
                     }
                     if (impactBanner) impactBanner.classList.add('hidden');
                 }
@@ -1863,6 +1947,11 @@
             if (!d[scKey].rebat_players) d[scKey].rebat_players = [];
             if (!d[scKey].double_over_bowlers) d[scKey].double_over_bowlers = [];
 
+            // OVER POWERPLAY AUTO-EXPIRATION (Lasts 1 over only)
+            if (d.powerplayActive) {
+                d.powerplayActive = false;
+            }
+
             d.crr_bowl = nextBowl;
             d.curr_over = [];
             d.consecutive_dots = 0;
@@ -1917,7 +2006,6 @@
             matchDocRef.update(d).catch(function(e) { console.error(e); });
         };
 
-        // --- SCORING ACTIONS WITH PAIRS PRACTICE LEGAL DELIVERY CONTROL ---
         window.handleAction = function(val, type) {
             if (!isScoringAuthorized || !matchData) return;
             var d = JSON.parse(JSON.stringify(matchData));
@@ -1951,9 +2039,6 @@
             var currentBalls = parseInt(d[teamKey].balls) || 0;
             var completedOvers = Math.floor(currentBalls / 6);
             
-            // DELIVERY COUNT LOGIC:
-            // In pairs_practice: EXTRAS NEVER COUNT AS LEGAL BALLS (ALWAYS RE-BOWLED)
-            // In standard pairs: Overs 1-7 extras count as delivery; Over 8 must be legal
             var isFinalOverActive = (completedOvers >= ((d.totalOvers || 8) - 1));
             var extraCountsAsDelivery = (d.rulesFormat === 'pairs') && !isFinalOverActive;
 
@@ -2086,7 +2171,8 @@
                 bowler: bowler,
                 striker: striker,
                 event: ballEvent,
-                score: d[teamKey].score
+                score: d[teamKey].score,
+                isPowerplay: !!d.powerplayActive
             });
 
             matchData = d;
@@ -2128,6 +2214,16 @@
             if (!isScoringAuthorized) return;
             pendingExtraType = type;
             setText('extraModalTitle', type === 'wide' ? 'RECORD WIDE (2 RUNS BASE)' : 'RECORD NO-BALL (2 RUNS BASE)');
+            
+            var nbNotice = document.getElementById('nbViolationNotice');
+            if (nbNotice) {
+                if (type === 'noball' && matchData && matchData.powerplayActive) {
+                    nbNotice.classList.remove('hidden');
+                } else {
+                    nbNotice.classList.add('hidden');
+                }
+            }
+
             var input = document.getElementById('extraRunsInput');
             if (input) input.value = "0";
             document.getElementById('extraModal').classList.remove('hidden');
@@ -2333,7 +2429,6 @@
             return bestPlayer;
         }
 
-        // --- PAUSE MATCH & OPEN INNINGS BREAK MODAL FOR REFEREE SELECTION ---
         function openInningsBreakModal(targetScore) {
             var d = matchData || {};
             var isNextTeamABatting = (d.tossWinner === 'tA') ? (d.tossDecision === 'bowl') : (d.tossDecision === 'bat');
@@ -2403,6 +2498,9 @@
 
             d.used_batsmen = [sName, nsName];
             d.used_bowlers = [bName];
+
+            // Reset powerplay for 2nd innings
+            d.powerplayActive = false;
 
             matchData = d;
             updateUI();
@@ -2705,10 +2803,11 @@
                         var ballsInOver = overMap[overNo];
                         var bowlerName = ballsInOver[0] ? ballsInOver[0].bowler : "Bowler";
                         var endScore = ballsInOver[ballsInOver.length - 1] ? ballsInOver[ballsInOver.length - 1].score : "";
+                        var wasPp = ballsInOver.some(function(b) { return b.isPowerplay; });
 
                         htmlT += '<div class="timeline-over-block">' +
                             '<div class="timeline-over-title">' +
-                            '<span>Over ' + overNo + ' (' + bowlerName + ')</span>' +
+                            '<span>Over ' + overNo + ' (' + bowlerName + ')' + (wasPp ? ' <span style="color:var(--gold);">⚡[PP]</span>' : '') + '</span>' +
                             '<span style="color:var(--gold);">Score: ' + endScore + '</span>' +
                             '</div>' +
                             '<div class="timeline-balls-row">';
@@ -2835,6 +2934,9 @@
                 ball_timeline: [],
                 impactUsed: { tA: false, tB: false },
                 impactSubsBench: { tA: [], tB: [] },
+                powerplayActive: false,
+                powerplayUsed: { tA: false, tB: false },
+                powerplayOverNominated: { tA: null, tB: null },
                 inn1_scorecard: null, inn2_scorecard: null,
                 tA: { name: "Team 1", score: 0, balls: 0, wkts: 0 },
                 tB: { name: "Team 2", score: 0, balls: 0, wkts: 0 },
