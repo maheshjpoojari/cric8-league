@@ -932,10 +932,11 @@
             <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.handleOverTransitionBanner()">OVER FINISHED: TAP TO START NEXT OVER ⚡</div>
         </div>
 
-        <!-- LIVE SPECTATOR INSPECTION TABS -->
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
-            <button class="btn btn-util" style="flex:1; background:#0284c7; color:#fff; border:none;" onclick="window.openLiveScorecardPopup(1)">📋 LIVE SCORECARD</button>
-            <button class="btn btn-util" style="flex:1; background:#1e293b; color:var(--gold); border:1px solid var(--gold);" onclick="window.openLiveScorecardPopup(3)">🎙️ BALL-BY-BALL</button>
+       <!-- LIVE MATCH TOOLS (VISIBLE TO SCORER & SPECTATORS) -->
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-bottom:12px;">
+            <button class="btn btn-util" style="background:#0284c7; color:#fff; border:none; padding:10px 4px; font-size:0.75rem;" onclick="window.openLiveScorecardPopup(1)">📋 SCORECARD</button>
+            <button class="btn btn-util" style="background:#1e293b; color:var(--gold); border:1px solid var(--gold); padding:10px 4px; font-size:0.75rem;" onclick="window.openPrevOverModal()">⏪ PREV OVER</button>
+            <button class="btn btn-util" style="background:#1e293b; color:var(--blue); border:1px solid var(--blue); padding:10px 4px; font-size:0.75rem;" onclick="window.openLiveScorecardPopup(3)">🎙️ TIMELINE</button>
         </div>
 
         <!-- MAIN SCORING KEYPAD -->
@@ -1957,7 +1958,7 @@
             return legalCount >= 6;
         }
 
-        function updateUI() {
+        function  {
             if (!matchData) return;
             var d = matchData;
 
@@ -2072,33 +2073,32 @@
             if (nextBtn) {
                 if (isOverComplete && d.match_status === "in_progress") {
                     nextBtn.classList.remove('hidden');
-                    if (completedOvers >= totalOvers) {
-                        nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED: TAP TO START INNINGS 2 🔄" : "MATCH FINISHED: VIEW OFFICIAL SCORECARD 🏆";
+                    
+                    if (isScoringAuthorized) {
+                        // SCORER / REFEREE VIEW: Interactive Action Button
+                        nextBtn.style.cursor = "pointer";
+                        nextBtn.style.pointerEvents = "auto";
+                        nextBtn.style.animation = "pulseGlow 1.2s infinite";
+                        if (completedOvers >= totalOvers) {
+                            nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED: TAP TO START INNINGS 2 🔄" : "MATCH FINISHED: VIEW OFFICIAL SCORECARD 🏆";
+                        } else {
+                            nextBtn.innerText = "OVER " + completedOvers + " FINISHED: TAP TO START OVER " + (completedOvers + 1) + " ⚡";
+                        }
                     } else {
-                        nextBtn.innerText = "OVER " + completedOvers + " FINISHED: TAP TO START OVER " + (completedOvers + 1) + " ⚡";
+                        // SPECTATOR VIEW: Clean, Read-Only Status Text (No "Tap" or Over 2 prompt!)
+                        nextBtn.style.cursor = "default";
+                        nextBtn.style.pointerEvents = "none";
+                        nextBtn.style.animation = "none";
+                        if (completedOvers >= totalOvers) {
+                            nextBtn.innerText = (d.inn === 1) ? "INNINGS 1 FINISHED" : "MATCH COMPLETED";
+                        } else {
+                            nextBtn.innerText = "OVER " + completedOvers + " FINISHED (INNINGS " + (d.inn || 1) + ")";
+                        }
                     }
                 } else {
                     nextBtn.classList.add('hidden');
                 }
             }
-
-            if (mainControls && emergencyBar) {
-                if (!isScoringAuthorized) {
-                    mainControls.classList.add('hidden');
-                    emergencyBar.classList.add('hidden');
-                } else {
-                    mainControls.classList.remove('hidden');
-                    emergencyBar.classList.remove('hidden');
-                    if (isOverComplete) {
-                        mainControls.style.opacity = "0.25";
-                        mainControls.style.pointerEvents = "none";
-                    } else {
-                        mainControls.style.opacity = "1";
-                        mainControls.style.pointerEvents = "auto";
-                    }
-                }
-            }
-
             // --- 1. STRICT POWERPLAY BUTTON LIFECYCLE (ONLY BEFORE BALL 1 OF OVERS 1 TO 7) ---
             var ppBtn = document.getElementById('ppToggleBtn');
             if (ppBtn) {
@@ -3648,7 +3648,71 @@
                 box.innerHTML = fHtml;
             }
         };
+// --- PREVIOUS OVER INSPECTOR (UI PILLS) ---
+        window.openPrevOverModal = function() {
+            var d = inspectedArchiveMatch || matchData;
+            if (!d) return alert("No active match data.");
 
+            var timeline = Array.isArray(d.ball_timeline) ? d.ball_timeline : [];
+            var grouped = {};
+            
+            timeline.forEach(function(item) {
+                var ov = item.over || 1;
+                var inn = item.inn || 1;
+                var key = "Inn " + inn + " - Over " + ov;
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        inn: inn,
+                        over: ov,
+                        bowler: item.bowler || "Bowler",
+                        balls: []
+                    };
+                }
+                grouped[key].balls.push(item);
+            });
+
+            var keys = Object.keys(grouped);
+            if (keys.length === 0) {
+                return alert("No completed deliveries recorded yet.");
+            }
+
+            var sel = document.getElementById('prevOverSelect');
+            sel.innerHTML = '';
+            keys.reverse().forEach(function(k) {
+                sel.add(new Option(k + " (Bowler: " + grouped[k].bowler + ")", k));
+            });
+
+            window.currentGroupedOvers = grouped;
+            window.renderSelectedPrevOver();
+            document.getElementById('prevOverModal').classList.remove('hidden');
+        };
+
+        window.renderSelectedPrevOver = function() {
+            var selVal = document.getElementById('prevOverSelect').value;
+            var group = window.currentGroupedOvers ? window.currentGroupedOvers[selVal] : null;
+            var box = document.getElementById('prevOverDetailsBox');
+            if (!group || !box) return;
+
+            // Generate ball pills with the exact same visual styling
+            var pillsHtml = group.balls.map(function(b) {
+                var s = String(b.event);
+                var cls = 'bg-white';
+                if (s === 'W' || s.indexOf('3D') !== -1) cls = 'bg-red';
+                else if (s.indexOf('Wd') !== -1 || s.indexOf('N') !== -1) cls = 'bg-yellow';
+                else if (s.indexOf('B') !== -1 || s.indexOf('D') !== -1) cls = 'bg-blue';
+                else if (s === '4' || s === '6') cls = 'bg-green';
+                return '<div class="ball ' + cls + '" style="margin:2px 3px;">' + s + '</div>';
+            }).join('');
+
+            var lastBall = group.balls[group.balls.length - 1];
+            var endScore = lastBall.scoreAfter || (lastBall.score + "/" + lastBall.wkts);
+
+            box.innerHTML = 
+                '<div style="color:var(--blue); font-weight:900; font-size:0.95rem; margin-bottom:4px;">' + selVal + '</div>' +
+                '<div style="color:var(--text-muted); font-size:0.8rem; margin-bottom:10px;">Bowler: <b style="color:white;">' + group.bowler + '</b> | Score at end of over: <b style="color:var(--gold);">' + endScore + '</b></div>' +
+                '<div style="font-size:0.75rem; color:#94a3b8; font-weight:700; margin-bottom:6px;">Ball-by-Ball Sequence:</div>' +
+                '<div style="display:flex; justify-content:center; flex-wrap:wrap; gap:4px; min-height:36px;">' + pillsHtml + '</div>';
+        };
         // --- 18B. LIVE MATCH LINK SHARING & SPECTATOR AUTO-LAUNCH ---
         window.shareLiveMatchLink = function() {
             var baseUrl = window.location.origin + window.location.pathname;
