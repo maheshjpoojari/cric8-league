@@ -932,7 +932,7 @@
             <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.handleOverTransitionBanner()">OVER FINISHED: TAP TO START NEXT OVER ⚡</div>
         </div>
 
-       <!-- LIVE MATCH TOOLS (VISIBLE TO SCORER & SPECTATORS) -->
+        <!-- LIVE MATCH TOOLS (VISIBLE TO SCORER & SPECTATORS) -->
         <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-bottom:12px;">
             <button class="btn btn-util" style="background:#0284c7; color:#fff; border:none; padding:10px 4px; font-size:0.75rem;" onclick="window.openLiveScorecardPopup(1)">📋 SCORECARD</button>
             <button class="btn btn-util" style="background:#1e293b; color:var(--gold); border:1px solid var(--gold); padding:10px 4px; font-size:0.75rem;" onclick="window.openPrevOverModal()">⏪ PREV OVER</button>
@@ -1171,11 +1171,12 @@
             <button class="btn btn-slate btn-block" onclick="window.closeModal('impactModal')">CLOSE</button>
         </div>
     </div>
-<!-- MODAL: PREVIOUS OVER SCORECARD -->
+
+    <!-- MODAL: PREVIOUS OVER SCORECARD -->
     <div id="prevOverModal" class="modal hidden">
         <div class="modal-card" style="border-color:var(--gold);">
             <h3 style="margin-top:0; color:var(--gold); text-align:center;">⏪ PREVIOUS OVER BREAKDOWN</h3>
-            
+
             <div class="input-group">
                 <label>Select Completed Over to Inspect</label>
                 <select id="prevOverSelect" class="input-field" onchange="window.renderSelectedPrevOver()"></select>
@@ -1188,6 +1189,7 @@
             <button class="btn btn-slate btn-block" onclick="window.closeModal('prevOverModal')">CLOSE</button>
         </div>
     </div>
+
     <!-- MODAL 10: OFFICIAL SCORECARD & BALL-BY-BALL REPLAY -->
     <div id="scorecardModal" class="modal hidden">
         <div class="modal-card" style="max-width:460px;">
@@ -1290,7 +1292,7 @@
         };
 
         function closeAllOpenModals() {
-            var modals = ['squadBuilderModal', 'extraModal', 'byeModal', 'declareModal', 'wickModal', 'newBatterModal', 'bowlerModal', 'inningsBreakModal', 'impactModal', 'scorecardModal'];
+            var modals = ['squadBuilderModal', 'extraModal', 'byeModal', 'declareModal', 'wickModal', 'newBatterModal', 'bowlerModal', 'inningsBreakModal', 'impactModal', 'prevOverModal', 'scorecardModal'];
             var closedAny = false;
             modals.forEach(function(mId) {
                 var el = document.getElementById(mId);
@@ -1958,7 +1960,7 @@
             return legalCount >= 6;
         }
 
-        function  {
+        function updateUI() {
             if (!matchData) return;
             var d = matchData;
 
@@ -1979,7 +1981,6 @@
             setText('teamNameDisp', team.name + " (Inn " + (d.inn || 1) + ")");
             setText('bowlNameDisp', "Bowler: " + (d.crr_bowl || "TBD"));
 
-            // RESTORED MISSING VARIABLES r1, r2, bat1El, bat2El
             var r1 = parseInt(d.crr_bat_runs) || 0;
             var r2 = parseInt(d.non_bat_runs) || 0;
             var bat1El = document.getElementById('bat1');
@@ -2073,9 +2074,7 @@
             if (nextBtn) {
                 if (isOverComplete && d.match_status === "in_progress") {
                     nextBtn.classList.remove('hidden');
-                    
                     if (isScoringAuthorized) {
-                        // SCORER / REFEREE VIEW: Interactive Action Button
                         nextBtn.style.cursor = "pointer";
                         nextBtn.style.pointerEvents = "auto";
                         nextBtn.style.animation = "pulseGlow 1.2s infinite";
@@ -2085,7 +2084,6 @@
                             nextBtn.innerText = "OVER " + completedOvers + " FINISHED: TAP TO START OVER " + (completedOvers + 1) + " ⚡";
                         }
                     } else {
-                        // SPECTATOR VIEW: Clean, Read-Only Status Text (No "Tap" or Over 2 prompt!)
                         nextBtn.style.cursor = "default";
                         nextBtn.style.pointerEvents = "none";
                         nextBtn.style.animation = "none";
@@ -2099,6 +2097,24 @@
                     nextBtn.classList.add('hidden');
                 }
             }
+
+            if (mainControls && emergencyBar) {
+                if (!isScoringAuthorized) {
+                    mainControls.classList.add('hidden');
+                    emergencyBar.classList.add('hidden');
+                } else {
+                    mainControls.classList.remove('hidden');
+                    emergencyBar.classList.remove('hidden');
+                    if (isOverComplete) {
+                        mainControls.style.opacity = "0.25";
+                        mainControls.style.pointerEvents = "none";
+                    } else {
+                        mainControls.style.opacity = "1";
+                        mainControls.style.pointerEvents = "auto";
+                    }
+                }
+            }
+
             // --- 1. STRICT POWERPLAY BUTTON LIFECYCLE (ONLY BEFORE BALL 1 OF OVERS 1 TO 7) ---
             var ppBtn = document.getElementById('ppToggleBtn');
             if (ppBtn) {
@@ -3648,14 +3664,15 @@
                 box.innerHTML = fHtml;
             }
         };
-// --- PREVIOUS OVER INSPECTOR (UI PILLS) ---
+
+        // --- PREVIOUS OVER INSPECTOR (UI PILLS) ---
         window.openPrevOverModal = function() {
             var d = inspectedArchiveMatch || matchData;
             if (!d) return alert("No active match data.");
 
             var timeline = Array.isArray(d.ball_timeline) ? d.ball_timeline : [];
             var grouped = {};
-            
+
             timeline.forEach(function(item) {
                 var ov = item.over || 1;
                 var inn = item.inn || 1;
@@ -3693,7 +3710,6 @@
             var box = document.getElementById('prevOverDetailsBox');
             if (!group || !box) return;
 
-            // Generate ball pills with the exact same visual styling
             var pillsHtml = group.balls.map(function(b) {
                 var s = String(b.event);
                 var cls = 'bg-white';
@@ -3707,12 +3723,13 @@
             var lastBall = group.balls[group.balls.length - 1];
             var endScore = lastBall.scoreAfter || (lastBall.score + "/" + lastBall.wkts);
 
-            box.innerHTML = 
+            box.innerHTML =
                 '<div style="color:var(--blue); font-weight:900; font-size:0.95rem; margin-bottom:4px;">' + selVal + '</div>' +
                 '<div style="color:var(--text-muted); font-size:0.8rem; margin-bottom:10px;">Bowler: <b style="color:white;">' + group.bowler + '</b> | Score at end of over: <b style="color:var(--gold);">' + endScore + '</b></div>' +
                 '<div style="font-size:0.75rem; color:#94a3b8; font-weight:700; margin-bottom:6px;">Ball-by-Ball Sequence:</div>' +
                 '<div style="display:flex; justify-content:center; flex-wrap:wrap; gap:4px; min-height:36px;">' + pillsHtml + '</div>';
         };
+
         // --- 18B. LIVE MATCH LINK SHARING & SPECTATOR AUTO-LAUNCH ---
         window.shareLiveMatchLink = function() {
             var baseUrl = window.location.origin + window.location.pathname;
