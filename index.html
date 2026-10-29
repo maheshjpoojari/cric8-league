@@ -1170,7 +1170,23 @@
             <button class="btn btn-slate btn-block" onclick="window.closeModal('impactModal')">CLOSE</button>
         </div>
     </div>
+<!-- MODAL: PREVIOUS OVER SCORECARD -->
+    <div id="prevOverModal" class="modal hidden">
+        <div class="modal-card" style="border-color:var(--gold);">
+            <h3 style="margin-top:0; color:var(--gold); text-align:center;">⏪ PREVIOUS OVER BREAKDOWN</h3>
+            
+            <div class="input-group">
+                <label>Select Completed Over to Inspect</label>
+                <select id="prevOverSelect" class="input-field" onchange="window.renderSelectedPrevOver()"></select>
+            </div>
 
+            <div id="prevOverDetailsBox" style="background:#0b1120; border:1px solid #1e293b; border-radius:10px; padding:12px; margin:10px 0; text-align:center;">
+                <!-- Filled dynamically with ball pills, bowler, and runs -->
+            </div>
+
+            <button class="btn btn-slate btn-block" onclick="window.closeModal('prevOverModal')">CLOSE</button>
+        </div>
+    </div>
     <!-- MODAL 10: OFFICIAL SCORECARD & BALL-BY-BALL REPLAY -->
     <div id="scorecardModal" class="modal hidden">
         <div class="modal-card" style="max-width:460px;">
