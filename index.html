@@ -642,18 +642,13 @@
     </style>
 </head>
 <body>
-<!-- TOP STATUS BAR -->
+<!-- SINGLE TOP STATUS BAR -->
     <div class="top-bar">
         <span id="roleIndicator">MATCH HOST / SCORER</span>
         <div style="display:flex; gap:6px; align-items:center;">
-            <button onclick="window.shareLiveMatchLink()" style="background:#22c55e; color:#0f172a; border:none; padding:4px 9px; border-radius:6px; font-size:0.7rem; font-weight:900; cursor:pointer;">📲 SHARE LIVE</button>
+            <button id="topShareLiveBtn" onclick="window.shareLiveMatchLink()" style="background:#22c55e; color:#0f172a; border:none; padding:4px 9px; border-radius:6px; font-size:0.7rem; font-weight:900; cursor:pointer;">📲 SHARE LIVE</button>
             <span id="activeSlotTag" class="slot-pill">PITCH 1</span>
         </div>
-    </div>
-    <!-- TOP STATUS BAR -->
-    <div class="top-bar">
-        <span id="roleIndicator">MATCH HOST / SCORER</span>
-        <span id="activeSlotTag" class="slot-pill">PITCH 1</span>
     </div>
 
     <!-- ==========================================
@@ -935,11 +930,10 @@
             <div id="tracker" class="ball-row"></div>
             <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.handleOverTransitionBanner()">OVER FINISHED: TAP TO START NEXT OVER ⚡</div>
         </div>
-<!-- CRICBUZZ LIVE SPECTATOR TABS (VISIBLE TO EVERYONE / SPECTATORS) -->
-        <div style="display:flex; gap:6px; margin-bottom:12px;">
-            <button class="btn btn-util" style="flex:1; background:#0284c7; color:#fff;" onclick="window.openLiveScorecardPopup(1)">📋 LIVE SCORECARD</button>
-            <button class="btn btn-util" style="flex:1; background:#1e293b; color:var(--gold); border-color:var(--gold);" onclick="window.openLiveScorecardPopup(3)">🎙️ BALL-BY-BALL</button>
-            <button class="btn btn-util" style="flex:1; background:#15803d; color:#fff;" onclick="window.shareLiveMatchLink()">📲 SHARE LINK</button>
+<!-- LIVE SPECTATOR INSPECTION TABS -->
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <button class="btn btn-util" style="flex:1; background:#0284c7; color:#fff; border:none;" onclick="window.openLiveScorecardPopup(1)">📋 LIVE SCORECARD</button>
+            <button class="btn btn-util" style="flex:1; background:#1e293b; color:var(--gold); border:1px solid var(--gold);" onclick="window.openLiveScorecardPopup(3)">🎙️ BALL-BY-BALL</button>
         </div>
         <!-- MAIN SCORING KEYPAD -->
         <div id="mainControls" class="admin-grid">
@@ -1189,9 +1183,9 @@
 
             <div id="scTabContent" style="max-height:54vh; overflow-y:auto;"></div>
 
-            <button id="saveArchiveBtn" class="btn btn-green btn-block" style="margin-top:12px;" onclick="window.saveCompletedMatchToArchive()">SAVE MATCH TO ARCHIVE 💾</button>
-            <button class="btn btn-blue btn-block" onclick="window.startNewMatchFromScorecard()">START NEW MATCH 🔄</button>
-            <button class="btn btn-slate btn-block" onclick="window.closeModal('scorecardModal')">CLOSE</button>
+<button id="saveArchiveBtn" class="btn btn-green btn-block" style="margin-top:12px;" onclick="window.saveCompletedMatchToArchive()">SAVE MATCH TO ARCHIVE 💾</button>
+            <button id="startNewMatchScBtn" class="btn btn-blue btn-block" onclick="window.startNewMatchFromScorecard()">START NEW MATCH 🔄</button>
+            <button id="closeScModalBtn" class="btn btn-slate btn-block" onclick="window.closeModal('scorecardModal')">BACK TO LIVE SCOREBOARD</button>
         </div>
     </div>
 
@@ -1374,23 +1368,29 @@
             var mSel = document.getElementById('matchSlotSelect');
             if (mSel) mSel.value = currentMatchId;
         }
+var activeScorecardTab = 1;
 
         function attachMatchListener(slotId) {
             currentMatchId = slotId;
-            localStorage.setItem('cric8_active_slot', currentMatchId);
+            if (isScoringAuthorized) {
+                localStorage.setItem('cric8_active_slot', currentMatchId);
+            }
             matchDocRef = db.collection("matches").doc(currentMatchId);
             updateSlotIndicators();
 
             if (unsubscribeSnapshot) unsubscribeSnapshot();
-            unsubscribeSnapshot = matchDocRef.onSnapshot(function(snap) {
+            unsubscribeSnapshot = matchDocRef.onSnapshot({ includeMetadataChanges: false }, function(snap) {
                 if (!snap.exists) return;
                 matchData = snap.data();
-                var scorerEl = document.getElementById('viewScorer');
-                if (scorerEl && !scorerEl.classList.contains('hidden')) {
-                    updateUI();
+                updateUI();
+
+                // REAL-TIME <200ms AUTO-REFRESH FOR OPEN SCORECARD / BALL-BY-BALL POPUP
+                var scModal = document.getElementById('scorecardModal');
+                if (scModal && !scModal.classList.contains('hidden') && !inspectedArchiveMatch) {
+                    window.refreshLiveScorecardHeaderAndTabs();
                 }
             }, function(err) {
-                console.warn("Realtime listener fallback:", err.message);
+                console.warn("Realtime listener error:", err.message);
             });
         }
 
@@ -1962,17 +1962,22 @@
             setText('teamNameDisp', team.name + " (Inn " + (d.inn || 1) + ")");
             setText('bowlNameDisp', "Bowler: " + (d.crr_bowl || "TBD"));
 
-            var r1 = parseInt(d.crr_bat_runs) || 0;
-            var r2 = parseInt(d.non_bat_runs) || 0;
-            var bat1El = document.getElementById('bat1');
-            var bat2El = document.getElementById('bat2');
+            var editIcon = isScoringAuthorized ? " ✏️" : "";
             if (bat1El) {
-                bat1El.innerText = (d.crr_bat_name || "Striker") + "* (" + r1 + ") ✏️";
+                bat1El.innerText = (d.crr_bat_name || "Striker") + "* (" + r1 + ")" + editIcon;
                 bat1El.style.color = (r1 < 0) ? "var(--red)" : "var(--gold)";
+                bat1El.style.cursor = isScoringAuthorized ? "pointer" : "default";
             }
             if (bat2El) {
-                bat2El.innerText = (d.non_bat_name || "Non-Striker") + " (" + r2 + ") ✏️";
+                bat2El.innerText = (d.non_bat_name || "Non-Striker") + " (" + r2 + ")" + editIcon;
                 bat2El.style.color = (r2 < 0) ? "var(--red)" : "#64748b";
+                bat2El.style.cursor = isScoringAuthorized ? "pointer" : "default";
+            }
+
+            // Hide Top Share button for Spectators
+            var topShareBtn = document.getElementById('topShareLiveBtn');
+            if (topShareBtn) {
+                topShareBtn.classList.toggle('hidden', !isScoringAuthorized);
             }
 
             var currentScore = parseInt(team.score) || 0;
@@ -3535,53 +3540,187 @@
                 box.innerHTML = fHtml;
             }
         };
-// --- 18B. LIVE MATCH LINK SHARING & SPECTATOR AUTO-LAUNCH ---
+// --- 18B. LIVE MATCH LINK SHARING & SPECTATOR AUTO-LAUNCH ---window.refreshLiveScorecardHeaderAndTabs = function() {
+            var d = inspectedArchiveMatch || matchData;
+            if (!d) return;
+            var isCompleted = (d.match_status === 'completed');
+
+            // 1. Banner text: Show Winner if completed, otherwise show LIVE status
+            setText('scWinnerBanner', isCompleted ? (d.winner || "Match Completed") : "🔴 LIVE MATCH IN PROGRESS");
+
+            // 2. MVP / Player of the Match: ONLY show when match is 100% completed!
+            var mvpEl = document.getElementById('scMvpBanner');
+            if (mvpEl) {
+                if (isCompleted) {
+                    mvpEl.innerText = computeMatchMvp(d);
+                    mvpEl.classList.remove('hidden');
+                } else {
+                    mvpEl.innerText = "";
+                    mvpEl.classList.add('hidden');
+                }
+            }
+
+            // 3. Hide 'SAVE MATCH TO ARCHIVE' & 'START NEW MATCH' for Spectators AND during live play!
+            var saveBtn = document.getElementById('saveArchiveBtn');
+            var newMatchBtn = document.getElementById('startNewMatchScBtn');
+            var showHostEndButtons = isScoringAuthorized && isCompleted;
+
+            if (saveBtn) saveBtn.classList.toggle('hidden', !showHostEndButtons);
+            if (newMatchBtn) newMatchBtn.classList.toggle('hidden', !showHostEndButtons);
+
+            window.switchScorecardTab(activeScorecardTab || 1);
+        };
+
+// ✅ PASTE THIS COMPLETE REPLACEMENT BLOCK RIGHT ABOVE window.saveCompletedMatchToArchive:
+        var activeScorecardTab = 1;
+
+        window.refreshLiveScorecardHeaderAndTabs = function() {
+            var d = inspectedArchiveMatch || matchData;
+            if (!d) return;
+            var isCompleted = (d.match_status === 'completed');
+
+            // 1. Winner / Live Status Banner
+            setText('scWinnerBanner', isCompleted ? (d.winner || "Match Completed") : "🔴 LIVE MATCH IN PROGRESS");
+
+            // 2. Player of the Match ONLY shows when match_status === 'completed'
+            var mvpEl = document.getElementById('scMvpBanner');
+            if (mvpEl) {
+                if (isCompleted) {
+                    mvpEl.innerText = computeMatchMvp(d);
+                    mvpEl.classList.remove('hidden');
+                } else {
+                    mvpEl.innerText = "";
+                    mvpEl.classList.add('hidden');
+                }
+            }
+
+            // 3. Hide SAVE TO ARCHIVE & START NEW MATCH for Spectators and during Live Play
+            var saveBtn = document.getElementById('saveArchiveBtn');
+            var showHostButtons = isScoringAuthorized && isCompleted && !inspectedArchiveMatch;
+            if (saveBtn) {
+                saveBtn.classList.toggle('hidden', !showHostButtons);
+                if (showHostButtons) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = "SAVE MATCH TO ARCHIVE 💾";
+                }
+            }
+
+            // Also hide the "START NEW MATCH" button inside #scorecardModal for Spectators / Live Play
+            var scModal = document.getElementById('scorecardModal');
+            if (scModal) {
+                var allModalBtns = scModal.querySelectorAll('button');
+                allModalBtns.forEach(function(btn) {
+                    if (btn.innerText.indexOf('START NEW MATCH') !== -1) {
+                        btn.classList.toggle('hidden', !(isScoringAuthorized && isCompleted));
+                    }
+                });
+            }
+
+            window.switchScorecardTab(activeScorecardTab || 1);
+        };
+
+        function renderScorecardModal(d) {
+            activeScorecardTab = 1;
+            window.refreshLiveScorecardHeaderAndTabs();
+            document.getElementById('scorecardModal').classList.remove('hidden');
+        }
+
         window.openLiveScorecardPopup = function(tabIndex) {
-            if (!matchData) return alert("No active match data on this pitch yet.");
+            if (!matchData) return alert("Waiting for live match to start on this pitch.");
             inspectedArchiveMatch = null;
-            setText('scWinnerBanner', matchData.winner || (matchData.match_status === 'completed' ? 'Match Completed' : '🔴 LIVE MATCH IN PROGRESS'));
-            setText('scMvpBanner', computeMatchMvp(matchData));
-            window.switchScorecardTab(tabIndex || 1);
+            activeScorecardTab = tabIndex || 1;
+            window.refreshLiveScorecardHeaderAndTabs();
             document.getElementById('scorecardModal').classList.remove('hidden');
         };
 
-        window.shareLiveMatchLink = function() {
-            var baseUrl = window.location.origin + window.location.pathname;
-            var shareUrl = baseUrl + "?view=live&match=" + encodeURIComponent(currentMatchId);
-            var matchTitle = (matchData && matchData.tA && matchData.tB)
-                ? (matchData.tA.name + " vs " + matchData.tB.name)
-                : ("Pitch: " + currentMatchId.toUpperCase().replace('_', ' '));
-            var shareText = "🏏 Watch LIVE Cricket Scores (" + matchTitle + ") on Cric-8 Live Center:\n" + shareUrl;
+        window.switchScorecardTab = function(tabNum) {
+            activeScorecardTab = tabNum;
+            document.getElementById('tabInn1Btn').classList.toggle('active', tabNum === 1);
+            document.getElementById('tabInn2Btn').classList.toggle('active', tabNum === 2);
+            document.getElementById('tabTimelineBtn').classList.toggle('active', tabNum === 3);
 
-            if (navigator.share) {
-                navigator.share({
-                    title: "Cric-8 Live Match Center",
-                    text: shareText,
-                    url: shareUrl
-                }).catch(function(){});
-            } else if (navigator.clipboard) {
-                navigator.clipboard.writeText(shareText).then(function() {
-                    alert("✅ Live Match Link copied to clipboard!\n\nPaste it in your WhatsApp group:\n" + shareUrl);
+            var d = inspectedArchiveMatch || matchData || {};
+            var container = document.getElementById('scTabContent');
+
+            if (tabNum === 3) {
+                var timeline = Array.isArray(d.ball_timeline) ? d.ball_timeline : [];
+                if (timeline.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; padding:18px; color:#64748b;">No ball-by-ball timeline recorded for this match yet.</div>';
+                    return;
+                }
+                var grouped = {};
+                timeline.forEach(function(item) {
+                    var ovNum = item.over || 1;
+                    var key = "Innings " + (item.inn || 1) + " — Over " + ovNum + " (Bowler: " + (item.bowler || "Bowler") + ")";
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(item);
                 });
-            } else {
-                prompt("Copy this Live Match Link to share on WhatsApp:", shareUrl);
+                var tHtml = '';
+                for (var gKey in grouped) {
+                    tHtml += '<div class="timeline-over-box"><div style="color:var(--gold); font-size:0.76rem; font-weight:800; margin-bottom:6px;">' + gKey + '</div>';
+                    grouped[gKey].forEach(function(b, idx) {
+                        var ballLabel = b.ballNotation || b.ball || b.over_ball || ((b.over ? (b.over - 1) : 0) + "." + (idx + 1));
+                        var scoreLabel = b.scoreAfter || (b.score !== undefined ? (b.score + (b.wkts !== undefined ? "/" + b.wkts : "")) : "");
+                        var rightText = scoreLabel ? ('[' + b.event + '] &rarr; ' + scoreLabel) : ('[' + b.event + ']');
+                        tHtml += '<div style="display:flex; justify-content:space-between; font-size:0.75rem; padding:3px 0; border-bottom:1px solid #1e293b;">' +
+                            '<span><b style="color:var(--gold);">' + ballLabel + '</b> ' + (b.striker || b.batter || '') + '</span>' +
+                            '<span style="color:var(--blue); font-weight:800;">' + rightText + '</span></div>';
+                    });
+                    tHtml += '</div>';
+                }
+                container.innerHTML = tHtml;
+                return;
             }
+
+            var sc = (tabNum === 1) ? d.inn1_scorecard : d.inn2_scorecard;
+            if (!sc) {
+                container.innerHTML = '<div style="text-align:center; padding:18px; color:#64748b;">No scorecard data recorded for this innings.</div>';
+                return;
+            }
+
+            var rebatList = Array.isArray(sc.rebat_players) ? sc.rebat_players : [];
+            var doubleOverList = Array.isArray(sc.double_over_bowlers) ? sc.double_over_bowlers : [];
+            var ipMap = d.impactPlayers || {};
+            var isPairs = isPairsFormat(d);
+
+            var html = '<div style="font-size:0.84rem; color:var(--gold); font-weight:800; margin-bottom:6px;">' +
+                'Total: ' + (sc.totalScore || 0) + '/' + (sc.totalWkts || 0) +
+                ' (' + Math.floor((sc.totalBalls || 0) / 6) + '.' + ((sc.totalBalls || 0) % 6) + ' Ov) | Extras: ' + (sc.extras || 0) +
+                '</div>';
+
+            html += '<table class="sc-table"><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
+            for (var name in (sc.batters || {})) {
+                var st = sc.batters[name];
+                var sr = st.balls > 0 ? ((st.runs / st.balls) * 100).toFixed(1) : "0.0";
+                var isRebat = rebatList.includes(name) || (isPairs && st.balls > 8);
+                var badgeHtml = isRebat ? '<span class="repeat-badge">2x</span>' : '';
+                var ipHtml = ipMap[name] ? '<span class="ip-badge">⚡IP</span>' : '';
+                var rColor = st.runs < 0 ? 'style="color:var(--red); font-weight:800;"' : '';
+                html += '<tr><td><b>' + name + '</b>' + badgeHtml + ipHtml + '</td><td ' + rColor + '>' + st.runs + '</td><td>' + st.balls + '</td><td>' + st.fours + '</td><td>' + st.sixes + '</td><td>' + sr + '</td></tr>';
+            }
+            html += '</table>';
+
+            html += '<table class="sc-table" style="margin-top:12px;"><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th>Econ</th></tr>';
+            for (var bName in (sc.bowlers || {})) {
+                var bst = sc.bowlers[bName];
+                var ov = Math.floor(bst.balls / 6) + "." + (bst.balls % 6);
+                var ec = bst.balls > 0 ? ((bst.runs / bst.balls) * 6).toFixed(1) : "0.0";
+                var isDouble = doubleOverList.includes(bName) || (isPairs && Math.floor(bst.balls / 6) >= 2);
+                var bBadge = isDouble ? '<span class="bowler-badge">2 Ov</span>' : '';
+                html += '<tr><td><b>' + bName + '</b>' + bBadge + '</td><td>' + ov + '</td><td>' + bst.runs + '</td><td>' + bst.wkts + '</td><td>' + ec + '</td></tr>';
+            }
+            html += '</table>';
+
+            if (Array.isArray(sc.fow) && sc.fow.length > 0) {
+                html += '<div style="font-size:0.74rem; color:#94a3b8; margin-top:10px;"><b>Fall of Wickets:</b> ' +
+                    sc.fow.map(function(f) { return f.score + '/' + f.wkt + ' (' + f.player + ', ' + f.over + ' ov)'; }).join(' | ') +
+                    '</div>';
+            }
+
+            container.innerHTML = html;
         };
-        // --- 19. IMMEDIATE STARTUP INITIALIZATION ---
-        var isSharedLiveLink = (urlParams.get('view') === 'live' || urlParams.get('mode') === 'spectator');
-        if (isSharedLiveLink) {
-            isScoringAuthorized = false;
-            setText('roleIndicator', '🔴 LIVE SPECTATOR VIEW');
-            window.navigateView('viewScorer', true);
-        } else {
-            window.navigateView('viewHome', true);
-        }
-        updateSlotIndicators();
-        window.setupTournamentDropdowns();
-        attachMatchListener(currentMatchId);
-        loadTeamsFromDatabase().then(function() {
-            window.setupTournamentDropdowns();
-        });
+
+   
     </script>
 </body>
 </html>
