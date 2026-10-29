@@ -642,7 +642,14 @@
     </style>
 </head>
 <body>
-
+<!-- TOP STATUS BAR -->
+    <div class="top-bar">
+        <span id="roleIndicator">MATCH HOST / SCORER</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+            <button onclick="window.shareLiveMatchLink()" style="background:#22c55e; color:#0f172a; border:none; padding:4px 9px; border-radius:6px; font-size:0.7rem; font-weight:900; cursor:pointer;">📲 SHARE LIVE</button>
+            <span id="activeSlotTag" class="slot-pill">PITCH 1</span>
+        </div>
+    </div>
     <!-- TOP STATUS BAR -->
     <div class="top-bar">
         <span id="roleIndicator">MATCH HOST / SCORER</span>
@@ -928,7 +935,12 @@
             <div id="tracker" class="ball-row"></div>
             <div id="nextOverBtn" class="next-over-btn hidden" onclick="window.handleOverTransitionBanner()">OVER FINISHED: TAP TO START NEXT OVER ⚡</div>
         </div>
-
+<!-- CRICBUZZ LIVE SPECTATOR TABS (VISIBLE TO EVERYONE / SPECTATORS) -->
+        <div style="display:flex; gap:6px; margin-bottom:12px;">
+            <button class="btn btn-util" style="flex:1; background:#0284c7; color:#fff;" onclick="window.openLiveScorecardPopup(1)">📋 LIVE SCORECARD</button>
+            <button class="btn btn-util" style="flex:1; background:#1e293b; color:var(--gold); border-color:var(--gold);" onclick="window.openLiveScorecardPopup(3)">🎙️ BALL-BY-BALL</button>
+            <button class="btn btn-util" style="flex:1; background:#15803d; color:#fff;" onclick="window.shareLiveMatchLink()">📲 SHARE LINK</button>
+        </div>
         <!-- MAIN SCORING KEYPAD -->
         <div id="mainControls" class="admin-grid">
             <button class="btn" onclick="window.handleAction(0, 'run')">0</button>
@@ -3523,9 +3535,47 @@
                 box.innerHTML = fHtml;
             }
         };
+// --- 18B. LIVE MATCH LINK SHARING & SPECTATOR AUTO-LAUNCH ---
+        window.openLiveScorecardPopup = function(tabIndex) {
+            if (!matchData) return alert("No active match data on this pitch yet.");
+            inspectedArchiveMatch = null;
+            setText('scWinnerBanner', matchData.winner || (matchData.match_status === 'completed' ? 'Match Completed' : '🔴 LIVE MATCH IN PROGRESS'));
+            setText('scMvpBanner', computeMatchMvp(matchData));
+            window.switchScorecardTab(tabIndex || 1);
+            document.getElementById('scorecardModal').classList.remove('hidden');
+        };
 
+        window.shareLiveMatchLink = function() {
+            var baseUrl = window.location.origin + window.location.pathname;
+            var shareUrl = baseUrl + "?view=live&match=" + encodeURIComponent(currentMatchId);
+            var matchTitle = (matchData && matchData.tA && matchData.tB)
+                ? (matchData.tA.name + " vs " + matchData.tB.name)
+                : ("Pitch: " + currentMatchId.toUpperCase().replace('_', ' '));
+            var shareText = "🏏 Watch LIVE Cricket Scores (" + matchTitle + ") on Cric-8 Live Center:\n" + shareUrl;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: "Cric-8 Live Match Center",
+                    text: shareText,
+                    url: shareUrl
+                }).catch(function(){});
+            } else if (navigator.clipboard) {
+                navigator.clipboard.writeText(shareText).then(function() {
+                    alert("✅ Live Match Link copied to clipboard!\n\nPaste it in your WhatsApp group:\n" + shareUrl);
+                });
+            } else {
+                prompt("Copy this Live Match Link to share on WhatsApp:", shareUrl);
+            }
+        };
         // --- 19. IMMEDIATE STARTUP INITIALIZATION ---
-        window.navigateView('viewHome', true);
+        var isSharedLiveLink = (urlParams.get('view') === 'live' || urlParams.get('mode') === 'spectator');
+        if (isSharedLiveLink) {
+            isScoringAuthorized = false;
+            setText('roleIndicator', '🔴 LIVE SPECTATOR VIEW');
+            window.navigateView('viewScorer', true);
+        } else {
+            window.navigateView('viewHome', true);
+        }
         updateSlotIndicators();
         window.setupTournamentDropdowns();
         attachMatchListener(currentMatchId);
