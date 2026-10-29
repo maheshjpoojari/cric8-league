@@ -933,10 +933,9 @@
         </div>
 
         <!-- LIVE MATCH TOOLS (VISIBLE TO SCORER & SPECTATORS) -->
-        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-bottom:12px;">
-            <button class="btn btn-util" style="background:#0284c7; color:#fff; border:none; padding:10px 4px; font-size:0.75rem;" onclick="window.openLiveScorecardPopup(1)">📋 SCORECARD</button>
-            <button class="btn btn-util" style="background:#1e293b; color:var(--gold); border:1px solid var(--gold); padding:10px 4px; font-size:0.75rem;" onclick="window.openPrevOverModal()">⏪ PREV OVER</button>
-            <button class="btn btn-util" style="background:#1e293b; color:var(--blue); border:1px solid var(--blue); padding:10px 4px; font-size:0.75rem;" onclick="window.openLiveScorecardPopup(3)">🎙️ TIMELINE</button>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:12px;">
+            <button class="btn btn-util" style="background:#0284c7; color:#fff; border:none; padding:11px 6px; font-size:0.78rem;" onclick="window.openLiveScorecardPopup(1)">📋 SCORECARD & SUMMARY</button>
+            <button class="btn btn-util" style="background:#1e293b; color:var(--gold); border:1px solid var(--gold); padding:11px 6px; font-size:0.78rem;" onclick="window.openPrevOverModal()">⏪ PREV OVER</button>
         </div>
 
         <!-- MAIN SCORING KEYPAD -->
@@ -1197,10 +1196,10 @@
             <div id="scWinnerBanner" style="text-align:center; font-size:0.95rem; font-weight:900; color:var(--green); margin-bottom:4px;"></div>
             <div id="scMvpBanner" style="text-align:center; font-size:0.8rem; color:var(--gold); font-weight:800; margin-bottom:12px;"></div>
 
-            <div class="tab-bar">
+        <div class="tab-bar">
                 <button class="tab-btn active" id="tabInn1Btn" onclick="window.switchScorecardTab(1)">Innings 1</button>
                 <button class="tab-btn" id="tabInn2Btn" onclick="window.switchScorecardTab(2)">Innings 2</button>
-                <button class="tab-btn" id="tabTimelineBtn" onclick="window.switchScorecardTab(3)">Ball-by-Ball</button>
+                <button class="tab-btn" id="tabTimelineBtn" onclick="window.switchScorecardTab(3)">Match Summary</button>
             </div>
 
             <div id="scTabContent" style="max-height:54vh; overflow-y:auto;"></div>
